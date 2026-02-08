@@ -1,65 +1,196 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { TimelineTask } from '@/lib/types';
+import { saveTaskToSupabase } from '@/lib/helpers';
+import LoginView from '@/components/LoginView';
+import { OnboardingStep1, OnboardingStep2 } from '@/components/Onboarding';
+import HomeView from '@/components/HomeView';
+import CategoryTaskView from '@/components/CategoryTaskView';
+import EditTaskView from '@/components/EditTaskView';
+import TasksView from '@/components/TasksView';
+import BottomNav from '@/components/BottomNav';
 
 export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+  const [userId, setUserId] = useState<string>('');
+  const [currentView, setCurrentView] = useState<'login' | 'onboarding1' | 'onboarding2' | 'home' | 'category' | 'tasks' | 'edit-task'>('login');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
+  const [selectedFocus, setSelectedFocus] = useState<string | null>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUserId(session.user.id);
+        const onboardingCompleted = localStorage.getItem(`onboarding_${session.user.id}`);
+        if (onboardingCompleted) {
+          setCurrentView('home');
+        } else {
+          setCurrentView('onboarding1');
+        }
+      } else {
+        const mockUserId = localStorage.getItem('mock_user_id');
+        if (mockUserId) {
+          setUserId(mockUserId);
+          const onboardingCompleted = localStorage.getItem(`onboarding_${mockUserId}`);
+          if (onboardingCompleted) {
+            setCurrentView('home');
+          } else {
+            setCurrentView('onboarding1');
+          }
+        } else {
+          setCurrentView('login');
+        }
+      }
+    };
+    checkAuth();
+  }, []);
+
+  const handleLogin = (newUserId: string) => {
+    setUserId(newUserId);
+    const onboardingCompleted = localStorage.getItem(`onboarding_${newUserId}`);
+    if (onboardingCompleted) {
+      setCurrentView('home');
+    } else {
+      setCurrentView('onboarding1');
+    }
+  };
+
+  const handleSkip = () => {
+    const mockUserId = `mock-${Date.now()}`;
+    localStorage.setItem('mock_user_id', mockUserId);
+    setUserId(mockUserId);
+    setCurrentView('onboarding1');
+  };
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem(`onboarding_${userId}`, 'true');
+    setCurrentView('home');
+  };
+
+  const handleSaveTask = async (task: TimelineTask) => {
+    await saveTaskToSupabase(userId, task);
+    setCurrentView(selectedCategory ? 'category' : 'tasks');
+    setEditingTask(null);
+  };
+
+  if (currentView === 'login') {
+    return <LoginView onLogin={handleLogin} onSkip={handleSkip} />;
+  }
+
+  if (currentView === 'onboarding1') {
+    return (
+      <OnboardingStep1
+        onNext={() => setCurrentView('onboarding2')}
+        selectedFocus={selectedFocus}
+        setSelectedFocus={setSelectedFocus}
+      />
+    );
+  }
+
+  if (currentView === 'onboarding2') {
+    return (
+      <OnboardingStep2
+        onComplete={handleOnboardingComplete}
+        onBack={() => setCurrentView('onboarding1')}
+        selectedSchedule={selectedSchedule}
+        setSelectedSchedule={setSelectedSchedule}
+      />
+    );
+  }
+
+  const handleBottomNav = (view: string) => {
+    if (view === 'home') {
+      setSelectedCategory(null);
+      setCurrentView('home');
+    } else if (view === 'tasks') {
+      setSelectedCategory(null);
+      setCurrentView('tasks');
+    } else if (view === 'add-task') {
+      setEditingTask(null);
+      setCurrentView('edit-task');
+    } else if (view === 'categories') {
+      setCurrentView('home');
+    } else if (view === 'settings') {
+      // Ayarlar sayfası henüz yok, şimdilik ana sayfaya yönlendir
+      setCurrentView('home');
+    }
+  };
+
+  // Bottom nav'ın gösterileceği ekranlar
+  const showBottomNav = ['home', 'tasks', 'category', 'edit-task'].includes(currentView);
+
+  const renderCurrentView = () => {
+    if (currentView === 'edit-task') {
+      return (
+        <EditTaskView
+          task={editingTask || undefined}
+          onBack={() => setCurrentView(selectedCategory ? 'category' : 'home')}
+          onSave={handleSaveTask}
+          onDelete={() => setCurrentView(selectedCategory ? 'category' : 'home')}
+          userId={userId}
+          defaultDate={editingTask?.date}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      );
+    }
+
+    if (currentView === 'category' && selectedCategory) {
+      return (
+        <CategoryTaskView
+          category={selectedCategory}
+          onBack={() => setCurrentView('home')}
+          userId={userId}
+          onEditTask={(task) => {
+            setEditingTask(task);
+            setCurrentView('edit-task');
+          }}
+        />
+      );
+    }
+
+    if (currentView === 'tasks') {
+      return (
+        <TasksView
+          userId={userId}
+          onBack={() => setCurrentView('home')}
+          onEditTask={(task) => {
+            setEditingTask(task);
+            setCurrentView('edit-task');
+          }}
+          onAddTask={() => {
+            setEditingTask(null);
+            setCurrentView('edit-task');
+          }}
+        />
+      );
+    }
+
+    return (
+      <HomeView
+        onCategorySelect={(category) => {
+          if (category === 'add-task') {
+            setEditingTask(null);
+            setCurrentView('edit-task');
+          } else {
+            setSelectedCategory(category);
+            setCurrentView('category');
+          }
+        }}
+        userId={userId}
+        onViewAll={() => setCurrentView('tasks')}
+      />
+    );
+  };
+
+  return (
+    <div className="pb-16">
+      {renderCurrentView()}
+      {showBottomNav && (
+        <BottomNav currentView={currentView} onNavigate={handleBottomNav} />
+      )}
     </div>
   );
 }
