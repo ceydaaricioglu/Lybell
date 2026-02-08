@@ -73,6 +73,7 @@ export const fetchTasksFromSupabase = async (userId: string): Promise<TimelineTa
     return (data || []).map((task: any) => ({
       id: task.id,
       title: task.title,
+      description: task.description,
       time: task.time,
       date: task.date,
       completed: task.completed || false,
@@ -111,6 +112,7 @@ export const saveTaskToSupabase = async (userId: string, task: TimelineTask): Pr
         .from('tasks')
         .update({
           title: task.title,
+          description: task.description,
           time: task.time,
           date: task.date,
           completed: task.completed,
@@ -132,6 +134,7 @@ export const saveTaskToSupabase = async (userId: string, task: TimelineTask): Pr
         .insert({
           user_id: userId,
           title: task.title,
+          description: task.description,
           time: task.time,
           date: task.date,
           completed: task.completed || false,
@@ -152,9 +155,21 @@ export const saveTaskToSupabase = async (userId: string, task: TimelineTask): Pr
 };
 
 export const deleteTaskFromSupabase = async (userId: string, taskId: string): Promise<void> => {
+  if (!taskId) {
+    console.error('deleteTaskFromSupabase: taskId is empty');
+    return;
+  }
+
   if (isMockUser(userId)) {
     const tasks = getMockTasks(userId);
     const filtered = tasks.filter((t) => t.id !== taskId);
+    
+    // Güvenlik: en fazla 1 görev silinmeli
+    if (tasks.length - filtered.length > 1) {
+      console.error('deleteTaskFromSupabase: birden fazla görev silinmeye çalışıldı, iptal ediliyor');
+      return;
+    }
+    
     saveMockTasks(userId, filtered);
     return;
   }
@@ -182,6 +197,19 @@ export const filterRecurringTasks = (allTasks: TimelineTask[], selectedDate: str
     if (!task.recurrence) {
       return task.date === selectedDate;
     }
+
+    // Hariç tutulan tarihler kontrolü
+    if (task.excludedDates && task.excludedDates.includes(selectedDate)) {
+      return false;
+    }
+
+    // Tekrar bitiş tarihi kontrolü
+    if (task.recurrenceEndDate) {
+      const endDayNum = parseInt(task.recurrenceEndDate);
+      if (selectedDayNum > endDayNum) {
+        return false;
+      }
+    }
     
     const originalDate = task.originalDate || task.date;
     const originalDayNum = parseInt(originalDate);
@@ -198,4 +226,68 @@ export const filterRecurringTasks = (allTasks: TimelineTask[], selectedDate: str
         return task.date === selectedDate;
     }
   });
+};
+
+// Tekrarlı görev için belirli bir tarihi hariç tut
+export const excludeDateFromTask = async (userId: string, taskId: string, dateToExclude: string): Promise<void> => {
+  if (isMockUser(userId)) {
+    const tasks = getMockTasks(userId);
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex !== -1) {
+      const task = tasks[taskIndex];
+      const excluded = task.excludedDates || [];
+      if (!excluded.includes(dateToExclude)) {
+        excluded.push(dateToExclude);
+      }
+      tasks[taskIndex] = { ...task, excludedDates: excluded };
+      saveMockTasks(userId, tasks);
+    }
+    return;
+  }
+
+  try {
+    // Supabase'den mevcut excluded_dates'i al
+    const { data } = await supabase
+      .from('tasks')
+      .select('excluded_dates')
+      .eq('id', taskId)
+      .eq('user_id', userId)
+      .single();
+
+    const excluded = data?.excluded_dates || [];
+    if (!excluded.includes(dateToExclude)) {
+      excluded.push(dateToExclude);
+    }
+
+    await supabase
+      .from('tasks')
+      .update({ excluded_dates: excluded })
+      .eq('id', taskId)
+      .eq('user_id', userId);
+  } catch (error) {
+    console.error('Error excluding date:', error);
+  }
+};
+
+// Tekrarlı görevin bitiş tarihini ayarla ("bu ve sonrakileri sil")
+export const setRecurrenceEndDate = async (userId: string, taskId: string, endDate: string): Promise<void> => {
+  if (isMockUser(userId)) {
+    const tasks = getMockTasks(userId);
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex !== -1) {
+      tasks[taskIndex] = { ...tasks[taskIndex], recurrenceEndDate: endDate };
+      saveMockTasks(userId, tasks);
+    }
+    return;
+  }
+
+  try {
+    await supabase
+      .from('tasks')
+      .update({ recurrence_end_date: endDate })
+      .eq('id', taskId)
+      .eq('user_id', userId);
+  } catch (error) {
+    console.error('Error setting recurrence end date:', error);
+  }
 };

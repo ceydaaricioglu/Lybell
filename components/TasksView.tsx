@@ -7,7 +7,7 @@ import { fetchTasksFromSupabase, filterRecurringTasks, getDayAbbreviation, saveT
 interface TasksViewProps {
   userId: string;
   onBack: () => void;
-  onEditTask: (task: TimelineTask) => void;
+  onEditTask: (task: TimelineTask, viewingDate?: string) => void;
   onAddTask: () => void;
 }
 
@@ -240,23 +240,30 @@ export default function TasksView({ userId, onBack, onEditTask, onAddTask }: Tas
 
                         {/* Görev Kartı */}
                         <div
-                          onClick={() => onEditTask(task)}
+                          onClick={() => onEditTask(task, dateGroup.date)}
                           className="flex-1 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-emerald-300 transition-all cursor-pointer"
                         >
                           <div className="text-left flex-1">
                             <div className={task.completed ? 'line-through text-gray-400' : 'text-gray-900 font-medium'}>
                               {task.title}
                             </div>
-                            {task.category && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                {task.category === 'routines' ? '🏃 Rutinler' : task.category === 'reading' ? '📚 Okuma Listesi' : task.category}
+                            {task.description && (
+                              <div className={`text-xs mt-1 line-clamp-1 ${task.completed ? 'text-gray-300' : 'text-gray-400'}`}>
+                                {task.description}
                               </div>
                             )}
-                            {task.recurrence && (
-                              <div className="text-xs text-emerald-600 mt-1">
-                                {task.recurrence === 'weekly' ? '🔄 Her hafta' : task.recurrence === 'monthly' ? '📅 Her ay' : '📆 Hafta içi'}
-                              </div>
-                            )}
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {task.category && (
+                                <span className="text-xs text-gray-500">
+                                  {task.category === 'routines' ? '🏃 Rutinler' : task.category === 'reading' ? '📚 Okuma Listesi' : task.category}
+                                </span>
+                              )}
+                              {task.recurrence && (
+                                <span className="text-xs text-emerald-600">
+                                  {task.recurrence === 'weekly' ? '🔄 Haftalık' : task.recurrence === 'monthly' ? '📅 Aylık' : '📆 Hafta içi'}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Öncelik */}

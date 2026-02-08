@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { TimelineTask, Category } from '@/lib/types';
-import { getMockCategories, deleteTaskFromSupabase } from '@/lib/helpers';
+import { getMockCategories, deleteTaskFromSupabase, excludeDateFromTask, setRecurrenceEndDate } from '@/lib/helpers';
 
 interface EditTaskViewProps {
   task?: TimelineTask;
@@ -11,9 +11,10 @@ interface EditTaskViewProps {
   onDelete?: () => void;
   userId: string;
   defaultDate?: string;
+  viewingDate?: string;
 }
 
-export default function EditTaskView({ task, onBack, onSave, onDelete, userId, defaultDate }: EditTaskViewProps) {
+export default function EditTaskView({ task, onBack, onSave, onDelete, userId, defaultDate, viewingDate }: EditTaskViewProps) {
   const isNewTask = !task || !task.id;
   const [title, setTitle] = useState(task?.title || '');
   const [time, setTime] = useState(task?.time || '08:00');
@@ -21,6 +22,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
   const [category, setCategory] = useState<'routines' | 'reading' | string | null>(task?.category || null);
   const [recurrence, setRecurrence] = useState<'weekly' | 'monthly' | 'weekdays' | null>(task?.recurrence || null);
   const [priority, setPriority] = useState<'high' | 'medium' | 'low' | null>(task?.priority || null);
+  const [description, setDescription] = useState(task?.description || '');
   const [showRecurrenceOptions, setShowRecurrenceOptions] = useState(false);
   const [showCategoryOptions, setShowCategoryOptions] = useState(false);
   const [showPriorityOptions, setShowPriorityOptions] = useState(false);
@@ -30,6 +32,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
   useEffect(() => {
     if (task) {
       setTitle(task.title);
+      setDescription(task.description || '');
       setTime(task.time);
       setDate(task.date);
       setCategory(task.category || null);
@@ -37,6 +40,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
       setPriority(task.priority || null);
     } else {
       setTitle('');
+      setDescription('');
       setTime('08:00');
       setDate(defaultDate || new Date().getDate().toString());
       setCategory(null);
@@ -53,6 +57,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
       const taskToSave: TimelineTask = {
         id: Date.now().toString(),
         title: title.trim(),
+        description: description.trim() || undefined,
         time,
         date,
         category,
@@ -66,6 +71,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
       const taskToSave: TimelineTask = {
         ...task!,
         title: title.trim(),
+        description: description.trim() || undefined,
         time,
         date,
         category: category || task!.category,
@@ -76,14 +82,38 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
     }
   };
 
-  const handleDelete = async () => {
+  const isRecurring = !!task?.recurrence;
+  const currentViewDate = viewingDate || task?.date || date;
+
+  // Tekrarlı görev: sadece bu günü sil
+  const handleDeleteThisOnly = async () => {
+    if (task?.id && currentViewDate) {
+      await excludeDateFromTask(userId, task.id, currentViewDate);
+      setShowDeleteConfirm(false);
+      if (onDelete) onDelete();
+      else onBack();
+    }
+  };
+
+  // Tekrarlı görev: bu ve sonrakileri sil
+  const handleDeleteThisAndFuture = async () => {
+    if (task?.id && currentViewDate) {
+      // Bitiş tarihini bu günün 1 öncesine ayarla
+      const endDate = (parseInt(currentViewDate) - 1).toString();
+      await setRecurrenceEndDate(userId, task.id, endDate);
+      setShowDeleteConfirm(false);
+      if (onDelete) onDelete();
+      else onBack();
+    }
+  };
+
+  // Tüm tekrarlı görevleri sil (veya tekrarsız görev sil)
+  const handleDeleteAll = async () => {
     if (task?.id) {
       await deleteTaskFromSupabase(userId, task.id);
-      if (onDelete) {
-        onDelete();
-      } else {
-        onBack();
-      }
+      setShowDeleteConfirm(false);
+      if (onDelete) onDelete();
+      else onBack();
     }
   };
 
@@ -121,6 +151,18 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
               className="w-full px-4 py-4 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-lg text-gray-900 placeholder:text-gray-400 bg-white"
               placeholder="Ne yapman gerekiyor?"
               autoFocus
+            />
+          </div>
+
+          {/* Açıklama / Not */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Açıklama / Not</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-4 py-3 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 placeholder:text-gray-400 bg-white resize-none"
+              placeholder="Detay veya not ekle (isteğe bağlı)"
             />
           </div>
 
@@ -375,29 +417,96 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <div className="text-center mb-6">
+            <div className="text-center mb-5">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Görevi Sil</h3>
-              <p className="text-gray-600 text-sm">Bu görevi silmek istediğinden emin misin? Bu işlem geri alınamaz.</p>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                {isRecurring ? 'Tekrarlı Görevi Sil' : 'Görevi Sil'}
+              </h3>
+              <p className="text-gray-600 text-sm">
+                {isRecurring
+                  ? 'Bu tekrarlı görev için ne yapmak istersin?'
+                  : 'Bu görevi silmek istediğinden emin misin? Bu işlem geri alınamaz.'}
+              </p>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all"
-              >
-                İptal
-              </button>
-              <button
-                onClick={handleDelete}
-                className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all"
-              >
-                Sil
-              </button>
-            </div>
+
+            {isRecurring ? (
+              <div className="space-y-2">
+                {/* Sadece bu günü sil */}
+                <button
+                  onClick={handleDeleteThisOnly}
+                  className="w-full py-3.5 px-4 bg-white border-2 border-gray-200 text-gray-900 rounded-xl font-medium hover:bg-gray-50 hover:border-gray-300 transition-all text-left flex items-center gap-3"
+                >
+                  <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">Sadece bu günü sil</div>
+                    <div className="text-xs text-gray-500">Diğer tekrarlar kalır</div>
+                  </div>
+                </button>
+
+                {/* Bu ve sonrakileri sil */}
+                <button
+                  onClick={handleDeleteThisAndFuture}
+                  className="w-full py-3.5 px-4 bg-white border-2 border-gray-200 text-gray-900 rounded-xl font-medium hover:bg-red-50 hover:border-red-200 transition-all text-left flex items-center gap-3"
+                >
+                  <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">Bu ve sonrakileri sil</div>
+                    <div className="text-xs text-gray-500">Önceki tekrarlar kalır</div>
+                  </div>
+                </button>
+
+                {/* Tüm tekrarları sil */}
+                <button
+                  onClick={handleDeleteAll}
+                  className="w-full py-3.5 px-4 bg-white border-2 border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 hover:border-red-300 transition-all text-left flex items-center gap-3"
+                >
+                  <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">Tüm tekrarları sil</div>
+                    <div className="text-xs text-gray-500">Görev tamamen kaldırılır</div>
+                  </div>
+                </button>
+
+                {/* İptal */}
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all mt-2"
+                >
+                  İptal
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleDeleteAll}
+                  className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all"
+                >
+                  Sil
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

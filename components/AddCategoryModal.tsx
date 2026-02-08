@@ -1,19 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Category } from '@/lib/types';
 
 interface AddCategoryModalProps {
   onClose: () => void;
   onSave: (category: Category) => void;
   userId: string;
+  category?: Category;
 }
 
-export default function AddCategoryModal({ onClose, onSave, userId }: AddCategoryModalProps) {
-  const [categoryName, setCategoryName] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState('📝');
-  const [selectedColor, setSelectedColor] = useState('emerald');
+export default function AddCategoryModal({ onClose, onSave, userId, category }: AddCategoryModalProps) {
+  const isEditMode = !!category;
+  const [categoryName, setCategoryName] = useState(category?.name || '');
+  const [selectedIcon, setSelectedIcon] = useState(category?.icon || '📝');
+  const [selectedColor, setSelectedColor] = useState(category?.color || 'emerald');
   const [showIconPicker, setShowIconPicker] = useState(false);
+
+  // Edit mode'da değerleri güncelle
+  useEffect(() => {
+    if (category) {
+      setCategoryName(category.name);
+      setSelectedIcon(category.icon);
+      setSelectedColor(category.color);
+    }
+  }, [category]);
 
   const icons = ['📝', '🏃', '📚', '💼', '🎯', '🏋️', '🎨', '🎵', '🍔', '☕', '💡', '🌟', '📱', '💻', '🎮', '✈️'];
   const colors = [
@@ -27,14 +38,14 @@ export default function AddCategoryModal({ onClose, onSave, userId }: AddCategor
 
   const handleSave = () => {
     if (categoryName.trim()) {
-      const newCategory: Category = {
-        id: `category-${Date.now()}`,
+      const categoryToSave: Category = {
+        id: category?.id || `category-${Date.now()}`,
         name: categoryName.trim(),
         icon: selectedIcon,
         color: selectedColor,
         userId,
       };
-      onSave(newCategory);
+      onSave(categoryToSave);
       onClose();
     }
   };
@@ -43,7 +54,7 @@ export default function AddCategoryModal({ onClose, onSave, userId }: AddCategor
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Yeni Kategori</h2>
+          <h2 className="text-2xl font-bold text-gray-800">{isEditMode ? 'Kategori Düzenle' : 'Yeni Kategori'}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100"
@@ -132,7 +143,7 @@ export default function AddCategoryModal({ onClose, onSave, userId }: AddCategor
             disabled={!categoryName.trim()}
             className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Kategori Oluştur
+            {isEditMode ? 'Değişiklikleri Kaydet' : 'Kategori Oluştur'}
           </button>
         </div>
       </div>

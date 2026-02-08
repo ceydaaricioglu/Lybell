@@ -8,15 +8,18 @@ import LoginView from '@/components/LoginView';
 import { OnboardingStep1, OnboardingStep2 } from '@/components/Onboarding';
 import HomeView from '@/components/HomeView';
 import CategoryTaskView from '@/components/CategoryTaskView';
+import CategoriesView from '@/components/CategoriesView';
 import EditTaskView from '@/components/EditTaskView';
 import TasksView from '@/components/TasksView';
+import SettingsView from '@/components/SettingsView';
 import BottomNav from '@/components/BottomNav';
 
 export default function Home() {
   const [userId, setUserId] = useState<string>('');
-  const [currentView, setCurrentView] = useState<'login' | 'onboarding1' | 'onboarding2' | 'home' | 'category' | 'tasks' | 'edit-task'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'onboarding1' | 'onboarding2' | 'home' | 'category' | 'categories' | 'tasks' | 'edit-task' | 'settings'>('login');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
+  const [viewingDate, setViewingDate] = useState<string | undefined>(undefined);
   const [selectedFocus, setSelectedFocus] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
 
@@ -113,26 +116,54 @@ export default function Home() {
       setEditingTask(null);
       setCurrentView('edit-task');
     } else if (view === 'categories') {
-      setCurrentView('home');
+      setCurrentView('categories');
     } else if (view === 'settings') {
-      // Ayarlar sayfası henüz yok, şimdilik ana sayfaya yönlendir
-      setCurrentView('home');
+      setCurrentView('settings');
     }
   };
 
   // Bottom nav'ın gösterileceği ekranlar
-  const showBottomNav = ['home', 'tasks', 'category', 'edit-task'].includes(currentView);
+  const showBottomNav = ['home', 'tasks', 'category', 'categories', 'edit-task', 'settings'].includes(currentView);
+
+  const handleLogout = () => {
+    setUserId('');
+    setSelectedCategory(null);
+    setEditingTask(null);
+    setSelectedFocus(null);
+    setSelectedSchedule(null);
+    setCurrentView('login');
+  };
 
   const renderCurrentView = () => {
+    if (currentView === 'settings') {
+      return (
+        <SettingsView
+          userId={userId}
+          onLogout={handleLogout}
+        />
+      );
+    }
+
     if (currentView === 'edit-task') {
       return (
         <EditTaskView
           task={editingTask || undefined}
-          onBack={() => setCurrentView(selectedCategory ? 'category' : 'home')}
-          onSave={handleSaveTask}
-          onDelete={() => setCurrentView(selectedCategory ? 'category' : 'home')}
+          onBack={() => {
+            setViewingDate(undefined);
+            setCurrentView(selectedCategory ? 'category' : 'home');
+          }}
+          onSave={(task) => {
+            handleSaveTask(task);
+            setViewingDate(undefined);
+          }}
+          onDelete={() => {
+            setEditingTask(null);
+            setViewingDate(undefined);
+            setCurrentView(selectedCategory ? 'category' : 'home');
+          }}
           userId={userId}
           defaultDate={editingTask?.date}
+          viewingDate={viewingDate}
         />
       );
     }
@@ -143,8 +174,9 @@ export default function Home() {
           category={selectedCategory}
           onBack={() => setCurrentView('home')}
           userId={userId}
-          onEditTask={(task) => {
+          onEditTask={(task, date) => {
             setEditingTask(task);
+            setViewingDate(date);
             setCurrentView('edit-task');
           }}
         />
@@ -156,13 +188,28 @@ export default function Home() {
         <TasksView
           userId={userId}
           onBack={() => setCurrentView('home')}
-          onEditTask={(task) => {
+          onEditTask={(task: TimelineTask, date?: string) => {
             setEditingTask(task);
+            setViewingDate(date);
             setCurrentView('edit-task');
           }}
           onAddTask={() => {
             setEditingTask(null);
+            setViewingDate(undefined);
             setCurrentView('edit-task');
+          }}
+        />
+      );
+    }
+
+    if (currentView === 'categories') {
+      return (
+        <CategoriesView
+          userId={userId}
+          onBack={() => setCurrentView('home')}
+          onCategorySelect={(category) => {
+            setSelectedCategory(category);
+            setCurrentView('category');
           }}
         />
       );
@@ -174,6 +221,8 @@ export default function Home() {
           if (category === 'add-task') {
             setEditingTask(null);
             setCurrentView('edit-task');
+          } else if (category === 'categories') {
+            setCurrentView('categories');
           } else {
             setSelectedCategory(category);
             setCurrentView('category');
@@ -181,6 +230,11 @@ export default function Home() {
         }}
         userId={userId}
         onViewAll={() => setCurrentView('tasks')}
+        onEditTask={(task, date) => {
+          setEditingTask(task);
+          setViewingDate(date);
+          setCurrentView('edit-task');
+        }}
       />
     );
   };
