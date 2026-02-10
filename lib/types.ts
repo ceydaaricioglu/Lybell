@@ -1,4 +1,10 @@
 // Type definitions
+export interface SubTask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 export interface TimelineTask {
   id?: string;
   time: string;
@@ -13,6 +19,14 @@ export interface TimelineTask {
   originalDate?: string;
   category?: 'routines' | 'reading' | string | null;
   priority?: 'high' | 'medium' | 'low' | null;
+  tags?: string[];
+  subtasks?: SubTask[];
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
 }
 
 export interface Category {

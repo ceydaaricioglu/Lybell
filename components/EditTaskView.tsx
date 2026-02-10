@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TimelineTask, Category } from '@/lib/types';
-import { getMockCategories, deleteTaskFromSupabase, excludeDateFromTask, setRecurrenceEndDate } from '@/lib/helpers';
+import { TimelineTask, Category, SubTask } from '@/lib/types';
+import { getMockCategories, deleteTaskFromSupabase, excludeDateFromTask, setRecurrenceEndDate, DEFAULT_TAGS, getTagColorClasses } from '@/lib/helpers';
 
 interface EditTaskViewProps {
   task?: TimelineTask;
@@ -23,9 +23,13 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
   const [recurrence, setRecurrence] = useState<'weekly' | 'monthly' | 'weekdays' | null>(task?.recurrence || null);
   const [priority, setPriority] = useState<'high' | 'medium' | 'low' | null>(task?.priority || null);
   const [description, setDescription] = useState(task?.description || '');
+  const [tags, setTags] = useState<string[]>(task?.tags || []);
+  const [subtasks, setSubtasks] = useState<SubTask[]>(task?.subtasks || []);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [showRecurrenceOptions, setShowRecurrenceOptions] = useState(false);
   const [showCategoryOptions, setShowCategoryOptions] = useState(false);
   const [showPriorityOptions, setShowPriorityOptions] = useState(false);
+  const [showTagOptions, setShowTagOptions] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const categories = getMockCategories(userId);
 
@@ -38,6 +42,8 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
       setCategory(task.category || null);
       setRecurrence(task.recurrence || null);
       setPriority(task.priority || null);
+      setTags(task.tags || []);
+      setSubtasks(task.subtasks || []);
     } else {
       setTitle('');
       setDescription('');
@@ -46,6 +52,8 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
       setCategory(null);
       setRecurrence(null);
       setPriority(null);
+      setTags([]);
+      setSubtasks([]);
     }
   }, [task, defaultDate]);
 
@@ -64,6 +72,8 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
         completed: false,
         recurrence,
         priority,
+        tags: tags.length > 0 ? tags : undefined,
+        subtasks: subtasks.length > 0 ? subtasks : undefined,
         originalDate: date,
       };
       onSave(taskToSave);
@@ -77,6 +87,8 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
         category: category || task!.category,
         recurrence,
         priority,
+        tags: tags.length > 0 ? tags : undefined,
+        subtasks: subtasks.length > 0 ? subtasks : undefined,
       };
       onSave(taskToSave);
     }
@@ -385,6 +397,197 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Etiketler</label>
+            
+            {/* Seçili Tag'ler */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {tags.map((tag) => {
+                  const tagObj = DEFAULT_TAGS.find(t => t.id === tag || t.name === tag);
+                  const colors = getTagColorClasses(tagObj?.color || 'gray');
+                  return (
+                    <span
+                      key={tag}
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 ${colors.bg} ${colors.text} rounded-full text-xs font-medium border ${colors.border}`}
+                    >
+                      #{tagObj?.name || tag}
+                      <button
+                        onClick={() => setTags(tags.filter(t => t !== tag))}
+                        className="hover:opacity-70"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowTagOptions(!showTagOptions)}
+              className="w-full px-4 py-4 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-left flex items-center justify-between bg-white hover:border-emerald-300 transition-all"
+            >
+              <span className={tags.length > 0 ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+                {tags.length > 0 ? `${tags.length} etiket seçildi` : 'Etiket ekle'}
+              </span>
+              <svg
+                className={`w-5 h-5 text-gray-400 transition-transform ${showTagOptions ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showTagOptions && (
+              <div className="mt-2 border-2 border-emerald-200 rounded-xl overflow-hidden bg-white max-h-64 overflow-y-auto">
+                {DEFAULT_TAGS.map((tag) => {
+                  const isSelected = tags.includes(tag.id);
+                  const colors = getTagColorClasses(tag.color);
+                  
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => {
+                        if (isSelected) {
+                          setTags(tags.filter(t => t !== tag.id));
+                        } else {
+                          setTags([...tags, tag.id]);
+                        }
+                      }}
+                      className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b border-emerald-100 last:border-b-0 ${
+                        isSelected ? 'bg-emerald-50' : 'hover:bg-emerald-50'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 ${colors.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                        <span className={`text-sm font-bold ${colors.text}`}>#</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-900">{tag.name}</div>
+                      </div>
+                      {isSelected && (
+                        <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Alt Görevler */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Alt Görevler</label>
+            
+            {/* Mevcut Alt Görevler */}
+            {subtasks.length > 0 && (
+              <div className="mb-3 space-y-2">
+                {subtasks.map((subtask, index) => (
+                  <div
+                    key={subtask.id}
+                    className="flex items-center gap-3 p-3 bg-white border-2 border-gray-200 rounded-xl hover:border-emerald-200 transition-all"
+                  >
+                    <button
+                      onClick={() => {
+                        const updated = [...subtasks];
+                        updated[index] = { ...subtask, completed: !subtask.completed };
+                        setSubtasks(updated);
+                      }}
+                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                        subtask.completed
+                          ? 'bg-emerald-500 border-emerald-500'
+                          : 'border-gray-300 hover:border-emerald-400'
+                      }`}
+                    >
+                      {subtask.completed && (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <span className={`flex-1 text-sm ${subtask.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                      {subtask.title}
+                    </span>
+                    <button
+                      onClick={() => setSubtasks(subtasks.filter((_, i) => i !== index))}
+                      className="text-red-400 hover:text-red-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                
+                {/* İlerleme Çubuğu */}
+                {subtasks.length > 0 && (
+                  <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-emerald-700">
+                        {subtasks.filter(s => s.completed).length}/{subtasks.length} tamamlandı
+                      </span>
+                      <span className="text-xs font-bold text-emerald-700">
+                        %{Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100)}
+                      </span>
+                    </div>
+                    <div className="w-full bg-emerald-200 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${(subtasks.filter(s => s.completed).length / subtasks.length) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Alt Görev Ekleme */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && newSubtaskTitle.trim()) {
+                    setSubtasks([...subtasks, {
+                      id: `subtask-${Date.now()}`,
+                      title: newSubtaskTitle.trim(),
+                      completed: false,
+                    }]);
+                    setNewSubtaskTitle('');
+                  }
+                }}
+                className="flex-1 px-4 py-3 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 placeholder:text-gray-400 bg-white"
+                placeholder="Alt görev ekle..."
+              />
+              <button
+                onClick={() => {
+                  if (newSubtaskTitle.trim()) {
+                    setSubtasks([...subtasks, {
+                      id: `subtask-${Date.now()}`,
+                      title: newSubtaskTitle.trim(),
+                      completed: false,
+                    }]);
+                    setNewSubtaskTitle('');
+                  }
+                }}
+                disabled={!newSubtaskTitle.trim()}
+                className="px-4 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <button

@@ -2,17 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { Category, TimelineTask } from '@/lib/types';
-import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks } from '@/lib/helpers';
+import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, DEFAULT_TAGS, getTagColorClasses, getTodayPomodoroCount, getWeekPomodoroCount, getPomodoroStreak } from '@/lib/helpers';
 import { StatsCardSkeleton, TaskListSkeleton, CategoryListSkeleton } from '@/components/Skeletons';
 
 interface HomeViewProps {
   onCategorySelect: (category: string) => void;
   userId: string;
   onViewAll: () => void;
+  onViewCalendar: () => void;
+  onViewStats: () => void;
   onEditTask: (task: TimelineTask, viewingDate?: string) => void;
+  onStartPomodoro: (task: TimelineTask) => void;
 }
 
-export default function HomeView({ onCategorySelect, userId, onViewAll, onEditTask }: HomeViewProps) {
+export default function HomeView({ onCategorySelect, userId, onViewAll, onViewCalendar, onViewStats, onEditTask, onStartPomodoro }: HomeViewProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [allTasks, setAllTasks] = useState<TimelineTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +69,11 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onEditTa
   const completedTasks = allTasks.filter(t => t.completed).length;
   const activeTasks = totalTasks - completedTasks;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  // Pomodoro istatistikleri
+  const todayPomodoros = getTodayPomodoroCount(userId);
+  const weekPomodoros = getWeekPomodoroCount(userId);
+  const pomodoroStreak = getPomodoroStreak(userId);
 
   // Kategoriler özeti (en çok görevli 3 kategori)
   const categoryStats = categories.map(cat => {
@@ -165,6 +173,38 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onEditTa
           </div>
         )}
 
+        {/* Pomodoro Özet */}
+        {(todayPomodoros > 0 || weekPomodoros > 0) && (
+          <button
+            onClick={onViewStats}
+            className="w-full bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-5 shadow-sm border border-red-100 hover:shadow-md transition-all text-left"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">🍅 Odaklanma İstatistikleri</h3>
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600 mb-1">{todayPomodoros}</div>
+                <div className="text-xs text-gray-500">Bugün</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600 mb-1">{weekPomodoros}</div>
+                <div className="text-xs text-gray-500">Bu Hafta</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-amber-600 mb-1">{pomodoroStreak}</div>
+                <div className="text-xs text-gray-500">Streak 🔥</div>
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-center text-gray-500">
+              Detaylı istatistikler için tıkla
+            </div>
+          </button>
+        )}
+
         {/* Bugünün Görevleri */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -211,10 +251,9 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onEditTa
           ) : (
             <div className="divide-y divide-gray-100">
               {todayTasks.slice(0, 5).map((task) => (
-                <button
+                <div
                   key={task.id}
-                  onClick={() => onEditTask(task, todayStr)}
-                  className="w-full px-5 py-4 hover:bg-gray-50 transition-colors text-left flex items-center gap-3"
+                  className="w-full px-5 py-4 hover:bg-gray-50 transition-colors flex items-center gap-3 group"
                 >
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                     task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'
@@ -226,7 +265,14 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onEditTa
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 truncate">{task.title}</div>
+                    <div className="font-medium text-gray-900 truncate">
+                      {task.title}
+                      {task.subtasks && task.subtasks.length > 0 && (
+                        <span className="ml-2 text-xs text-emerald-600 font-semibold">
+                          [{task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}]
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-gray-400">{task.time}</span>
                       {task.category && (
@@ -241,12 +287,37 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onEditTa
                           {task.priority === 'high' ? 'Yüksek' : task.priority === 'medium' ? 'Orta' : 'Düşük'}
                         </span>
                       )}
+                      {task.tags && task.tags.slice(0, 2).map(tagId => {
+                        const tag = DEFAULT_TAGS.find(t => t.id === tagId);
+                        if (!tag) return null;
+                        const colors = getTagColorClasses(tag.color);
+                        return (
+                          <span key={tagId} className={`text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text} font-medium`}>
+                            #{tag.name}
+                          </span>
+                        );
+                      })}
+                      {task.tags && task.tags.length > 2 && (
+                        <span className="text-xs text-gray-400">+{task.tags.length - 2}</span>
+                      )}
                     </div>
                   </div>
-                  <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStartPomodoro(task);
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                      title="Pomodoro Başlat"
+                    >
+                      <span className="text-lg">🍅</span>
+                    </button>
+                    <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" onClick={() => onEditTask(task, todayStr)}>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
               ))}
               {todayTasks.length > 5 && (
                 <button
@@ -283,11 +354,28 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onEditTa
                   >
                     <div className="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0"></div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 truncate">{task.title}</div>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="font-medium text-gray-900 truncate">
+                        {task.title}
+                        {task.subtasks && task.subtasks.length > 0 && (
+                          <span className="ml-2 text-xs text-emerald-600 font-semibold">
+                            [{task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}]
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs text-gray-400">{dateLabel}</span>
                         <span className="text-xs text-gray-400">•</span>
                         <span className="text-xs text-gray-400">{task.time}</span>
+                        {task.tags && task.tags.slice(0, 2).map(tagId => {
+                          const tag = DEFAULT_TAGS.find(t => t.id === tagId);
+                          if (!tag) return null;
+                          const colors = getTagColorClasses(tag.color);
+                          return (
+                            <span key={tagId} className={`text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text} font-medium`}>
+                              #{tag.name}
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                     <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -353,7 +441,7 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onEditTa
         )}
 
         {/* Hızlı İşlemler */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => onCategorySelect('add-task')}
             className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all text-center"
@@ -363,7 +451,7 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onEditTa
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             </div>
-            <div className="text-sm font-semibold text-gray-900">Görev Ekle</div>
+            <div className="text-sm font-semibold text-gray-900">Ekle</div>
           </button>
           <button
             onClick={onViewAll}
@@ -374,7 +462,18 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onEditTa
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
             </div>
-            <div className="text-sm font-semibold text-gray-900">Tüm Görevler</div>
+            <div className="text-sm font-semibold text-gray-900">Liste</div>
+          </button>
+          <button
+            onClick={onViewCalendar}
+            className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all text-center"
+          >
+            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div className="text-sm font-semibold text-gray-900">Takvim</div>
           </button>
         </div>
       </div>

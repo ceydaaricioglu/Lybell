@@ -13,15 +13,18 @@ import EditTaskView from '@/components/EditTaskView';
 import TasksView from '@/components/TasksView';
 import SettingsView from '@/components/SettingsView';
 import BottomNav from '@/components/BottomNav';
+import PomodoroTimer from '@/components/PomodoroTimer';
+import CalendarView from '@/components/CalendarView';
 
 export default function Home() {
   const [userId, setUserId] = useState<string>('');
-  const [currentView, setCurrentView] = useState<'login' | 'onboarding1' | 'onboarding2' | 'home' | 'category' | 'categories' | 'tasks' | 'edit-task' | 'settings'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'onboarding1' | 'onboarding2' | 'home' | 'category' | 'categories' | 'tasks' | 'calendar' | 'edit-task' | 'settings'>('login');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
   const [viewingDate, setViewingDate] = useState<string | undefined>(undefined);
   const [selectedFocus, setSelectedFocus] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
+  const [pomodoroTask, setPomodoroTask] = useState<TimelineTask | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -112,6 +115,9 @@ export default function Home() {
     } else if (view === 'tasks') {
       setSelectedCategory(null);
       setCurrentView('tasks');
+    } else if (view === 'calendar') {
+      setSelectedCategory(null);
+      setCurrentView('calendar');
     } else if (view === 'add-task') {
       setEditingTask(null);
       setCurrentView('edit-task');
@@ -123,7 +129,7 @@ export default function Home() {
   };
 
   // Bottom nav'ın gösterileceği ekranlar
-  const showBottomNav = ['home', 'tasks', 'category', 'categories', 'edit-task', 'settings'].includes(currentView);
+  const showBottomNav = ['home', 'tasks', 'calendar', 'category', 'categories', 'edit-task', 'settings'].includes(currentView);
 
   const handleLogout = () => {
     setUserId('');
@@ -179,6 +185,7 @@ export default function Home() {
             setViewingDate(date);
             setCurrentView('edit-task');
           }}
+          onStartPomodoro={(task) => setPomodoroTask(task)}
         />
       );
     }
@@ -196,6 +203,25 @@ export default function Home() {
           onAddTask={() => {
             setEditingTask(null);
             setViewingDate(undefined);
+            setCurrentView('edit-task');
+          }}
+          onStartPomodoro={(task) => setPomodoroTask(task)}
+        />
+      );
+    }
+
+    if (currentView === 'calendar') {
+      return (
+        <CalendarView
+          userId={userId}
+          onBack={() => setCurrentView('home')}
+          onDateSelect={(date) => {
+            setSelectedCategory(null);
+            setCurrentView('tasks');
+          }}
+          onEditTask={(task, date) => {
+            setEditingTask(task);
+            setViewingDate(date);
             setCurrentView('edit-task');
           }}
         />
@@ -230,11 +256,14 @@ export default function Home() {
         }}
         userId={userId}
         onViewAll={() => setCurrentView('tasks')}
+        onViewCalendar={() => setCurrentView('calendar')}
+        onViewStats={() => setCurrentView('settings')}
         onEditTask={(task, date) => {
           setEditingTask(task);
           setViewingDate(date);
           setCurrentView('edit-task');
         }}
+        onStartPomodoro={(task) => setPomodoroTask(task)}
       />
     );
   };
@@ -244,6 +273,13 @@ export default function Home() {
       {renderCurrentView()}
       {showBottomNav && (
         <BottomNav currentView={currentView} onNavigate={handleBottomNav} />
+      )}
+      {pomodoroTask && (
+        <PomodoroTimer
+          task={pomodoroTask}
+          userId={userId}
+          onClose={() => setPomodoroTask(null)}
+        />
       )}
     </div>
   );

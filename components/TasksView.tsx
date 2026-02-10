@@ -2,18 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { TimelineTask } from '@/lib/types';
-import { fetchTasksFromSupabase, filterRecurringTasks, getDayAbbreviation, saveTaskToSupabase } from '@/lib/helpers';
+import { fetchTasksFromSupabase, filterRecurringTasks, getDayAbbreviation, saveTaskToSupabase, DEFAULT_TAGS, getTagColorClasses } from '@/lib/helpers';
 
 interface TasksViewProps {
   userId: string;
   onBack: () => void;
   onEditTask: (task: TimelineTask, viewingDate?: string) => void;
   onAddTask: () => void;
+  onStartPomodoro?: (task: TimelineTask) => void;
 }
 
-export default function TasksView({ userId, onBack, onEditTask, onAddTask }: TasksViewProps) {
+export default function TasksView({ userId, onBack, onEditTask, onAddTask, onStartPomodoro }: TasksViewProps) {
   const [tasks, setTasks] = useState<TimelineTask[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | 'all'>('all');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Bugünün tarih bilgileri
@@ -51,7 +53,13 @@ export default function TasksView({ userId, onBack, onEditTask, onAddTask }: Tas
 
     allDaysInMonth.forEach(day => {
       const dayStr = day.toString();
-      const filtered = filterRecurringTasks(tasks, dayStr);
+      let filtered = filterRecurringTasks(tasks, dayStr);
+      
+      // Tag filtresi varsa uygula
+      if (selectedTag) {
+        filtered = filtered.filter(t => t.tags && t.tags.includes(selectedTag));
+      }
+      
       if (filtered.length > 0) {
         grouped[dayStr] = filtered.sort((a, b) => a.time.localeCompare(b.time));
       }
@@ -182,6 +190,48 @@ export default function TasksView({ userId, onBack, onEditTask, onAddTask }: Tas
               Bugün
             </button>
           </div>
+
+          {/* Tag Filtreleri */}
+          <div className="overflow-x-auto scrollbar-hide mt-3">
+            <div className="flex gap-2" style={{ minWidth: 'max-content' }}>
+              <button
+                onClick={() => setSelectedTag(null)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  !selectedTag
+                    ? 'bg-white text-emerald-700 shadow-md'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+              >
+                Tüm Etiketler
+              </button>
+              {DEFAULT_TAGS.map(tag => {
+                const colors = getTagColorClasses(tag.color);
+                const isSelected = selectedTag === tag.id;
+                const tagTaskCount = tasks.filter(t => t.tags && t.tags.includes(tag.id)).length;
+                
+                if (tagTaskCount === 0) return null;
+                
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => setSelectedTag(isSelected ? null : tag.id)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
+                      isSelected
+                        ? 'bg-white text-emerald-700 shadow-md'
+                        : 'bg-white/20 text-white hover:bg-white/30'
+                    }`}
+                  >
+                    #{tag.name}
+                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
+                      isSelected ? 'bg-emerald-100 text-emerald-700' : 'bg-white/20'
+                    }`}>
+                      {tagTaskCount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Görev Listesi */}
@@ -246,6 +296,11 @@ export default function TasksView({ userId, onBack, onEditTask, onAddTask }: Tas
                           <div className="text-left flex-1">
                             <div className={task.completed ? 'line-through text-gray-400' : 'text-gray-900 font-medium'}>
                               {task.title}
+                              {task.subtasks && task.subtasks.length > 0 && (
+                                <span className="ml-2 text-xs text-emerald-600 font-semibold">
+                                  [{task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}]
+                                </span>
+                              )}
                             </div>
                             {task.description && (
                               <div className={`text-xs mt-1 line-clamp-1 ${task.completed ? 'text-gray-300' : 'text-gray-400'}`}>
@@ -263,6 +318,16 @@ export default function TasksView({ userId, onBack, onEditTask, onAddTask }: Tas
                                   {task.recurrence === 'weekly' ? '🔄 Haftalık' : task.recurrence === 'monthly' ? '📅 Aylık' : '📆 Hafta içi'}
                                 </span>
                               )}
+                              {task.tags && task.tags.map(tagId => {
+                                const tag = DEFAULT_TAGS.find(t => t.id === tagId);
+                                if (!tag) return null;
+                                const colors = getTagColorClasses(tag.color);
+                                return (
+                                  <span key={tagId} className={`text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text} font-medium`}>
+                                    #{tag.name}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
 
@@ -275,6 +340,20 @@ export default function TasksView({ userId, onBack, onEditTask, onAddTask }: Tas
                             }`}>
                               {task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢'}
                             </div>
+                          )}
+
+                          {/* Pomodoro Button */}
+                          {onStartPomodoro && !task.completed && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onStartPomodoro(task);
+                              }}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 transition-all mr-2"
+                              title="Pomodoro Başlat"
+                            >
+                              <span className="text-lg">🍅</span>
+                            </button>
                           )}
 
                           {/* Tamamlama Toggle */}

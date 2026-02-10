@@ -291,3 +291,155 @@ export const setRecurrenceEndDate = async (userId: string, taskId: string, endDa
     console.error('Error setting recurrence end date:', error);
   }
 };
+
+// ============================================
+// TAG MANAGEMENT
+// ============================================
+
+// Önceden tanımlı popüler tag'ler
+export const DEFAULT_TAGS = [
+  { id: 'urgent', name: 'Acil', color: 'red' },
+  { id: 'important', name: 'Önemli', color: 'orange' },
+  { id: 'work', name: 'İş', color: 'blue' },
+  { id: 'personal', name: 'Kişisel', color: 'purple' },
+  { id: 'home', name: 'Ev', color: 'green' },
+  { id: 'shopping', name: 'Alışveriş', color: 'pink' },
+  { id: 'health', name: 'Sağlık', color: 'emerald' },
+  { id: 'finance', name: 'Finans', color: 'yellow' },
+  { id: 'learning', name: 'Öğrenme', color: 'indigo' },
+  { id: 'meeting', name: 'Toplantı', color: 'teal' },
+];
+
+export function getTagColor(tagName: string): string {
+  const tag = DEFAULT_TAGS.find(t => t.name.toLowerCase() === tagName.toLowerCase() || t.id === tagName.toLowerCase());
+  return tag?.color || 'gray';
+}
+
+export function getTagColorClasses(color: string) {
+  const colorMap: Record<string, { bg: string; text: string; border: string }> = {
+    red: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' },
+    orange: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200' },
+    blue: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
+    purple: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200' },
+    green: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
+    pink: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-200' },
+    emerald: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
+    yellow: { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200' },
+    indigo: { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200' },
+    teal: { bg: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-200' },
+    gray: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' },
+  };
+  return colorMap[color] || colorMap.gray;
+}
+
+// ============================================
+// POMODORO ANALYTICS
+// ============================================
+
+export interface PomodoroRecord {
+  taskId: string;
+  taskTitle: string;
+  category?: string;
+  date: string; // ISO date string
+  duration: number; // dakika cinsinden (25 veya 5)
+  type: 'work' | 'break';
+}
+
+// Pomodoro kaydı ekle
+export function savePomodoroRecord(userId: string, record: PomodoroRecord) {
+  const key = `pomodoro_records_${userId}`;
+  const existing = localStorage.getItem(key);
+  const records: PomodoroRecord[] = existing ? JSON.parse(existing) : [];
+  records.push(record);
+  localStorage.setItem(key, JSON.stringify(records));
+}
+
+// Tüm pomodoro kayıtlarını getir
+export function getPomodoroRecords(userId: string): PomodoroRecord[] {
+  const key = `pomodoro_records_${userId}`;
+  const existing = localStorage.getItem(key);
+  return existing ? JSON.parse(existing) : [];
+}
+
+// Bugünün pomodoro sayısı
+export function getTodayPomodoroCount(userId: string): number {
+  const records = getPomodoroRecords(userId);
+  const today = new Date().toISOString().split('T')[0];
+  return records.filter(r => r.date === today && r.type === 'work').length;
+}
+
+// Bu haftanın pomodoro sayısı
+export function getWeekPomodoroCount(userId: string): number {
+  const records = getPomodoroRecords(userId);
+  const today = new Date();
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay() + 1); // Pazartesi
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  
+  return records.filter(r => r.date >= weekStartStr && r.type === 'work').length;
+}
+
+// Bu ayın pomodoro sayısı
+export function getMonthPomodoroCount(userId: string): number {
+  const records = getPomodoroRecords(userId);
+  const today = new Date();
+  const monthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  
+  return records.filter(r => r.date.startsWith(monthStr) && r.type === 'work').length;
+}
+
+// Streak hesapla (kaç gün üst üste)
+export function getPomodoroStreak(userId: string): number {
+  const records = getPomodoroRecords(userId);
+  const workRecords = records.filter(r => r.type === 'work');
+  
+  if (workRecords.length === 0) return 0;
+  
+  // Günlük benzersiz tarihler
+  const uniqueDates = [...new Set(workRecords.map(r => r.date))].sort().reverse();
+  
+  let streak = 0;
+  const today = new Date().toISOString().split('T')[0];
+  let currentDate = new Date(today);
+  
+  for (const date of uniqueDates) {
+    const checkDate = currentDate.toISOString().split('T')[0];
+    if (date === checkDate) {
+      streak++;
+      currentDate.setDate(currentDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  
+  return streak;
+}
+
+// Kategori bazlı pomodoro sayısı
+export function getCategoryPomodoroCount(userId: string, categoryId: string): number {
+  const records = getPomodoroRecords(userId);
+  return records.filter(r => r.category === categoryId && r.type === 'work').length;
+}
+
+// Toplam çalışma süresi (dakika)
+export function getTotalFocusTime(userId: string): number {
+  const records = getPomodoroRecords(userId);
+  return records.filter(r => r.type === 'work').reduce((sum, r) => sum + r.duration, 0);
+}
+
+// Haftalık günlük dağılım (grafik için)
+export function getWeeklyPomodoroDistribution(userId: string): { date: string; count: number }[] {
+  const records = getPomodoroRecords(userId);
+  const today = new Date();
+  const weekData: { date: string; count: number }[] = [];
+  
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    const count = records.filter(r => r.date === dateStr && r.type === 'work').length;
+    weekData.push({ date: dateStr, count });
+  }
+  
+  return weekData;
+}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { isMockUser } from '@/lib/helpers';
+import { isMockUser, getTodayPomodoroCount, getWeekPomodoroCount, getMonthPomodoroCount, getPomodoroStreak, getTotalFocusTime, getWeeklyPomodoroDistribution, getPomodoroRecords, getMockCategories } from '@/lib/helpers';
 import { useToast } from '@/components/Toast';
 
 interface SettingsViewProps {
@@ -176,6 +176,121 @@ export default function SettingsView({ userId, onLogout }: SettingsViewProps) {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Pomodoro İstatistikleri */}
+        <div>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 mb-3">Üretkenlik</h3>
+          
+          {/* Genel İstatistikler Kartı */}
+          <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-5 shadow-sm border border-red-100 mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-bold text-gray-900">🍅 Pomodoro</h4>
+              <span className="text-xs text-gray-500">Toplam Odaklanma</span>
+            </div>
+            
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600 mb-1">{getTodayPomodoroCount(userId)}</div>
+                <div className="text-[10px] text-gray-600">Bugün</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600 mb-1">{getWeekPomodoroCount(userId)}</div>
+                <div className="text-[10px] text-gray-600">Bu Hafta</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-amber-600 mb-1">{getMonthPomodoroCount(userId)}</div>
+                <div className="text-[10px] text-gray-600">Bu Ay</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600 mb-1">{getPomodoroStreak(userId)}</div>
+                <div className="text-[10px] text-gray-600">Streak 🔥</div>
+              </div>
+            </div>
+
+            {/* Toplam Süre */}
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-red-200">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-700 font-medium">Toplam Odaklanma Süresi</span>
+                <span className="text-sm font-bold text-red-600">
+                  {Math.floor(getTotalFocusTime(userId) / 60)}s {getTotalFocusTime(userId) % 60}dk
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Haftalık Trend Grafiği */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+            <h4 className="text-sm font-semibold text-gray-900 mb-4">Son 7 Gün</h4>
+            <div className="flex items-end justify-between h-32 gap-2">
+              {getWeeklyPomodoroDistribution(userId).map((day, idx) => {
+                const maxCount = Math.max(...getWeeklyPomodoroDistribution(userId).map(d => d.count), 1);
+                const height = (day.count / maxCount) * 100;
+                const dayName = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'][new Date(day.date).getDay() === 0 ? 6 : new Date(day.date).getDay() - 1];
+                
+                return (
+                  <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                    <div className="relative w-full flex items-end justify-center" style={{ height: '100px' }}>
+                      <div
+                        className={`w-full rounded-t-lg transition-all ${
+                          day.count > 0 ? 'bg-gradient-to-t from-red-500 to-orange-400' : 'bg-gray-200'
+                        }`}
+                        style={{ height: `${height}%` }}
+                      >
+                        {day.count > 0 && (
+                          <div className="text-xs font-bold text-white text-center pt-1">
+                            {day.count}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-gray-500 font-medium">{dayName}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Kategori Bazlı Dağılım */}
+          {(() => {
+            const records = getPomodoroRecords(userId);
+            const categories = getMockCategories(userId);
+            const categoryBreakdown = categories.map(cat => ({
+              ...cat,
+              count: records.filter(r => r.category === cat.id && r.type === 'work').length,
+            })).filter(c => c.count > 0).sort((a, b) => b.count - a.count);
+
+            if (categoryBreakdown.length === 0) return null;
+
+            const totalCategoryPomodoros = categoryBreakdown.reduce((sum, c) => sum + c.count, 0);
+
+            return (
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <h4 className="text-sm font-semibold text-gray-900 mb-4">Kategori Dağılımı</h4>
+                <div className="space-y-3">
+                  {categoryBreakdown.map(cat => (
+                    <div key={cat.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-gray-700 flex items-center gap-2">
+                          <span className="text-lg">{cat.icon}</span>
+                          {cat.name}
+                        </span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {cat.count} 🍅
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-gradient-to-r from-red-500 to-orange-400 h-2 rounded-full transition-all"
+                          style={{ width: `${(cat.count / totalCategoryPomodoros) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Veri Yönetimi */}

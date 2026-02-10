@@ -2,16 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { TimelineTask } from '@/lib/types';
-import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, getDayAbbreviation, saveTaskToSupabase } from '@/lib/helpers';
+import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, getDayAbbreviation, saveTaskToSupabase, DEFAULT_TAGS, getTagColorClasses, getCategoryPomodoroCount } from '@/lib/helpers';
 
 interface CategoryTaskViewProps {
   category: string;
   onBack: () => void;
   userId: string;
   onEditTask: (task: TimelineTask, viewingDate?: string) => void;
+  onStartPomodoro?: (task: TimelineTask) => void;
 }
 
-export default function CategoryTaskView({ category, onBack, userId, onEditTask }: CategoryTaskViewProps) {
+export default function CategoryTaskView({ category, onBack, userId, onEditTask, onStartPomodoro }: CategoryTaskViewProps) {
   const [tasks, setTasks] = useState<TimelineTask[]>([]);
   const today = new Date();
   const currentDay = today.getDate();
@@ -134,10 +135,20 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask 
             <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-3xl">
               {categoryData?.icon || '📝'}
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold">{categoryData?.name || category}</h1>
               <p className="text-white/70 text-sm">{totalTasks} görev · {completedCount} tamamlanan</p>
             </div>
+            {(() => {
+              const categoryPomodoros = getCategoryPomodoroCount(userId, category);
+              if (categoryPomodoros === 0) return null;
+              return (
+                <div className="bg-white/20 backdrop-blur-sm rounded-xl px-3 py-2 text-center">
+                  <div className="text-2xl font-bold text-white mb-0.5">{categoryPomodoros}</div>
+                  <div className="text-[10px] text-white/70">🍅 Pomodoro</div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* İlerleme Çubuğu */}
@@ -294,6 +305,11 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask 
                   <div className="flex-1 min-w-0">
                     <div className={`font-medium ${task.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                       {task.title}
+                      {task.subtasks && task.subtasks.length > 0 && (
+                        <span className="ml-2 text-xs text-emerald-600 font-semibold">
+                          [{task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}]
+                        </span>
+                      )}
                     </div>
                     {task.description && (
                       <p className={`text-sm mt-1 line-clamp-2 ${task.completed ? 'text-gray-300' : 'text-gray-500'}`}>
@@ -327,8 +343,34 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask 
                           {task.priority === 'high' ? 'Yüksek' : task.priority === 'medium' ? 'Orta' : 'Düşük'}
                         </span>
                       )}
+
+                      {/* Tags */}
+                      {task.tags && task.tags.map(tagId => {
+                        const tag = DEFAULT_TAGS.find(t => t.id === tagId);
+                        if (!tag) return null;
+                        const colors = getTagColorClasses(tag.color);
+                        return (
+                          <span key={tagId} className={`text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text} font-medium`}>
+                            #{tag.name}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
+
+                  {/* Pomodoro Button */}
+                  {onStartPomodoro && !task.completed && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStartPomodoro(task);
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 transition-all mr-1"
+                      title="Pomodoro Başlat"
+                    >
+                      <span className="text-lg">🍅</span>
+                    </button>
+                  )}
 
                   {/* Düzenle İkonu */}
                   <svg className="w-4 h-4 text-gray-300 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
