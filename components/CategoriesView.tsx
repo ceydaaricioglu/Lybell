@@ -7,11 +7,13 @@ import AddCategoryModal from './AddCategoryModal';
 
 interface CategoriesViewProps {
   userId: string;
+  darkMode?: boolean;
   onBack: () => void;
   onCategorySelect: (category: string) => void;
 }
 
-export default function CategoriesView({ userId, onBack, onCategorySelect }: CategoriesViewProps) {
+export default function CategoriesView({ userId, darkMode = false, onBack, onCategorySelect }: CategoriesViewProps) {
+  const dark = darkMode;
   const [categories, setCategories] = useState<Category[]>([]);
   const [allTasks, setAllTasks] = useState<TimelineTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,27 +27,16 @@ export default function CategoriesView({ userId, onBack, onCategorySelect }: Cat
 
   const loadData = async () => {
     setLoading(true);
-    const loadedCategories = getMockCategories(userId);
-    setCategories(loadedCategories);
-    
-    const loadedTasks = await fetchTasksFromSupabase(userId);
-    setAllTasks(loadedTasks);
+    setCategories(getMockCategories(userId));
+    setAllTasks(await fetchTasksFromSupabase(userId));
     setLoading(false);
   };
 
   const handleAddCategory = (category: Category) => {
     const existingIndex = categories.findIndex(c => c.id === category.id);
-    let updatedCategories: Category[];
-    
-    if (existingIndex >= 0) {
-      // Düzenleme modu
-      updatedCategories = [...categories];
-      updatedCategories[existingIndex] = category;
-    } else {
-      // Yeni ekleme
-      updatedCategories = [...categories, category];
-    }
-    
+    const updatedCategories = existingIndex >= 0
+      ? categories.map((c, i) => i === existingIndex ? category : c)
+      : [...categories, category];
     setCategories(updatedCategories);
     saveMockCategories(userId, updatedCategories);
     setShowAddCategoryModal(false);
@@ -54,15 +45,10 @@ export default function CategoriesView({ userId, onBack, onCategorySelect }: Cat
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    // Kategoriye ait tüm görevleri sil
     const categoryTasks = allTasks.filter(t => t.category === categoryId);
     for (const task of categoryTasks) {
-      if (task.id) {
-        await deleteTaskFromSupabase(userId, task.id);
-      }
+      if (task.id) await deleteTaskFromSupabase(userId, task.id);
     }
-
-    // Kategoriyi sil
     const updatedCategories = categories.filter(c => c.id !== categoryId);
     setCategories(updatedCategories);
     saveMockCategories(userId, updatedCategories);
@@ -71,122 +57,128 @@ export default function CategoriesView({ userId, onBack, onCategorySelect }: Cat
   };
 
   const getCategoryColor = (color?: string) => {
-    const colorMap: Record<string, { bg: string; light: string; text: string; border: string }> = {
-      blue: { bg: 'bg-blue-600', light: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200' },
-      purple: { bg: 'bg-purple-600', light: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-200' },
-      pink: { bg: 'bg-pink-600', light: 'bg-pink-100', text: 'text-pink-600', border: 'border-pink-200' },
-      orange: { bg: 'bg-orange-600', light: 'bg-orange-100', text: 'text-orange-600', border: 'border-orange-200' },
-      yellow: { bg: 'bg-yellow-600', light: 'bg-yellow-100', text: 'text-yellow-600', border: 'border-yellow-200' },
-      emerald: { bg: 'bg-emerald-600', light: 'bg-emerald-100', text: 'text-emerald-600', border: 'border-emerald-200' },
+    const colorMap: Record<string, { bg: string; light: string; text: string }> = {
+      blue: { bg: 'bg-blue-600', light: 'bg-blue-100', text: 'text-blue-600' },
+      purple: { bg: 'bg-purple-600', light: 'bg-purple-100', text: 'text-purple-600' },
+      pink: { bg: 'bg-pink-600', light: 'bg-pink-100', text: 'text-pink-600' },
+      orange: { bg: 'bg-orange-600', light: 'bg-orange-100', text: 'text-orange-600' },
+      yellow: { bg: 'bg-yellow-600', light: 'bg-yellow-100', text: 'text-yellow-600' },
+      emerald: { bg: 'bg-emerald-600', light: 'bg-emerald-100', text: 'text-emerald-600' },
     };
     return colorMap[color || 'emerald'] || colorMap.emerald;
   };
 
   const categoryStats = categories.map(cat => {
     const catTasks = allTasks.filter(t => t.category === cat.id);
-    const completed = catTasks.filter(t => t.completed).length;
-    const total = catTasks.length;
     return {
       ...cat,
-      total,
-      completed,
-      progress: total > 0 ? Math.round((completed / total) * 100) : 0,
+      total: catTasks.length,
+      completed: catTasks.filter(t => t.completed).length,
+      progress: catTasks.length > 0 ? Math.round((catTasks.filter(t => t.completed).length / catTasks.length) * 100) : 0,
     };
   });
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500">Yükleniyor...</p>
+          <div className={`w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4 ${dark ? 'border-zinc-700 border-t-amber-400/80' : 'border-stone-200 border-t-amber-500'}`}></div>
+          <p className={dark ? 'text-zinc-500' : 'text-stone-500'}>Yükleniyor...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-5">
-        <div className="max-w-md mx-auto">
+    <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f] text-zinc-100' : 'bg-[#f5f0ea] text-stone-800'}`}>
+      <div className="max-w-md mx-auto px-5 pt-10 pb-8">
+        {/* Header */}
+        <header className="mb-8">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Kategoriler</h1>
-              <p className="text-sm text-gray-500 mt-1">{categories.length} kategori</p>
-            </div>
+            <button
+              onClick={onBack}
+              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}
+            >
+              <svg className={`w-6 h-6 ${dark ? 'text-zinc-300' : 'text-stone-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h1 className={`text-xl font-semibold ${dark ? 'text-white' : 'text-stone-800'}`}>Kategoriler</h1>
             <button
               onClick={() => setShowAddCategoryModal(true)}
-              className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center hover:bg-emerald-600 transition-colors shadow-sm"
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                dark ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+              }`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
               </svg>
             </button>
           </div>
-        </div>
-      </div>
+          <p className={`text-sm mt-1 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{categories.length} kategori</p>
+        </header>
 
-      <div className="max-w-md mx-auto px-4 py-6">
         {categoryStats.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <div className="w-20 h-20 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-5 text-4xl">
+            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 text-4xl ${dark ? 'bg-zinc-800/80' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
               📁
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Henüz kategori yok</h2>
-            <p className="text-gray-500 text-sm mb-6 text-center">İlk kategorini oluşturarak başla</p>
+            <h2 className={`text-xl font-bold mb-2 ${dark ? 'text-white' : 'text-stone-800'}`}>Henüz kategori yok</h2>
+            <p className={`text-sm mb-6 text-center ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>İlk kategorini oluşturarak başla</p>
             <button
               onClick={() => setShowAddCategoryModal(true)}
-              className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
+              className={`px-6 py-3 rounded-xl font-semibold transition-all ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white hover:shadow-lg hover:scale-[1.02]'}`}
             >
               + Kategori Oluştur
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {categoryStats.map((cat) => {
               const colors = getCategoryColor(cat.color);
               return (
                 <div
                   key={cat.id}
-                  className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all"
+                  className={`rounded-[24px] overflow-hidden transition-all ${
+                    dark ? 'bg-zinc-900/60 border border-zinc-800/80' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'
+                  }`}
                 >
-                  {/* Ana Kategori Kartı */}
                   <button
                     onClick={() => onCategorySelect(cat.id)}
-                    className="w-full text-left"
+                    className="w-full text-left p-5"
                   >
                     <div className="flex items-center gap-4 mb-4">
-                      <div className={`w-14 h-14 ${colors.light} rounded-xl flex items-center justify-center text-2xl flex-shrink-0`}>
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 ${
+                        dark ? 'bg-zinc-800' : colors.light
+                      }`}>
                         {cat.icon}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-gray-900 text-lg">{cat.name}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-sm text-gray-500">{cat.total} görev</span>
+                        <div className={`font-bold text-lg ${dark ? 'text-white' : 'text-stone-900'}`}>{cat.name}</div>
+                        <div className={`flex items-center gap-2 mt-1 text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                          <span>{cat.total} görev</span>
                           {cat.total > 0 && (
                             <>
-                              <span className="text-gray-300">•</span>
-                              <span className="text-sm text-gray-500">{cat.completed} tamamlanan</span>
+                              <span className={dark ? 'text-zinc-600' : 'text-stone-300'}>•</span>
+                              <span>{cat.completed} tamamlanan</span>
                             </>
                           )}
                         </div>
                       </div>
-                      <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-5 h-5 flex-shrink-0 ${dark ? 'text-zinc-500' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
 
-                    {/* İlerleme Çubuğu */}
                     {cat.total > 0 && (
-                      <div className="mb-4">
+                      <div className="mb-1">
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs text-gray-500">İlerleme</span>
-                          <span className={`text-xs font-semibold ${colors.text}`}>%{cat.progress}</span>
+                          <span className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>İlerleme</span>
+                          <span className={`text-xs font-semibold ${dark ? 'text-amber-400/90' : colors.text}`}>%{cat.progress}</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className={`w-full rounded-full h-2 ${dark ? 'bg-zinc-800' : 'bg-stone-200'}`}>
                           <div
-                            className={`${colors.bg} h-2 rounded-full transition-all`}
+                            className={`h-2 rounded-full transition-all ${dark ? 'bg-amber-400/80' : colors.bg}`}
                             style={{ width: `${cat.progress}%` }}
                           />
                         </div>
@@ -194,11 +186,12 @@ export default function CategoriesView({ userId, onBack, onCategorySelect }: Cat
                     )}
                   </button>
 
-                  {/* Yönetim Butonları */}
-                  <div className="flex gap-2 pt-4 border-t border-gray-100">
+                  <div className={`flex gap-2 p-4 pt-0 ${dark ? 'border-t border-zinc-800/80' : 'border-t border-stone-100'}`}>
                     <button
                       onClick={() => setEditingCategory(cat)}
-                      className="flex-1 py-2 px-3 bg-gray-50 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors flex items-center justify-center gap-1"
+                      className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                        dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                      }`}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -207,7 +200,9 @@ export default function CategoriesView({ userId, onBack, onCategorySelect }: Cat
                     </button>
                     <button
                       onClick={() => setShowDeleteConfirm(cat.id)}
-                      className="flex-1 py-2 px-3 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
+                      className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                        dark ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100'
+                      }`}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -219,74 +214,75 @@ export default function CategoriesView({ userId, onBack, onCategorySelect }: Cat
               );
             })}
 
-            {/* Yeni Kategori Ekle Butonu */}
             <button
               onClick={() => setShowAddCategoryModal(true)}
-              className="w-full bg-white rounded-2xl p-5 shadow-sm border-2 border-dashed border-emerald-200 hover:border-emerald-300 hover:shadow-md transition-all text-center"
+              className={`w-full rounded-[24px] p-5 transition-all text-center border-2 border-dashed ${
+                dark
+                  ? 'border-zinc-700 hover:border-amber-500/40 hover:bg-zinc-900/40'
+                  : 'border-stone-200 hover:border-amber-300 bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] hover:shadow-md'
+              }`}
             >
-                <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center mx-auto mb-2 text-2xl">
-                  +
-                </div>
-                <div className="font-semibold text-emerald-700">Yeni Kategori Ekle</div>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2 text-2xl font-light ${
+                dark ? 'bg-zinc-800 text-zinc-400' : 'bg-amber-50 text-amber-600'
+              }`}>
+                +
+              </div>
+              <div className={`font-semibold ${dark ? 'text-amber-400/90' : 'text-amber-700'}`}>Yeni Kategori Ekle</div>
             </button>
           </div>
         )}
-      </div>
 
-      {/* Kategori Ekleme Modal */}
-      {showAddCategoryModal && (
-        <AddCategoryModal
-          onClose={() => {
-            setShowAddCategoryModal(false);
-            setEditingCategory(null);
-          }}
-          onSave={handleAddCategory}
-          userId={userId}
-          category={editingCategory || undefined}
-        />
-      )}
+        {showAddCategoryModal && (
+          <AddCategoryModal
+            onClose={() => { setShowAddCategoryModal(false); setEditingCategory(null); }}
+            onSave={handleAddCategory}
+            userId={userId}
+            category={editingCategory || undefined}
+            darkMode={dark}
+          />
+        )}
 
-      {/* Silme Onay Dialogu */}
-      {showDeleteConfirm && (() => {
-        const cat = categories.find(c => c.id === showDeleteConfirm);
-        const catTasks = allTasks.filter(t => t.category === showDeleteConfirm);
-        return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+        {showDeleteConfirm && (() => {
+          const cat = categories.find(c => c.id === showDeleteConfirm);
+          const catTasks = allTasks.filter(t => t.category === showDeleteConfirm);
+          return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl ${dark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`}>
+                <div className="text-center mb-6">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${dark ? 'bg-red-900/40' : 'bg-red-100'}`}>
+                    <svg className={`w-8 h-8 ${dark ? 'text-red-400' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </div>
+                  <h3 className={`text-lg font-bold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>Kategoriyi Sil</h3>
+                  <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>
+                    &quot;{cat?.name}&quot; kategorisini silmek istediğinden emin misin?
+                    {catTasks.length > 0 && (
+                      <span className={`block mt-2 font-semibold ${dark ? 'text-red-400' : 'text-red-600'}`}>
+                        Bu kategoriye ait {catTasks.length} görev de silinecek.
+                      </span>
+                    )}
+                  </p>
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Kategoriyi Sil</h3>
-                <p className="text-gray-600 text-sm">
-                  "{cat?.name}" kategorisini silmek istediğinden emin misin?
-                  {catTasks.length > 0 && (
-                    <span className="block mt-2 text-red-600 font-semibold">
-                      Bu kategoriye ait {catTasks.length} görev de silinecek.
-                    </span>
-                  )}
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeleteConfirm(null)}
-                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all"
-                >
-                  İptal
-                </button>
-                <button
-                  onClick={() => showDeleteConfirm && handleDeleteCategory(showDeleteConfirm)}
-                  className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all"
-                >
-                  Sil
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowDeleteConfirm(null)}
+                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}
+                  >
+                    İptal
+                  </button>
+                  <button
+                    onClick={() => showDeleteConfirm && handleDeleteCategory(showDeleteConfirm)}
+                    className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all"
+                  >
+                    Sil
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
+      </div>
     </div>
   );
 }

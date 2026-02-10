@@ -6,6 +6,7 @@ import { getMockCategories, deleteTaskFromSupabase, excludeDateFromTask, setRecu
 
 interface EditTaskViewProps {
   task?: TimelineTask;
+  darkMode?: boolean;
   onBack: () => void;
   onSave: (task: TimelineTask) => void;
   onDelete?: () => void;
@@ -14,7 +15,8 @@ interface EditTaskViewProps {
   viewingDate?: string;
 }
 
-export default function EditTaskView({ task, onBack, onSave, onDelete, userId, defaultDate, viewingDate }: EditTaskViewProps) {
+export default function EditTaskView({ task, darkMode = false, onBack, onSave, onDelete, userId, defaultDate, viewingDate }: EditTaskViewProps) {
+  const dark = darkMode;
   const isNewTask = !task || !task.id;
   const [title, setTitle] = useState(task?.title || '');
   const [time, setTime] = useState(task?.time || '08:00');
@@ -129,89 +131,75 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
     }
   };
 
+  const inputBase = dark
+    ? 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500'
+    : 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 bg-white border border-stone-200 text-stone-900 placeholder:text-stone-400';
+  const labelClass = dark ? 'block text-sm font-semibold text-zinc-400 mb-2' : 'block text-sm font-semibold text-stone-600 mb-2';
+  const selectBtn = dark
+    ? 'w-full px-4 py-4 rounded-xl text-left flex items-center justify-between border border-zinc-700 bg-zinc-900 hover:border-zinc-600 transition-all'
+    : 'w-full px-4 py-4 rounded-xl text-left flex items-center justify-between border border-stone-200 bg-white hover:border-amber-300 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] transition-all';
+  const dropdownPanel = dark ? 'mt-2 border border-zinc-700 rounded-xl overflow-hidden bg-zinc-900' : 'mt-2 border border-stone-200 rounded-xl overflow-hidden bg-white shadow-[0_4px_16px_-4px_rgba(0,0,0,0.08)]';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex flex-col">
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-6 text-white">
+    <div className={`min-h-screen flex flex-col ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
+      <header className="px-5 py-6">
         <div className="max-w-md mx-auto flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-600/50 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button onClick={onBack} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}>
+            <svg className={`w-6 h-6 ${dark ? 'text-zinc-300' : 'text-stone-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-xl font-bold flex-1">{isNewTask ? 'Yeni Görev' : 'Görevi Düzenle'}</h1>
+          <h1 className={`text-xl font-semibold flex-1 ${dark ? 'text-white' : 'text-stone-800'}`}>{isNewTask ? 'Yeni Görev' : 'Görevi Düzenle'}</h1>
           <button
             onClick={handleSave}
             disabled={!title.trim() || (!category && !task)}
-            className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg font-semibold hover:bg-white/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`px-4 py-2 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dark ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
           >
-            {isNewTask ? 'Kaydet' : 'Kaydet'}
+            Kaydet
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="flex-1 max-w-md mx-auto w-full px-6 py-8">
+      <div className="flex-1 max-w-md mx-auto w-full px-5 pb-24">
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Görev Başlığı</label>
+            <label className={labelClass}>Görev Başlığı</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-4 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-lg text-gray-900 placeholder:text-gray-400 bg-white"
+              className={`${inputBase} py-4 text-lg`}
               placeholder="Ne yapman gerekiyor?"
               autoFocus
             />
           </div>
-
-          {/* Açıklama / Not */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Açıklama / Not</label>
+            <label className={labelClass}>Açıklama / Not</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full px-4 py-3 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 placeholder:text-gray-400 bg-white resize-none"
+              className={`${inputBase} resize-none`}
               placeholder="Detay veya not ekle (isteğe bağlı)"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Kategori</label>
-            <button
-              onClick={() => setShowCategoryOptions(!showCategoryOptions)}
-              className="w-full px-4 py-4 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-left flex items-center justify-between bg-white hover:border-emerald-300 transition-all"
-            >
-              <span className={category ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+            <label className={labelClass}>Kategori</label>
+            <button onClick={() => setShowCategoryOptions(!showCategoryOptions)} className={selectBtn}>
+              <span className={category ? (dark ? 'text-zinc-100 font-medium' : 'text-stone-900 font-medium') : (dark ? 'text-zinc-500' : 'text-stone-400')}>
                 {category ? categories.find(c => c.id === category)?.name || category : 'Kategori seç'}
               </span>
-              <svg
-                className={`w-5 h-5 text-gray-400 transition-transform ${showCategoryOptions ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className={`w-5 h-5 transition-transform ${dark ? 'text-zinc-500' : 'text-stone-400'} ${showCategoryOptions ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-
             {showCategoryOptions && (
-              <div className="mt-2 border-2 border-emerald-200 rounded-xl overflow-hidden bg-white">
+              <div className={dropdownPanel}>
                 {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => {
-                      setCategory(cat.id);
-                      setShowCategoryOptions(false);
-                    }}
-                    className="w-full px-4 py-4 text-left hover:bg-emerald-50 transition-colors flex items-center gap-3 border-b border-emerald-100 last:border-b-0"
-                  >
+                  <button key={cat.id} onClick={() => { setCategory(cat.id); setShowCategoryOptions(false); }} className={`w-full px-4 py-4 text-left flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800' : 'border-stone-100 hover:bg-amber-50/50'}`}>
                     <span className="text-2xl">{cat.icon}</span>
-                    <div>
-                      <div className="font-semibold text-gray-900">{cat.name}</div>
-                    </div>
+                    <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>{cat.name}</div>
                   </button>
                 ))}
               </div>
@@ -220,42 +208,27 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Tarih</label>
+              <label className={labelClass}>Tarih</label>
               <input
                 type="date"
-                value={(() => {
-                  const now = new Date();
-                  const y = now.getFullYear();
-                  const m = String(now.getMonth() + 1).padStart(2, '0');
-                  const d = date.padStart(2, '0');
-                  return `${y}-${m}-${d}`;
-                })()}
-                onChange={(e) => {
-                  const dateStr = e.target.value;
-                  const day = dateStr.split('-')[2];
-                  setDate(parseInt(day, 10).toString());
-                }}
-                className="w-full px-4 py-3 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                value={(() => { const now = new Date(); const y = now.getFullYear(); const m = String(now.getMonth() + 1).padStart(2, '0'); const d = date.padStart(2, '0'); return `${y}-${m}-${d}`; })()}
+                onChange={(e) => { const dateStr = e.target.value; const day = dateStr.split('-')[2]; setDate(parseInt(day, 10).toString()); }}
+                className={inputBase}
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Saat</label>
-              <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-              />
+              <label className={labelClass}>Saat</label>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputBase} />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Tekrar</label>
+            <label className={labelClass}>Tekrar</label>
             <button
               onClick={() => setShowRecurrenceOptions(!showRecurrenceOptions)}
-              className="w-full px-4 py-4 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-left flex items-center justify-between bg-white hover:border-emerald-300 transition-all"
+              className={selectBtn}
             >
-              <span className={recurrence ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+              <span className={recurrence ? (dark ? 'text-zinc-100 font-medium' : 'text-stone-900 font-medium') : (dark ? 'text-zinc-500' : 'text-stone-400')}>
                 {recurrence === 'weekly'
                   ? '🔄 Her hafta'
                   : recurrence === 'monthly'
@@ -265,7 +238,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                   : 'Tekrar yok'}
               </span>
               <svg
-                className={`w-5 h-5 text-gray-400 transition-transform ${showRecurrenceOptions ? 'rotate-180' : ''}`}
+                className={`w-5 h-5 transition-transform ${dark ? 'text-zinc-500' : 'text-stone-400'} ${showRecurrenceOptions ? 'rotate-180' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -275,54 +248,26 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
             </button>
 
             {showRecurrenceOptions && (
-              <div className="mt-2 border-2 border-emerald-200 rounded-xl overflow-hidden bg-white">
-                <button
-                  onClick={() => {
-                    setRecurrence('weekly');
-                    setShowRecurrenceOptions(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors border-b border-emerald-100"
-                >
-                  🔄 Her hafta
-                </button>
-                <button
-                  onClick={() => {
-                    setRecurrence('monthly');
-                    setShowRecurrenceOptions(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors border-b border-emerald-100"
-                >
-                  📅 Her ay
-                </button>
-                <button
-                  onClick={() => {
-                    setRecurrence('weekdays');
-                    setShowRecurrenceOptions(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors"
-                >
-                  📆 Sadece hafta içi
-                </button>
-                <button
-                  onClick={() => {
-                    setRecurrence(null);
-                    setShowRecurrenceOptions(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors border-t border-emerald-100 text-gray-500"
-                >
-                  Tekrar yok
-                </button>
+              <div className={dropdownPanel}>
+                {[
+                  { v: 'weekly' as const, l: '🔄 Her hafta' },
+                  { v: 'monthly' as const, l: '📅 Her ay' },
+                  { v: 'weekdays' as const, l: '📆 Sadece hafta içi' },
+                ].map(({ v, l }) => (
+                  <button key={v} onClick={() => { setRecurrence(v); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-200' : 'border-stone-100 hover:bg-amber-50/50 text-stone-800'}`}>{l}</button>
+                ))}
+                <button onClick={() => { setRecurrence(null); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left ${dark ? 'hover:bg-zinc-800 text-zinc-500' : 'hover:bg-amber-50/50 text-stone-500'}`}>Tekrar yok</button>
               </div>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Öncelik</label>
+            <label className={labelClass}>Öncelik</label>
             <button
               onClick={() => setShowPriorityOptions(!showPriorityOptions)}
-              className="w-full px-4 py-4 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-left flex items-center justify-between bg-white hover:border-emerald-300 transition-all"
+              className={selectBtn}
             >
-              <span className={priority ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+              <span className={priority ? (dark ? 'text-zinc-100 font-medium' : 'text-stone-900 font-medium') : (dark ? 'text-zinc-500' : 'text-stone-400')}>
                 {priority === 'high'
                   ? '🔴 Yüksek Öncelik'
                   : priority === 'medium'
@@ -332,7 +277,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                   : 'Öncelik yok'}
               </span>
               <svg
-                className={`w-5 h-5 text-gray-400 transition-transform ${showPriorityOptions ? 'rotate-180' : ''}`}
+                className={`w-5 h-5 transition-transform ${dark ? 'text-zinc-500' : 'text-stone-400'} ${showPriorityOptions ? 'rotate-180' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -342,18 +287,18 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
             </button>
 
             {showPriorityOptions && (
-              <div className="mt-2 border-2 border-emerald-200 rounded-xl overflow-hidden bg-white">
+              <div className={dropdownPanel}>
                 <button
                   onClick={() => {
                     setPriority('high');
                     setShowPriorityOptions(false);
                   }}
-                  className="w-full px-4 py-4 text-left hover:bg-red-50 transition-colors flex items-center gap-3 border-b border-emerald-100"
+                  className="w-full px-4 py-4 text-left hover:bg-red-50 transition-colors flex items-center gap-3 border-b"
                 >
                   <span className="text-xl">🔴</span>
                   <div>
-                    <div className="font-semibold text-gray-900">Yüksek Öncelik</div>
-                    <div className="text-xs text-gray-500">Acil ve önemli</div>
+                    <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>Yüksek Öncelik</div>
+                    <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-stone-500'}>Acil ve önemli</div>
                   </div>
                 </button>
                 <button
@@ -361,12 +306,12 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                     setPriority('medium');
                     setShowPriorityOptions(false);
                   }}
-                  className="w-full px-4 py-4 text-left hover:bg-yellow-50 transition-colors flex items-center gap-3 border-b border-emerald-100"
+                  className="w-full px-4 py-4 text-left hover:bg-yellow-50 transition-colors flex items-center gap-3 border-b"
                 >
                   <span className="text-xl">🟡</span>
                   <div>
-                    <div className="font-semibold text-gray-900">Orta Öncelik</div>
-                    <div className="text-xs text-gray-500">Önemli ama acil değil</div>
+                    <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>Orta Öncelik</div>
+                    <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-stone-500'}>Önemli ama acil değil</div>
                   </div>
                 </button>
                 <button
@@ -378,8 +323,8 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                 >
                   <span className="text-xl">🟢</span>
                   <div>
-                    <div className="font-semibold text-gray-900">Düşük Öncelik</div>
-                    <div className="text-xs text-gray-500">Daha sonra yapılabilir</div>
+                    <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>Düşük Öncelik</div>
+                    <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-stone-500'}>Daha sonra yapılabilir</div>
                   </div>
                 </button>
                 <button
@@ -387,12 +332,12 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                     setPriority(null);
                     setShowPriorityOptions(false);
                   }}
-                  className="w-full px-4 py-4 text-left hover:bg-gray-50 transition-colors flex items-center gap-3 border-t border-emerald-100"
+                  className={`w-full px-4 py-4 text-left transition-colors flex items-center gap-3 border-t ${dark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-500' : 'border-stone-100 hover:bg-stone-50 text-stone-500'}`}
                 >
                   <span className="text-xl">⚪</span>
                   <div>
-                    <div className="font-semibold text-gray-900">Öncelik Yok</div>
-                    <div className="text-xs text-gray-500">Önceliği kaldır</div>
+                    <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>Öncelik Yok</div>
+                    <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-stone-500'}>Önceliği kaldır</div>
                   </div>
                 </button>
               </div>
@@ -401,7 +346,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
 
           {/* Tags */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Etiketler</label>
+            <label className={labelClass}>Etiketler</label>
             
             {/* Seçili Tag'ler */}
             {tags.length > 0 && (
@@ -431,13 +376,13 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
 
             <button
               onClick={() => setShowTagOptions(!showTagOptions)}
-              className="w-full px-4 py-4 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-left flex items-center justify-between bg-white hover:border-emerald-300 transition-all"
+              className={selectBtn}
             >
-              <span className={tags.length > 0 ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+              <span className={tags.length > 0 ? (dark ? 'text-zinc-100 font-medium' : 'text-stone-900 font-medium') : (dark ? 'text-zinc-500' : 'text-stone-400')}>
                 {tags.length > 0 ? `${tags.length} etiket seçildi` : 'Etiket ekle'}
               </span>
               <svg
-                className={`w-5 h-5 text-gray-400 transition-transform ${showTagOptions ? 'rotate-180' : ''}`}
+                className={`w-5 h-5 transition-transform ${dark ? 'text-zinc-500' : 'text-stone-400'} ${showTagOptions ? 'rotate-180' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -447,7 +392,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
             </button>
 
             {showTagOptions && (
-              <div className="mt-2 border-2 border-emerald-200 rounded-xl overflow-hidden bg-white max-h-64 overflow-y-auto">
+              <div className={`${dropdownPanel} max-h-64 overflow-y-auto`}>
                 {DEFAULT_TAGS.map((tag) => {
                   const isSelected = tags.includes(tag.id);
                   const colors = getTagColorClasses(tag.color);
@@ -462,18 +407,16 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                           setTags([...tags, tag.id]);
                         }
                       }}
-                      className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b border-emerald-100 last:border-b-0 ${
-                        isSelected ? 'bg-emerald-50' : 'hover:bg-emerald-50'
-                      }`}
+                      className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 ' : 'border-stone-100 '}${isSelected ? (dark ? 'bg-amber-500/20' : 'bg-amber-50') : (dark ? 'hover:bg-zinc-800' : 'hover:bg-amber-50/50')}`}
                     >
                       <div className={`w-8 h-8 ${colors.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
                         <span className={`text-sm font-bold ${colors.text}`}>#</span>
                       </div>
                       <div className="flex-1">
-                        <div className="font-semibold text-gray-900">{tag.name}</div>
+                        <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>{tag.name}</div>
                       </div>
                       {isSelected && (
-                        <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={`w-5 h-5 flex-shrink-0 ${dark ? 'text-amber-400' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
@@ -486,7 +429,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
 
           {/* Alt Görevler */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Alt Görevler</label>
+            <label className={labelClass}>Alt Görevler</label>
             
             {/* Mevcut Alt Görevler */}
             {subtasks.length > 0 && (
@@ -494,7 +437,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                 {subtasks.map((subtask, index) => (
                   <div
                     key={subtask.id}
-                    className="flex items-center gap-3 p-3 bg-white border-2 border-gray-200 rounded-xl hover:border-emerald-200 transition-all"
+                    className={`flex items-center gap-3 p-3 rounded-xl transition-all ${dark ? 'bg-zinc-900/60 border border-zinc-700' : 'bg-white border border-stone-200 shadow-sm'}`}
                   >
                     <button
                       onClick={() => {
@@ -504,8 +447,8 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                       }}
                       className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                         subtask.completed
-                          ? 'bg-emerald-500 border-emerald-500'
-                          : 'border-gray-300 hover:border-emerald-400'
+                          ? (dark ? 'bg-amber-400/80 border-amber-400/80' : 'bg-amber-500 border-amber-500')
+                          : (dark ? 'border-zinc-600 hover:border-zinc-500' : 'border-stone-300 hover:border-amber-400')
                       }`}
                     >
                       {subtask.completed && (
@@ -514,7 +457,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                         </svg>
                       )}
                     </button>
-                    <span className={`flex-1 text-sm ${subtask.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                    <span className={`flex-1 text-sm ${subtask.completed ? 'line-through opacity-70' : ''} ${dark ? 'text-zinc-200' : 'text-stone-900'}`}>
                       {subtask.title}
                     </span>
                     <button
@@ -530,18 +473,18 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                 
                 {/* İlerleme Çubuğu */}
                 {subtasks.length > 0 && (
-                  <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <div className={`mt-3 p-3 rounded-xl border ${dark ? 'bg-zinc-800/60 border-zinc-700' : 'bg-amber-50/80 border-amber-100'}`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-emerald-700">
+                      <span className={`text-xs font-semibold ${dark ? 'text-amber-400/90' : 'text-amber-700'}`}>
                         {subtasks.filter(s => s.completed).length}/{subtasks.length} tamamlandı
                       </span>
-                      <span className="text-xs font-bold text-emerald-700">
+                      <span className={`text-xs font-bold ${dark ? 'text-amber-400' : 'text-amber-700'}`}>
                         %{Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100)}
                       </span>
                     </div>
-                    <div className="w-full bg-emerald-200 rounded-full h-2">
+                    <div className={`w-full rounded-full h-2 ${dark ? 'bg-zinc-700' : 'bg-amber-200'}`}>
                       <div
-                        className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-500"
+                        className={`h-2 rounded-full transition-all duration-500 ${dark ? 'bg-amber-400/80' : 'bg-amber-500'}`}
                         style={{ width: `${(subtasks.filter(s => s.completed).length / subtasks.length) * 100}%` }}
                       />
                     </div>
@@ -566,7 +509,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                     setNewSubtaskTitle('');
                   }
                 }}
-                className="flex-1 px-4 py-3 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 placeholder:text-gray-400 bg-white"
+                className={`flex-1 ${inputBase}`}
                 placeholder="Alt görev ekle..."
               />
               <button
@@ -581,7 +524,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                   }
                 }}
                 disabled={!newSubtaskTitle.trim()}
-                className="px-4 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`px-4 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white hover:bg-amber-700'}`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -593,7 +536,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
           <button
             onClick={handleSave}
             disabled={!title.trim() || (!category && !task)}
-            className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className={`w-full py-4 font-semibold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white shadow-lg hover:shadow-xl hover:bg-amber-700'}`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -605,7 +548,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
           {!isNewTask && task?.id && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="w-full py-4 bg-white border-2 border-red-200 text-red-600 font-semibold rounded-xl hover:bg-red-50 hover:border-red-300 transition-all flex items-center justify-center gap-2"
+              className={`w-full py-4 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 ${dark ? 'bg-red-900/30 border border-red-800 text-red-400 hover:bg-red-900/50' : 'bg-white border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300'}`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -618,18 +561,18 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
 
       {/* Silme Onay Dialogu */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl ${dark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`}>
             <div className="text-center mb-5">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${dark ? 'bg-red-900/40' : 'bg-red-100'}`}>
+                <svg className={`w-8 h-8 ${dark ? 'text-red-400' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
+              <h3 className={`text-lg font-bold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>
                 {isRecurring ? 'Tekrarlı Görevi Sil' : 'Görevi Sil'}
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>
                 {isRecurring
                   ? 'Bu tekrarlı görev için ne yapmak istersin?'
                   : 'Bu görevi silmek istediğinden emin misin? Bu işlem geri alınamaz.'}
@@ -641,7 +584,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                 {/* Sadece bu günü sil */}
                 <button
                   onClick={handleDeleteThisOnly}
-                  className="w-full py-3.5 px-4 bg-white border-2 border-gray-200 text-gray-900 rounded-xl font-medium hover:bg-gray-50 hover:border-gray-300 transition-all text-left flex items-center gap-3"
+                  className={`w-full py-3.5 px-4 rounded-xl font-medium transition-all text-left flex items-center gap-3 ${dark ? 'bg-zinc-800 border border-zinc-700 text-zinc-200 hover:bg-zinc-700' : 'bg-white border-2 border-stone-200 text-stone-900 hover:bg-stone-50 hover:border-stone-300'}`}
                 >
                   <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -650,14 +593,14 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                   </div>
                   <div>
                     <div className="font-semibold text-sm">Sadece bu günü sil</div>
-                    <div className="text-xs text-gray-500">Diğer tekrarlar kalır</div>
+                    <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-stone-500'}>Diğer tekrarlar kalır</div>
                   </div>
                 </button>
 
                 {/* Bu ve sonrakileri sil */}
                 <button
                   onClick={handleDeleteThisAndFuture}
-                  className="w-full py-3.5 px-4 bg-white border-2 border-gray-200 text-gray-900 rounded-xl font-medium hover:bg-red-50 hover:border-red-200 transition-all text-left flex items-center gap-3"
+                  className={`w-full py-3.5 px-4 rounded-xl font-medium transition-all text-left flex items-center gap-3 ${dark ? 'bg-zinc-800 border border-zinc-700 text-zinc-200 hover:bg-red-900/30' : 'bg-white border-2 border-stone-200 text-stone-900 hover:bg-red-50 hover:border-red-200'}`}
                 >
                   <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -666,14 +609,14 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                   </div>
                   <div>
                     <div className="font-semibold text-sm">Bu ve sonrakileri sil</div>
-                    <div className="text-xs text-gray-500">Önceki tekrarlar kalır</div>
+                    <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-stone-500'}>Önceki tekrarlar kalır</div>
                   </div>
                 </button>
 
                 {/* Tüm tekrarları sil */}
                 <button
                   onClick={handleDeleteAll}
-                  className="w-full py-3.5 px-4 bg-white border-2 border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 hover:border-red-300 transition-all text-left flex items-center gap-3"
+                  className={`w-full py-3.5 px-4 rounded-xl font-medium transition-all text-left flex items-center gap-3 ${dark ? 'bg-red-900/30 border border-red-800 text-red-400 hover:bg-red-900/50' : 'bg-white border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300'}`}
                 >
                   <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -682,14 +625,14 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
                   </div>
                   <div>
                     <div className="font-semibold text-sm">Tüm tekrarları sil</div>
-                    <div className="text-xs text-gray-500">Görev tamamen kaldırılır</div>
+                    <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-stone-500'}>Görev tamamen kaldırılır</div>
                   </div>
                 </button>
 
                 {/* İptal */}
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all mt-2"
+                  className={`w-full py-3 rounded-xl font-semibold transition-all mt-2 ${dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}
                 >
                   İptal
                 </button>
@@ -698,7 +641,7 @@ export default function EditTaskView({ task, onBack, onSave, onDelete, userId, d
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                  className={`flex-1 py-3 rounded-xl font-semibold transition-all ${dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}
                 >
                   İptal
                 </button>

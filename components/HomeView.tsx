@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Category, TimelineTask } from '@/lib/types';
 import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, DEFAULT_TAGS, getTagColorClasses, getTodayPomodoroCount, getWeekPomodoroCount, getPomodoroStreak } from '@/lib/helpers';
-import { StatsCardSkeleton, TaskListSkeleton, CategoryListSkeleton } from '@/components/Skeletons';
+import { TaskListSkeleton } from '@/components/Skeletons';
 
 interface HomeViewProps {
+  darkMode?: boolean;
   onCategorySelect: (category: string) => void;
   userId: string;
   onViewAll: () => void;
@@ -15,7 +16,10 @@ interface HomeViewProps {
   onStartPomodoro: (task: TimelineTask) => void;
 }
 
-export default function HomeView({ onCategorySelect, userId, onViewAll, onViewCalendar, onViewStats, onEditTask, onStartPomodoro }: HomeViewProps) {
+const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+
+export default function HomeView({ darkMode = false, onCategorySelect, userId, onViewAll, onViewCalendar, onViewStats, onEditTask, onStartPomodoro }: HomeViewProps) {
+  const dark = darkMode;
   const [categories, setCategories] = useState<Category[]>([]);
   const [allTasks, setAllTasks] = useState<TimelineTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,12 +68,6 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onViewCa
     return a.time.localeCompare(b.time);
   });
 
-  // İstatistikler
-  const totalTasks = allTasks.length;
-  const completedTasks = allTasks.filter(t => t.completed).length;
-  const activeTasks = totalTasks - completedTasks;
-  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
   // Pomodoro istatistikleri
   const todayPomodoros = getTodayPomodoroCount(userId);
   const weekPomodoros = getWeekPomodoroCount(userId);
@@ -102,118 +100,74 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onViewCa
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-24">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-6 pt-6 pb-8 text-white">
-          <div className="max-w-md mx-auto">
-            <div className="h-8 bg-white/20 rounded w-48 mb-2 animate-pulse"></div>
-            <div className="h-4 bg-white/10 rounded w-32 animate-pulse"></div>
+      <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
+        <div className="max-w-md mx-auto px-5 pt-10 pb-8">
+          <div className={dark ? 'h-px w-12 bg-amber-400/80 mb-5' : 'mb-8'}>
+            <div className={`h-8 rounded w-48 mb-2 animate-pulse ${dark ? 'bg-zinc-700' : 'bg-stone-200'}`}></div>
+            <div className={`h-4 rounded w-32 animate-pulse ${dark ? 'bg-zinc-800' : 'bg-stone-100'}`}></div>
           </div>
-        </div>
-
-        <div className="max-w-md mx-auto px-4 -mt-4 space-y-4 pb-8">
-          <StatsCardSkeleton />
-          
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 animate-pulse">
-              <div className="h-6 bg-gray-200 rounded w-24 mb-1"></div>
-              <div className="h-3 bg-gray-100 rounded w-20"></div>
-            </div>
+          <div className={`rounded-2xl p-5 ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white border border-stone-100 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)]'}`}>
             <TaskListSkeleton count={3} />
           </div>
-          
-          <CategoryListSkeleton count={2} />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-6 pt-6 pb-8 text-white">
-        <div className="max-w-md mx-auto">
-          <h1 className="text-2xl font-bold mb-1">Hoş Geldin! 🎉</h1>
-          <p className="text-emerald-50 text-sm">Gününü planlamaya hazırsın</p>
-        </div>
-      </div>
-
-      <div className="max-w-md mx-auto px-4 -mt-4 space-y-4 pb-8">
-        {/* İstatistikler */}
-        {totalTasks > 0 && (
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-emerald-600 mb-1">{totalTasks}</div>
-                <div className="text-xs text-gray-500">Toplam</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-teal-600 mb-1">{completedTasks}</div>
-                <div className="text-xs text-gray-500">Tamamlanan</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-500 mb-1">{activeTasks}</div>
-                <div className="text-xs text-gray-500">Aktif</div>
-              </div>
-            </div>
-            {completionRate > 0 && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-gray-500">Tamamlanma Oranı</span>
-                  <span className="text-xs font-semibold text-emerald-600">%{completionRate}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all"
-                    style={{ width: `${completionRate}%` }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+    <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f] text-zinc-100' : 'bg-[#f5f0ea] text-stone-800'}`}>
+      <div className="max-w-md mx-auto px-5 pt-10 pb-8">
+        {/* Header — Tasarım 3: Hoş geldin 👋 / Tasarım 2: Günaydın + amber çizgi */}
+        <header className="mb-8">
+          {dark && <div className="h-px w-12 bg-amber-400/80 mb-5" />}
+          <h1 className={dark ? 'text-2xl font-semibold text-white tracking-tight' : 'text-3xl font-semibold text-stone-800'}>
+            {dark ? 'Günaydın' : 'Hoş geldin 👋'}
+          </h1>
+          <p className={dark ? 'text-sm text-zinc-500 mt-1' : 'text-stone-500 mt-1'}>
+            {todayStr} {MONTHS[currentMonth]} · {dark ? `${todayTasks.length} görev bugün` : 'Gününü planla'}
+          </p>
+        </header>
 
         {/* Pomodoro Özet */}
         {(todayPomodoros > 0 || weekPomodoros > 0) && (
           <button
             onClick={onViewStats}
-            className="w-full bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-5 shadow-sm border border-red-100 hover:shadow-md transition-all text-left"
+            className={`w-full rounded-2xl p-5 mb-4 text-left transition-all ${
+              dark
+                ? 'bg-zinc-900/60 border border-zinc-800/80 hover:bg-zinc-800/60'
+                : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100 hover:shadow-md'
+            }`}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-700">🍅 Odaklanma İstatistikleri</h3>
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <h3 className={dark ? 'text-sm font-medium text-zinc-300' : 'text-sm font-semibold text-stone-700'}>🍅 Odaklanma İstatistikleri</h3>
+              <svg className={`w-4 h-4 ${dark ? 'text-zinc-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600 mb-1">{todayPomodoros}</div>
-                <div className="text-xs text-gray-500">Bugün</div>
+                <div className={`text-2xl font-bold mb-1 ${dark ? 'text-amber-400/90' : 'text-red-600'}`}>{todayPomodoros}</div>
+                <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-gray-500'}>Bugün</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600 mb-1">{weekPomodoros}</div>
-                <div className="text-xs text-gray-500">Bu Hafta</div>
+                <div className={`text-2xl font-bold mb-1 ${dark ? 'text-amber-400/80' : 'text-orange-600'}`}>{weekPomodoros}</div>
+                <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-gray-500'}>Bu Hafta</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-amber-600 mb-1">{pomodoroStreak}</div>
-                <div className="text-xs text-gray-500">Streak 🔥</div>
+                <div className={`text-2xl font-bold mb-1 ${dark ? 'text-amber-400/70' : 'text-amber-600'}`}>{pomodoroStreak}</div>
+                <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-gray-500'}>Streak 🔥</div>
               </div>
             </div>
-            <div className="mt-3 text-xs text-center text-gray-500">
-              Detaylı istatistikler için tıkla
-            </div>
+            <div className={`mt-3 text-xs text-center ${dark ? 'text-zinc-500' : 'text-gray-500'}`}>Detaylı istatistikler için tıkla</div>
           </button>
         )}
 
         {/* Bugünün Görevleri */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Bugün</h2>
-              <p className="text-xs text-gray-500">{todayStr} {['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][currentMonth]}</p>
-            </div>
+        <div className={`rounded-[24px] overflow-hidden mb-4 ${dark ? 'bg-zinc-900/60 border border-zinc-800/80' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
+          <div className={`px-5 py-4 flex items-center justify-between ${dark ? 'border-b border-zinc-800/80' : 'border-b border-stone-100'}`}>
+            <h2 className={dark ? 'text-xs font-medium text-zinc-500' : 'text-sm font-semibold text-stone-600'}>Bugün</h2>
             {todayTasks.length > 0 && (
-              <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
+              <span className={dark ? 'px-2.5 py-1 bg-zinc-800 text-zinc-300 rounded-full text-xs font-medium' : 'px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold'}>
                 {todayTasks.length}
               </span>
             )}
@@ -221,42 +175,39 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onViewCa
 
           {todayTasks.length === 0 ? (
             <div className="px-5 py-12 text-center">
-              <div className="relative w-20 h-20 mx-auto mb-4">
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-2xl rotate-6 opacity-20 animate-pulse"></div>
-                <div className="relative w-20 h-20 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-2xl flex items-center justify-center">
-                  <svg className="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                </div>
+              <div className={`relative w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center ${dark ? 'bg-zinc-800/80' : 'bg-stone-100'}`}>
+                <svg className={`w-10 h-10 ${dark ? 'text-zinc-500' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-1">Harika bir gün!</h3>
-              <p className="text-sm text-gray-500 mb-6 px-4">
+              <h3 className={dark ? 'text-lg font-semibold text-white mb-1' : 'text-lg font-bold text-stone-800 mb-1'}>Harika bir gün!</h3>
+              <p className={`text-sm mb-6 px-4 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
                 Bugün için planlanmış görev yok. Yeni bir görev ekleyerek güne başla!
               </p>
               <div className="flex flex-col gap-2 max-w-xs mx-auto">
                 <button
                   onClick={() => onCategorySelect('add-task')}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl text-sm font-semibold hover:shadow-lg transition-all transform hover:scale-105"
+                  className={`w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white hover:shadow-lg hover:scale-[1.02]'}`}
                 >
                   + İlk Görevini Ekle
                 </button>
                 <button
                   onClick={onViewAll}
-                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
+                  className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-colors ${dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}
                 >
                   Tüm Görevleri Gör
                 </button>
               </div>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className={dark ? '' : 'p-2'}>
               {todayTasks.slice(0, 5).map((task) => (
                 <div
                   key={task.id}
-                  className="w-full px-5 py-4 hover:bg-gray-50 transition-colors flex items-center gap-3 group"
+                  className={`w-full flex items-center gap-3 group rounded-2xl ${dark ? 'py-3 px-4 border-b border-zinc-800/80 last:border-0' : 'p-4 mx-2 mb-2 bg-stone-50/80 hover:bg-amber-50/60'}`}
                 >
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'
+                    task.completed ? (dark ? 'bg-amber-400/80 border-amber-400/80' : 'bg-amber-500 border-amber-500') : (dark ? 'border-zinc-600' : 'border-stone-300')
                   }`}>
                     {task.completed && (
                       <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -265,24 +216,21 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onViewCa
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 truncate">
+                    <div className={`font-medium truncate ${dark ? 'text-zinc-200' : 'text-stone-800'}`}>
                       {task.title}
                       {task.subtasks && task.subtasks.length > 0 && (
-                        <span className="ml-2 text-xs text-emerald-600 font-semibold">
+                        <span className={`ml-2 text-xs font-semibold ${dark ? 'text-amber-400/80' : 'text-amber-700'}`}>
                           [{task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}]
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-gray-400">{task.time}</span>
-                      {task.category && (
-                        <span className="text-xs text-gray-400">•</span>
-                      )}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className={`text-xs tabular-nums w-11 ${dark ? 'text-amber-400/90' : 'text-amber-700/90'}`}>{task.time}</span>
                       {task.priority && (
                         <span className={`text-xs px-1.5 py-0.5 rounded ${
-                          task.priority === 'high' ? 'bg-red-100 text-red-600' :
-                          task.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' :
-                          'bg-green-100 text-green-600'
+                          task.priority === 'high' ? (dark ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-600') :
+                          task.priority === 'medium' ? (dark ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-600') :
+                          dark ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-600'
                         }`}>
                           {task.priority === 'high' ? 'Yüksek' : task.priority === 'medium' ? 'Orta' : 'Düşük'}
                         </span>
@@ -298,31 +246,30 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onViewCa
                         );
                       })}
                       {task.tags && task.tags.length > 2 && (
-                        <span className="text-xs text-gray-400">+{task.tags.length - 2}</span>
+                        <span className={dark ? 'text-xs text-zinc-500' : 'text-xs text-gray-400'}>+{task.tags.length - 2}</span>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onStartPomodoro(task);
-                      }}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                      onClick={(e) => { e.stopPropagation(); onStartPomodoro(task); }}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all opacity-0 group-hover:opacity-100 ${dark ? 'hover:bg-zinc-700' : 'hover:bg-red-50'}`}
                       title="Pomodoro Başlat"
                     >
                       <span className="text-lg">🍅</span>
                     </button>
-                    <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" onClick={() => onEditTask(task, todayStr)}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    <button onClick={() => onEditTask(task, todayStr)} className="flex-shrink-0">
+                      <svg className={`w-4 h-4 ${dark ? 'text-zinc-500' : 'text-gray-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))}
               {todayTasks.length > 5 && (
                 <button
                   onClick={onViewAll}
-                  className="w-full px-5 py-3 text-emerald-600 text-sm font-medium hover:bg-emerald-50 transition-colors"
+                  className={`w-full py-3 text-sm font-medium transition-colors rounded-b-2xl ${dark ? 'text-amber-400/90 hover:bg-zinc-800/60' : 'text-amber-700 hover:bg-amber-50/60'}`}
                 >
                   +{todayTasks.length - 5} görev daha görüntüle
                 </button>
@@ -333,52 +280,34 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onViewCa
 
         {/* Yaklaşan Görevler */}
         {upcomingTasks.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">Yaklaşan</h2>
-              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
-                {upcomingTasks.length}
-              </span>
+          <div className={`rounded-[24px] overflow-hidden mb-4 ${dark ? 'bg-zinc-900/40 border border-zinc-800/50' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
+            <div className={`px-5 py-4 ${dark ? 'border-b border-zinc-800/50' : 'border-b border-stone-100'}`}>
+              <h2 className={dark ? 'text-xs font-medium text-zinc-500' : 'text-sm font-semibold text-stone-600'}>Yaklaşan</h2>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-transparent">
               {upcomingTasks.slice(0, 3).map((task, idx) => {
                 const taskDate = parseInt(task.date);
                 const isTomorrow = taskDate === currentDay + 1;
-                const dateLabel = isTomorrow ? 'Yarın' : `${taskDate} ${['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][currentMonth]}`;
-                
+                const dateLabel = isTomorrow ? 'Yarın' : `${taskDate} ${MONTHS[currentMonth]}`;
                 return (
                   <button
                     key={`${task.id}-${idx}`}
                     onClick={() => onEditTask(task, task.date)}
-                    className="w-full px-5 py-4 hover:bg-gray-50 transition-colors text-left flex items-center gap-3"
+                    className={`w-full text-left flex items-center gap-3 rounded-2xl ${dark ? 'py-2.5 px-5 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/30' : 'py-3 px-4 mx-2 mb-2 bg-stone-50/60 hover:bg-stone-100/80'}`}
                   >
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0"></div>
+                    <span className={`text-xs w-14 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{dateLabel}</span>
+                    <span className={`text-xs tabular-nums w-10 ${dark ? 'text-zinc-500' : 'text-stone-400'}`}>{task.time}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 truncate">
+                      <div className={`font-medium truncate ${dark ? 'text-zinc-300' : 'text-stone-700'}`}>
                         {task.title}
                         {task.subtasks && task.subtasks.length > 0 && (
-                          <span className="ml-2 text-xs text-emerald-600 font-semibold">
+                          <span className={`ml-2 text-xs font-semibold ${dark ? 'text-amber-400/80' : 'text-amber-700'}`}>
                             [{task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}]
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-xs text-gray-400">{dateLabel}</span>
-                        <span className="text-xs text-gray-400">•</span>
-                        <span className="text-xs text-gray-400">{task.time}</span>
-                        {task.tags && task.tags.slice(0, 2).map(tagId => {
-                          const tag = DEFAULT_TAGS.find(t => t.id === tagId);
-                          if (!tag) return null;
-                          const colors = getTagColorClasses(tag.color);
-                          return (
-                            <span key={tagId} className={`text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text} font-medium`}>
-                              #{tag.name}
-                            </span>
-                          );
-                        })}
-                      </div>
                     </div>
-                    <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={`w-4 h-4 flex-shrink-0 ${dark ? 'text-zinc-500' : 'text-gray-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
@@ -390,90 +319,73 @@ export default function HomeView({ onCategorySelect, userId, onViewAll, onViewCa
 
         {/* Kategoriler Özeti */}
         {categoryStats.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">Kategoriler</h2>
+          <section className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className={dark ? 'text-xs font-medium text-zinc-500' : 'text-sm font-semibold text-stone-600'}>Kategoriler</h2>
               <button
                 onClick={() => onCategorySelect('categories')}
-                className="text-sm text-emerald-600 font-medium hover:text-emerald-700"
+                className={`text-sm font-medium ${dark ? 'text-amber-400/90 hover:text-amber-400' : 'text-amber-700 hover:text-amber-800'}`}
               >
                 Tümünü Gör
               </button>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="flex flex-wrap gap-3">
               {categoryStats.map((cat) => {
                 const colors = getCategoryColor(cat.color);
                 return (
                   <button
                     key={cat.id}
                     onClick={() => onCategorySelect(cat.id)}
-                    className="w-full px-5 py-4 hover:bg-gray-50 transition-colors text-left flex items-center gap-3"
+                    className={`flex items-center gap-3 rounded-2xl transition-all ${
+                      dark
+                        ? 'px-4 py-2.5 bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/80 text-zinc-300'
+                        : 'px-5 py-3 bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md hover:border-amber-200/60 text-stone-700 font-medium'
+                    }`}
                   >
-                    <div className={`w-10 h-10 ${colors.light} rounded-xl flex items-center justify-center text-xl flex-shrink-0`}>
-                      {cat.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-900">{cat.name}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500">{cat.total} görev</span>
-                        {cat.total > 0 && (
-                          <>
-                            <span className="text-xs text-gray-300">•</span>
-                            <div className="flex-1 max-w-24 bg-gray-200 rounded-full h-1.5">
-                              <div
-                                className={`${colors.bg} h-1.5 rounded-full transition-all`}
-                                style={{ width: `${cat.progress}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-gray-500">%{cat.progress}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    <span className="text-xl">{cat.icon}</span>
+                    <span className="text-sm">{cat.name}</span>
+                    <span className={dark ? 'text-zinc-500 text-sm' : 'text-stone-400 text-sm font-normal'}>{cat.total} görev</span>
                   </button>
                 );
               })}
             </div>
-          </div>
+          </section>
         )}
 
         {/* Hızlı İşlemler */}
         <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => onCategorySelect('add-task')}
-            className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all text-center"
+            className={`rounded-2xl p-4 transition-all text-center ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
           >
-            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${dark ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
+              <svg className={`w-5 h-5 ${dark ? 'text-amber-400' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             </div>
-            <div className="text-sm font-semibold text-gray-900">Ekle</div>
+            <div className={`text-sm font-semibold ${dark ? 'text-zinc-200' : 'text-stone-900'}`}>Ekle</div>
           </button>
           <button
             onClick={onViewAll}
-            className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all text-center"
+            className={`rounded-2xl p-4 transition-all text-center ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
           >
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${dark ? 'bg-zinc-700' : 'bg-stone-100'}`}>
+              <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
             </div>
-            <div className="text-sm font-semibold text-gray-900">Liste</div>
+            <div className={`text-sm font-semibold ${dark ? 'text-zinc-200' : 'text-stone-900'}`}>Liste</div>
           </button>
           <button
             onClick={onViewCalendar}
-            className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all text-center"
+            className={`rounded-2xl p-4 transition-all text-center ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
           >
-            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${dark ? 'bg-zinc-700' : 'bg-stone-100'}`}>
+              <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <div className="text-sm font-semibold text-gray-900">Takvim</div>
+            <div className={`text-sm font-semibold ${dark ? 'text-zinc-200' : 'text-stone-900'}`}>Takvim</div>
           </button>
         </div>
       </div>

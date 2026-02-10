@@ -25,6 +25,22 @@ export default function Home() {
   const [selectedFocus, setSelectedFocus] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
   const [pomodoroTask, setPomodoroTask] = useState<TimelineTask | null>(null);
+  /** Görev ekleme/düzenlemeden Geri veya Kaydet sonrası dönülecek ekran */
+  const [returnViewAfterEdit, setReturnViewAfterEdit] = useState<'home' | 'tasks' | 'category' | 'categories' | 'calendar'>('home');
+  /** Takvimden seçilen gün; Görevler ekranında bu tarih vurgulanır */
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState<string | undefined>(undefined);
+  /** Karanlık mod (Ana Sayfa tasarımı Dark Refined olur) */
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('app_dark_mode') : null;
+    setIsDarkMode(stored === 'true');
+  }, []);
+
+  const handleDarkModeChange = (value: boolean) => {
+    if (typeof window !== 'undefined') localStorage.setItem('app_dark_mode', String(value));
+    setIsDarkMode(value);
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -79,7 +95,7 @@ export default function Home() {
 
   const handleSaveTask = async (task: TimelineTask) => {
     await saveTaskToSupabase(userId, task);
-    setCurrentView(selectedCategory ? 'category' : 'tasks');
+    setCurrentView(returnViewAfterEdit);
     setEditingTask(null);
   };
 
@@ -114,12 +130,16 @@ export default function Home() {
       setCurrentView('home');
     } else if (view === 'tasks') {
       setSelectedCategory(null);
+      setCalendarSelectedDate(undefined);
       setCurrentView('tasks');
     } else if (view === 'calendar') {
       setSelectedCategory(null);
       setCurrentView('calendar');
     } else if (view === 'add-task') {
       setEditingTask(null);
+      setReturnViewAfterEdit(
+        currentView === 'tasks' ? 'tasks' : currentView === 'calendar' ? 'calendar' : currentView === 'category' ? 'category' : currentView === 'categories' ? 'categories' : 'home'
+      );
       setCurrentView('edit-task');
     } else if (view === 'categories') {
       setCurrentView('categories');
@@ -146,6 +166,8 @@ export default function Home() {
         <SettingsView
           userId={userId}
           onLogout={handleLogout}
+          darkMode={isDarkMode}
+          onDarkModeChange={handleDarkModeChange}
         />
       );
     }
@@ -154,9 +176,10 @@ export default function Home() {
       return (
         <EditTaskView
           task={editingTask || undefined}
+          darkMode={isDarkMode}
           onBack={() => {
             setViewingDate(undefined);
-            setCurrentView(selectedCategory ? 'category' : 'home');
+            setCurrentView(returnViewAfterEdit);
           }}
           onSave={(task) => {
             handleSaveTask(task);
@@ -165,7 +188,7 @@ export default function Home() {
           onDelete={() => {
             setEditingTask(null);
             setViewingDate(undefined);
-            setCurrentView(selectedCategory ? 'category' : 'home');
+            setCurrentView(returnViewAfterEdit);
           }}
           userId={userId}
           defaultDate={editingTask?.date}
@@ -181,6 +204,7 @@ export default function Home() {
           onBack={() => setCurrentView('home')}
           userId={userId}
           onEditTask={(task, date) => {
+            setReturnViewAfterEdit('category');
             setEditingTask(task);
             setViewingDate(date);
             setCurrentView('edit-task');
@@ -194,13 +218,17 @@ export default function Home() {
       return (
         <TasksView
           userId={userId}
+          darkMode={isDarkMode}
+          initialDateFromCalendar={calendarSelectedDate}
           onBack={() => setCurrentView('home')}
           onEditTask={(task: TimelineTask, date?: string) => {
+            setReturnViewAfterEdit('tasks');
             setEditingTask(task);
             setViewingDate(date);
             setCurrentView('edit-task');
           }}
           onAddTask={() => {
+            setReturnViewAfterEdit('tasks');
             setEditingTask(null);
             setViewingDate(undefined);
             setCurrentView('edit-task');
@@ -214,12 +242,15 @@ export default function Home() {
       return (
         <CalendarView
           userId={userId}
+          darkMode={isDarkMode}
           onBack={() => setCurrentView('home')}
           onDateSelect={(date) => {
             setSelectedCategory(null);
+            setCalendarSelectedDate(date);
             setCurrentView('tasks');
           }}
           onEditTask={(task, date) => {
+            setReturnViewAfterEdit('calendar');
             setEditingTask(task);
             setViewingDate(date);
             setCurrentView('edit-task');
@@ -232,6 +263,7 @@ export default function Home() {
       return (
         <CategoriesView
           userId={userId}
+          darkMode={isDarkMode}
           onBack={() => setCurrentView('home')}
           onCategorySelect={(category) => {
             setSelectedCategory(category);
@@ -243,8 +275,10 @@ export default function Home() {
 
     return (
       <HomeView
+        darkMode={isDarkMode}
         onCategorySelect={(category) => {
           if (category === 'add-task') {
+            setReturnViewAfterEdit('home');
             setEditingTask(null);
             setCurrentView('edit-task');
           } else if (category === 'categories') {
@@ -259,6 +293,7 @@ export default function Home() {
         onViewCalendar={() => setCurrentView('calendar')}
         onViewStats={() => setCurrentView('settings')}
         onEditTask={(task, date) => {
+          setReturnViewAfterEdit('home');
           setEditingTask(task);
           setViewingDate(date);
           setCurrentView('edit-task');
@@ -272,7 +307,7 @@ export default function Home() {
     <div className="pb-16">
       {renderCurrentView()}
       {showBottomNav && (
-        <BottomNav currentView={currentView} onNavigate={handleBottomNav} />
+        <BottomNav currentView={currentView} onNavigate={handleBottomNav} darkMode={isDarkMode} />
       )}
       {pomodoroTask && (
         <PomodoroTimer

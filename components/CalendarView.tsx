@@ -6,12 +6,14 @@ import { fetchTasksFromSupabase, filterRecurringTasks } from '@/lib/helpers';
 
 interface CalendarViewProps {
   userId: string;
+  darkMode?: boolean;
   onBack: () => void;
   onDateSelect: (date: string) => void;
   onEditTask: (task: TimelineTask, date?: string) => void;
 }
 
-export default function CalendarView({ userId, onBack, onDateSelect, onEditTask }: CalendarViewProps) {
+export default function CalendarView({ userId, darkMode = false, onBack, onDateSelect, onEditTask }: CalendarViewProps) {
+  const dark = darkMode;
   const [tasks, setTasks] = useState<TimelineTask[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -38,31 +40,17 @@ export default function CalendarView({ userId, onBack, onDateSelect, onEditTask 
     setLoading(false);
   };
 
-  // Ayın ilk gününün haftanın hangi günü olduğunu bul (0 = Pazar, 1 = Pazartesi, ...)
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-  const adjustedFirstDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; // Pazartesi başlasın
-
-  // Ayın kaç günü olduğunu bul
+  const adjustedFirstDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-
-  // Önceki ayın son günleri
   const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
   const prevMonthDays = Array.from({ length: adjustedFirstDay }, (_, i) => daysInPrevMonth - adjustedFirstDay + i + 1);
-
-  // Bu ayın günleri
   const currentMonthDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-  // Sonraki ayın ilk günleri (toplam 42 hücre için)
   const totalCells = 42;
   const remainingCells = totalCells - prevMonthDays.length - currentMonthDays.length;
   const nextMonthDays = Array.from({ length: remainingCells }, (_, i) => i + 1);
 
-  // Gün başına görev sayısı
-  const getTasksForDay = (day: number) => {
-    return filterRecurringTasks(tasks, day.toString());
-  };
-
-  // Seçili günün görevleri
+  const getTasksForDay = (day: number) => filterRecurringTasks(tasks, day.toString());
   const selectedDayTasks = selectedDate ? filterRecurringTasks(tasks, selectedDate).sort((a, b) => a.time.localeCompare(b.time)) : [];
 
   const goToPreviousMonth = () => {
@@ -81,52 +69,47 @@ export default function CalendarView({ userId, onBack, onDateSelect, onEditTask 
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-5 sticky top-0 z-10">
+      <div className={`sticky top-0 z-10 px-6 py-5 border-b ${dark ? 'bg-[#0f0f0f] border-zinc-800' : 'bg-[#f5f0ea] border-stone-200'}`}>
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={onBack}
-              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}
             >
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-6 h-6 ${dark ? 'text-zinc-300' : 'text-stone-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className={`text-2xl font-bold ${dark ? 'text-white' : 'text-stone-900'}`}>
               {months[currentMonth]} {currentYear}
             </h1>
-
             <button
               onClick={goToToday}
-              className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-200 transition-colors"
+              className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${
+                dark ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+              }`}
             >
               Bugün
             </button>
           </div>
 
-          {/* Ay Navigasyonu */}
           <div className="flex items-center justify-between">
             <button
               onClick={goToPreviousMonth}
-              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}
             >
-              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-
-            <div className="text-sm text-gray-500">
-              {tasks.length} görev
-            </div>
-
+            <div className={`text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{tasks.length} görev</div>
             <button
               onClick={goToNextMonth}
-              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}
             >
-              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
@@ -138,36 +121,31 @@ export default function CalendarView({ userId, onBack, onDateSelect, onEditTask 
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center">
-              <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-500">Takvim yükleniyor...</p>
+              <div className={`w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4 ${dark ? 'border-zinc-700 border-t-amber-400/80' : 'border-stone-200 border-t-amber-500'}`} />
+              <p className={dark ? 'text-zinc-500' : 'text-stone-500'}>Takvim yükleniyor...</p>
             </div>
           </div>
         ) : (
           <>
-            {/* Calendar Grid */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-              {/* Gün İsimleri */}
-              <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
+            <div className={`rounded-2xl overflow-hidden mb-6 ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
+              <div className={`grid grid-cols-7 border-b ${dark ? 'border-zinc-800 bg-zinc-900/40' : 'border-stone-200 bg-stone-50/80'}`}>
                 {dayNames.map((day) => (
-                  <div key={day} className="text-center py-3 text-xs font-semibold text-gray-600">
+                  <div key={day} className={`text-center py-3 text-xs font-semibold ${dark ? 'text-zinc-500' : 'text-stone-600'}`}>
                     {day}
                   </div>
                 ))}
               </div>
 
-              {/* Takvim Günleri */}
               <div className="grid grid-cols-7">
-                {/* Önceki ayın günleri */}
                 {prevMonthDays.map((day) => (
                   <div
                     key={`prev-${day}`}
-                    className="aspect-square border border-gray-100 p-2 bg-gray-50 opacity-40"
+                    className={`aspect-square border p-2 opacity-40 ${dark ? 'border-zinc-800 bg-zinc-900/40' : 'border-stone-100 bg-stone-50/50'}`}
                   >
-                    <div className="text-sm text-gray-400">{day}</div>
+                    <div className={`text-sm ${dark ? 'text-zinc-600' : 'text-stone-400'}`}>{day}</div>
                   </div>
                 ))}
 
-                {/* Bu ayın günleri */}
                 {currentMonthDays.map((day) => {
                   const dayTasks = getTasksForDay(day);
                   const isToday = day === todayDate && currentMonth === todayMonth && currentYear === todayYear;
@@ -178,41 +156,49 @@ export default function CalendarView({ userId, onBack, onDateSelect, onEditTask 
                   return (
                     <button
                       key={day}
-                      onClick={() => {
-                        setSelectedDate(day.toString());
-                      }}
-                      className={`aspect-square border border-gray-100 p-2 text-left hover:bg-emerald-50 transition-all relative ${
-                        isSelected ? 'bg-emerald-50 border-emerald-300' : ''
-                      } ${isToday ? 'bg-blue-50 border-blue-300' : ''}`}
+                      onClick={() => setSelectedDate(day.toString())}
+                      className={`aspect-square border p-2 text-left transition-all relative ${
+                        dark
+                          ? isSelected
+                            ? 'bg-amber-500/20 border-amber-500/40'
+                            : isToday
+                              ? 'bg-amber-500/10 border-amber-500/30'
+                              : 'border-zinc-800 hover:bg-zinc-800'
+                          : isSelected
+                            ? 'bg-amber-100 border-amber-300'
+                            : isToday
+                              ? 'bg-amber-50 border-amber-200'
+                              : 'border-stone-100 hover:bg-white/80'
+                      }`}
                     >
                       <div className={`text-sm font-semibold mb-1 ${
-                        isToday ? 'text-blue-600' : isSelected ? 'text-emerald-600' : 'text-gray-900'
+                        isToday ? (dark ? 'text-amber-400' : 'text-amber-700') : isSelected ? (dark ? 'text-amber-400' : 'text-amber-700') : dark ? 'text-zinc-200' : 'text-stone-900'
                       }`}>
                         {day}
                       </div>
-                      
                       {totalCount > 0 && (
                         <div className="space-y-0.5">
                           {dayTasks.slice(0, 2).map((task) => (
                             <div
                               key={task.id}
                               className={`text-[10px] px-1.5 py-0.5 rounded truncate ${
-                                task.completed ? 'bg-gray-100 text-gray-400' : 'bg-emerald-100 text-emerald-700'
+                                task.completed
+                                  ? dark ? 'bg-zinc-700 text-zinc-500' : 'bg-stone-100 text-stone-400'
+                                  : dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'
                               }`}
                             >
                               {task.title}
                             </div>
                           ))}
                           {totalCount > 2 && (
-                            <div className="text-[10px] text-gray-500 font-medium">
+                            <div className={`text-[10px] font-medium ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
                               +{totalCount - 2} daha
                             </div>
                           )}
                         </div>
                       )}
-
                       {totalCount > 0 && (
-                        <div className="absolute bottom-1 right-1 text-[10px] font-bold text-emerald-600">
+                        <div className={`absolute bottom-1 right-1 text-[10px] font-bold ${dark ? 'text-amber-400/90' : 'text-amber-600'}`}>
                           {completedCount}/{totalCount}
                         </div>
                       )}
@@ -220,44 +206,42 @@ export default function CalendarView({ userId, onBack, onDateSelect, onEditTask 
                   );
                 })}
 
-                {/* Sonraki ayın günleri */}
                 {nextMonthDays.map((day) => (
                   <div
                     key={`next-${day}`}
-                    className="aspect-square border border-gray-100 p-2 bg-gray-50 opacity-40"
+                    className={`aspect-square border p-2 opacity-40 ${dark ? 'border-zinc-800 bg-zinc-900/40' : 'border-stone-100 bg-stone-50/50'}`}
                   >
-                    <div className="text-sm text-gray-400">{day}</div>
+                    <div className={`text-sm ${dark ? 'text-zinc-600' : 'text-stone-400'}`}>{day}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Seçili Günün Detayları */}
             {selectedDate && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
-                  <h2 className="text-lg font-bold">
+              <div className={`rounded-2xl overflow-hidden ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
+                <div className={`px-5 py-4 border-b ${dark ? 'bg-amber-500/20 border-zinc-800' : 'bg-amber-50 border-stone-100'}`}>
+                  <h2 className={`text-lg font-bold ${dark ? 'text-white' : 'text-stone-900'}`}>
                     {selectedDate} {months[currentMonth]}
                   </h2>
-                  <p className="text-sm text-emerald-50">
+                  <p className={`text-sm ${dark ? 'text-amber-400/90' : 'text-amber-700/90'}`}>
                     {selectedDayTasks.length} görev
                   </p>
                 </div>
 
                 {selectedDayTasks.length === 0 ? (
                   <div className="px-5 py-8 text-center">
-                    <p className="text-sm text-gray-500">Bu gün için görev yok</p>
+                    <p className={`text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Bu tarihte görev yok</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-100">
+                  <div className={dark ? 'divide-y divide-zinc-800' : 'divide-y divide-stone-100'}>
                     {selectedDayTasks.map((task) => (
                       <button
                         key={task.id}
                         onClick={() => onEditTask(task, selectedDate)}
-                        className="w-full px-5 py-4 hover:bg-gray-50 transition-colors text-left flex items-center gap-3"
+                        className={`w-full px-5 py-4 text-left flex items-center gap-3 transition-colors ${dark ? 'hover:bg-zinc-800/80' : 'hover:bg-stone-50'}`}
                       >
                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                          task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'
+                          task.completed ? (dark ? 'bg-amber-500/80 border-amber-500/80' : 'bg-amber-500 border-amber-500') : (dark ? 'border-zinc-600' : 'border-stone-300')
                         }`}>
                           {task.completed && (
                             <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -266,23 +250,23 @@ export default function CalendarView({ userId, onBack, onDateSelect, onEditTask 
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className={`font-medium truncate ${task.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                          <div className={`font-medium truncate ${task.completed ? (dark ? 'line-through text-zinc-500' : 'line-through text-stone-400') : (dark ? 'text-zinc-100' : 'text-stone-900')}`}>
                             {task.title}
                             {task.subtasks && task.subtasks.length > 0 && (
-                              <span className="ml-2 text-xs text-emerald-600 font-semibold">
+                              <span className={`ml-2 text-xs font-semibold ${dark ? 'text-amber-400/90' : 'text-amber-600'}`}>
                                 [{task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}]
                               </span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-gray-400">{task.time}</span>
+                            <span className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-400'}`}>{task.time}</span>
                             {task.priority && (
                               <>
-                                <span className="text-xs text-gray-400">•</span>
+                                <span className={dark ? 'text-zinc-600' : 'text-stone-300'}>•</span>
                                 <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  task.priority === 'high' ? 'bg-red-100 text-red-600' :
-                                  task.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' :
-                                  'bg-green-100 text-green-600'
+                                  task.priority === 'high' ? (dark ? 'bg-red-900/40 text-red-400' : 'bg-red-100 text-red-600') :
+                                  task.priority === 'medium' ? (dark ? 'bg-amber-900/40 text-amber-400' : 'bg-amber-100 text-amber-700') :
+                                  dark ? 'bg-green-900/40 text-green-400' : 'bg-green-100 text-green-600'
                                 }`}>
                                   {task.priority === 'high' ? 'Yüksek' : task.priority === 'medium' ? 'Orta' : 'Düşük'}
                                 </span>
@@ -290,7 +274,7 @@ export default function CalendarView({ userId, onBack, onDateSelect, onEditTask 
                             )}
                           </div>
                         </div>
-                        <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={`w-4 h-4 flex-shrink-0 ${dark ? 'text-zinc-500' : 'text-stone-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </button>

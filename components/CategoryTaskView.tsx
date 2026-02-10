@@ -256,14 +256,14 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
               {filter === 'completed' ? '🎉' : categoryData?.icon || '📝'}
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">
-              {filter === 'completed' ? 'Tamamlanan görev yok' : filter === 'active' ? 'Aktif görev yok' : 'Henüz görev yok'}
+              {filter === 'completed' ? 'Tamamlanan görev yok' : filter === 'active' ? 'Aktif görev yok' : 'Bu kategoride henüz görev yok'}
             </h2>
             <p className="text-gray-500 text-sm mb-6 text-center">
               {filter === 'completed'
                 ? 'Görevlerini tamamladıkça burada görünecek'
                 : filter === 'active'
                 ? 'Tüm görevler tamamlanmış, harika!'
-                : 'İlk görevini ekleyerek başla'}
+                : 'Bu kategoriye ilk görevini ekleyerek başla'}
             </p>
             {filter === 'all' && (
               <button
