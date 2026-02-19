@@ -21,6 +21,9 @@ export default function TasksView({ userId, darkMode = false, initialDateFromCal
   const [tasks, setTasks] = useState<TimelineTask[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | 'all'>('all');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [showOnlyImportant, setShowOnlyImportant] = useState(false);
+  const [completedFilter, setCompletedFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
   const today = new Date();
@@ -54,9 +57,15 @@ export default function TasksView({ userId, darkMode = false, initialDateFromCal
   const handleToggleTask = async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    const updatedTask = { ...task, completed: !task.completed };
+    const updatedTask = { ...task, completed: !task.completed, completedAt: !task.completed ? new Date().toISOString() : undefined };
     await saveTaskToSupabase(userId, updatedTask);
     setTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+  };
+
+  const matchesSearch = (t: TimelineTask, q: string) => {
+    if (!q.trim()) return true;
+    const lower = q.trim().toLowerCase();
+    return t.title.toLowerCase().includes(lower) || (t.description?.toLowerCase().includes(lower) ?? false);
   };
 
   const getGroupedTasks = () => {
@@ -65,7 +74,17 @@ export default function TasksView({ userId, darkMode = false, initialDateFromCal
       const dayStr = day.toString();
       let filtered = filterRecurringTasks(tasks, dayStr);
       if (selectedTag) filtered = filtered.filter(t => t.tags && t.tags.includes(selectedTag));
-      if (filtered.length > 0) grouped[dayStr] = filtered.sort((a, b) => a.time.localeCompare(b.time));
+      if (showOnlyImportant) filtered = filtered.filter(t => t.priority === 'high');
+      if (completedFilter === 'active') filtered = filtered.filter(t => !t.completed);
+      else if (completedFilter === 'completed') filtered = filtered.filter(t => t.completed);
+      if (searchQuery.trim()) filtered = filtered.filter(t => matchesSearch(t, searchQuery));
+      if (filtered.length > 0) {
+        grouped[dayStr] = filtered.sort((a, b) => {
+          const orderA = a.orderIndex ?? 9999;
+          const orderB = b.orderIndex ?? 9999;
+          return orderA !== orderB ? orderA - orderB : a.time.localeCompare(b.time);
+        });
+      }
     });
     return grouped;
   };
@@ -88,6 +107,23 @@ export default function TasksView({ userId, darkMode = false, initialDateFromCal
       const el = document.getElementById(`date-group-${date}`);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
+  };
+
+  const handleMoveTask = async (dayStr: string, taskIndex: number, direction: 'up' | 'down') => {
+    const dayTasks = groupedTasks[dayStr];
+    if (!dayTasks || dayTasks.length === 0) return;
+    const otherIndex = direction === 'up' ? taskIndex - 1 : taskIndex + 1;
+    if (otherIndex < 0 || otherIndex >= dayTasks.length) return;
+    const taskA = dayTasks[taskIndex];
+    const taskB = dayTasks[otherIndex];
+    if (!taskA.id || !taskB.id) return;
+    const orderA = taskA.orderIndex ?? taskIndex;
+    const orderB = taskB.orderIndex ?? otherIndex;
+    const updatedA = { ...taskA, orderIndex: orderB };
+    const updatedB = { ...taskB, orderIndex: orderA };
+    await saveTaskToSupabase(userId, updatedA);
+    await saveTaskToSupabase(userId, updatedB);
+    setTasks(prev => prev.map(t => t.id === updatedA.id ? updatedA : t.id === updatedB.id ? updatedB : t));
   };
 
   if (loading) {
@@ -120,6 +156,18 @@ export default function TasksView({ userId, darkMode = false, initialDateFromCal
             </h1>
             <div className="w-10" />
           </div>
+          {/* Arama */}
+          <div className="mt-3">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Görev ara (başlık veya not)"
+              className={`w-full px-4 py-2.5 rounded-xl text-sm border transition-all placeholder:opacity-70 ${
+                dark ? 'bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500' : 'bg-white border-stone-200 text-stone-800 placeholder:text-stone-400'
+              }`}
+            />
+          </div>
         </header>
 
         {/* Tarih strip + filtreler */}
@@ -135,6 +183,17 @@ export default function TasksView({ userId, darkMode = false, initialDateFromCal
                 }`}
               >
                 Tümü
+              </button>
+              <button
+                onClick={() => setShowOnlyImportant(!showOnlyImportant)}
+                className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1 ${
+                  showOnlyImportant
+                    ? dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'
+                    : dark ? 'bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                <span>⭐</span>
+                Önemli
               </button>
               <button
                 onClick={() => handleDateSelect(currentDay.toString())}
@@ -172,6 +231,22 @@ export default function TasksView({ userId, darkMode = false, initialDateFromCal
             </div>
           </div>
 
+          {/* Tamamlanan / Aktif filtre */}
+          <div className="flex gap-2 mt-3 flex-wrap">
+            {(['all', 'active', 'completed'] as const).map((key) => (
+              <button
+                key={key}
+                onClick={() => setCompletedFilter(key)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                  completedFilter === key
+                    ? dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'
+                    : dark ? 'bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                {key === 'all' ? 'Tümü' : key === 'active' ? 'Aktif' : 'Tamamlanan'}
+              </button>
+            ))}
+          </div>
           {/* Tag filtreleri */}
           <div className="overflow-x-auto scrollbar-hide mt-3 pt-3 border-t border-transparent" style={{ borderColor: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
             <div className="flex gap-2" style={{ minWidth: 'max-content' }}>
@@ -213,13 +288,17 @@ export default function TasksView({ userId, darkMode = false, initialDateFromCal
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
             </div>
-            <h2 className={`text-xl font-bold mb-2 ${dark ? 'text-white' : 'text-stone-800'}`}>Bu ayda henüz görev yok</h2>
-            <p className={`mb-6 text-center text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>İlk görevini oluşturarak günü planlamaya başla</p>
+            <h2 className={`text-xl font-bold mb-2 ${dark ? 'text-white' : 'text-stone-800'}`}>
+              {showOnlyImportant ? 'Önemli görev yok' : 'Bu ayda henüz görev yok'}
+            </h2>
+            <p className={`mb-6 text-center text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
+              {showOnlyImportant ? 'Yüksek öncelikli görev ekleyerek "Önemli" filtresinde görebilirsin.' : 'İlk görevini oluşturarak günü planlamaya başla'}
+            </p>
             <button
               onClick={onAddTask}
               className={`px-6 py-3 rounded-xl font-semibold transition-all ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white hover:shadow-lg hover:scale-[1.02]'}`}
             >
-              + İlk Görevi Oluştur
+              + {showOnlyImportant ? 'Görev Ekle' : 'İlk Görevi Oluştur'}
             </button>
           </div>
         ) : (
@@ -228,12 +307,17 @@ export default function TasksView({ userId, darkMode = false, initialDateFromCal
               const isEmpty = !dateGroup.tasks || dateGroup.tasks.length === 0;
               return (
                 <div key={dateGroup.date} id={`date-group-${dateGroup.date}`} className="scroll-mt-24">
-                  <div className={`flex items-center gap-3 mb-4 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                  <div className={`flex items-center gap-3 mb-4 flex-wrap ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
                     <span className="text-sm font-semibold">{dateGroup.date} {MONTHS[currentMonth]}</span>
                     <span className="text-xs">{getDayAbbreviation(parseInt(dateGroup.date))}</span>
                     {!isEmpty && (
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${dark ? 'bg-zinc-800 text-zinc-300' : 'bg-amber-100 text-amber-800'}`}>
                         {dateGroup.tasks.length}
+                      </span>
+                    )}
+                    {!isEmpty && parseInt(dateGroup.date) < currentDay && (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${dark ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-600'}`}>
+                        Gecikmiş
                       </span>
                     )}
                   </div>
@@ -251,12 +335,20 @@ export default function TasksView({ userId, darkMode = false, initialDateFromCal
                         <div
                           key={task.id || taskIndex}
                           onClick={() => onEditTask(task, dateGroup.date)}
-                          className={`flex items-center gap-3 rounded-2xl p-4 cursor-pointer transition-all ${
+                          className={`flex items-center gap-2 rounded-2xl p-4 cursor-pointer transition-all ${
                             dark
                               ? 'bg-zinc-900/60 border border-zinc-800/80 hover:bg-zinc-800/60'
                               : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md hover:border-amber-200/40'
-                          }`}
+                          } ${parseInt(dateGroup.date) < currentDay && !task.completed ? (dark ? 'border-l-4 border-l-red-500/60' : 'border-l-4 border-l-red-400') : ''}`}
                         >
+                          <div className="flex flex-col gap-0.5 flex-shrink-0">
+                            <button onClick={(e) => { e.stopPropagation(); handleMoveTask(dateGroup.date, taskIndex, 'up'); }} disabled={taskIndex === 0} className={`p-0.5 rounded ${dark ? 'text-zinc-500 hover:text-zinc-300 disabled:opacity-30' : 'text-stone-400 hover:text-stone-600 disabled:opacity-30'}`} aria-label="Yukarı">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); handleMoveTask(dateGroup.date, taskIndex, 'down'); }} disabled={taskIndex === dateGroup.tasks.length - 1} className={`p-0.5 rounded ${dark ? 'text-zinc-500 hover:text-zinc-300 disabled:opacity-30' : 'text-stone-400 hover:text-stone-600 disabled:opacity-30'}`} aria-label="Aşağı">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                          </div>
                           <span className={`text-sm font-medium tabular-nums w-11 flex-shrink-0 ${dark ? 'text-amber-400/90' : 'text-amber-700/90'}`}>
                             {task.time}
                           </span>

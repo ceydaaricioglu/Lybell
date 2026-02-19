@@ -1,4 +1,4 @@
-import { TimelineTask, Category } from './types';
+import { TimelineTask, Category, UserProfile } from './types';
 import { supabase } from './supabaseClient';
 
 // Helper Functions
@@ -82,6 +82,11 @@ export const fetchTasksFromSupabase = async (userId: string): Promise<TimelineTa
       originalDate: task.original_date,
       priority: task.priority,
       icon: task.icon,
+      reminderAt: task.reminder_at ?? undefined,
+      orderIndex: task.order_index ?? undefined,
+      completedAt: task.completed_at ?? undefined,
+      attachmentName: task.attachment_name ?? undefined,
+      attachmentData: task.attachment_data ?? undefined,
     }));
   } catch (error) {
     console.error('Error fetching tasks:', error);
@@ -121,6 +126,11 @@ export const saveTaskToSupabase = async (userId: string, task: TimelineTask): Pr
           original_date: task.originalDate,
           priority: task.priority,
           icon: task.icon,
+          reminder_at: task.reminderAt ?? null,
+          order_index: task.orderIndex ?? null,
+          completed_at: task.completedAt ?? null,
+          attachment_name: task.attachmentName ?? null,
+          attachment_data: task.attachmentData ?? null,
         })
         .eq('id', task.id)
         .eq('user_id', userId);
@@ -143,6 +153,11 @@ export const saveTaskToSupabase = async (userId: string, task: TimelineTask): Pr
           original_date: task.originalDate,
           priority: task.priority,
           icon: task.icon,
+          reminder_at: task.reminderAt ?? null,
+          order_index: task.orderIndex ?? null,
+          completed_at: task.completedAt ?? null,
+          attachment_name: task.attachmentName ?? null,
+          attachment_data: task.attachmentData ?? null,
         });
 
       if (error) {
@@ -415,6 +430,49 @@ export function getPomodoroStreak(userId: string): number {
   return streak;
 }
 
+// Bu hafta tamamlanan görev sayısı (completedAt bu hafta olanlar)
+export async function getWeekCompletedCount(userId: string): Promise<number> {
+  const tasks = isMockUser(userId) ? getMockTasks(userId) : await fetchTasksFromSupabase(userId);
+  const today = new Date();
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay() + 1);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekStartStr = weekStart.toISOString();
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+  const weekEndStr = weekEnd.toISOString();
+  return tasks.filter((t: TimelineTask) => t.completed && t.completedAt && t.completedAt >= weekStartStr && t.completedAt < weekEndStr).length;
+}
+
+// My Day (Bugün Odakta) – günlük sıfırlanan görev ID listesi. Tarih YYYY-MM-DD.
+export function getMyDayTaskIds(userId: string): string[] {
+  if (typeof window === 'undefined') return [];
+  const today = new Date().toISOString().split('T')[0];
+  const key = `myDay_${userId}_${today}`;
+  const raw = localStorage.getItem(key);
+  return raw ? JSON.parse(raw) : [];
+}
+
+export function setMyDayTaskIds(userId: string, taskIds: string[]): void {
+  if (typeof window === 'undefined') return;
+  const today = new Date().toISOString().split('T')[0];
+  const key = `myDay_${userId}_${today}`;
+  localStorage.setItem(key, JSON.stringify(taskIds));
+}
+
+export function toggleMyDayTask(userId: string, taskId: string): boolean {
+  const ids = getMyDayTaskIds(userId);
+  const i = ids.indexOf(taskId);
+  if (i >= 0) {
+    ids.splice(i, 1);
+    setMyDayTaskIds(userId, ids);
+    return false;
+  }
+  ids.push(taskId);
+  setMyDayTaskIds(userId, ids);
+  return true;
+}
+
 // Kategori bazlı pomodoro sayısı
 export function getCategoryPomodoroCount(userId: string, categoryId: string): number {
   const records = getPomodoroRecords(userId);
@@ -442,4 +500,48 @@ export function getWeeklyPomodoroDistribution(userId: string): { date: string; c
   }
   
   return weekData;
+}
+
+// Profil (display name, doğum tarihi, cinsiyet) – mock: localStorage; gerçek: Supabase profiles
+export async function getProfile(userId: string): Promise<UserProfile> {
+  if (isMockUser(userId)) {
+    if (typeof window === 'undefined') return {};
+    const raw = localStorage.getItem(`profile_${userId}`);
+    return raw ? JSON.parse(raw) : {};
+  }
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('display_name, date_of_birth, gender')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) return {};
+    if (!data) return {};
+    return {
+      displayName: data.display_name ?? null,
+      dateOfBirth: data.date_of_birth ?? null,
+      gender: (data.gender as UserProfile['gender']) ?? null,
+    };
+  } catch {
+    return {};
+  }
+}
+
+export async function saveProfile(userId: string, profile: UserProfile): Promise<void> {
+  if (isMockUser(userId)) {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(`profile_${userId}`, JSON.stringify(profile));
+    return;
+  }
+  try {
+    await supabase.from('profiles').upsert({
+      id: userId,
+      display_name: profile.displayName ?? null,
+      date_of_birth: profile.dateOfBirth ?? null,
+      gender: profile.gender ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+  } catch {
+    // ignore
+  }
 }

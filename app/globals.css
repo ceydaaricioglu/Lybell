@@ -19,6 +19,17 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Safe area: status bar (üst) ve sistem tuşları / gesture bar (alt) - APK / iOS */
+.safe-area-body {
+  padding-top: max(env(safe-area-inset-top, 0px), 24px);
+}
+.nav-safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 32px);
+}
+.main-content-pad {
+  padding-bottom: calc(4rem + max(env(safe-area-inset-bottom, 0px), 32px));
+}
+
 @keyframes float {
   0%, 100% {
     transform: translateY(0px);

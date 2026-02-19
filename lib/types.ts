@@ -21,6 +21,16 @@ export interface TimelineTask {
   priority?: 'high' | 'medium' | 'low' | null;
   tags?: string[];
   subtasks?: SubTask[];
+  /** Opsiyonel hatırlatma saati (HH:mm). Bildirim tetiklemesi ayrı yapılacak. */
+  reminderAt?: string | null;
+  /** Aynı gün içinde sıralama (küçük önce). */
+  orderIndex?: number | null;
+  /** Tamamlanma anı (ISO string); "bu hafta tamamlanan" için kullanılır. */
+  completedAt?: string | null;
+  /** Ekli dosya adı (tek dosya, küçük limit). */
+  attachmentName?: string | null;
+  /** Ekli dosya (base64, ~500KB limit). */
+  attachmentData?: string | null;
 }
 
 export interface Tag {
@@ -35,4 +45,11 @@ export interface Category {
   icon: string;
   color: string;
   userId: string;
+}
+
+/** Kullanıcı profili – Ayarlar > Profil ekranında düzenlenir. */
+export interface UserProfile {
+  displayName?: string | null;
+  dateOfBirth?: string | null; // YYYY-MM-DD
+  gender?: 'female' | 'male' | 'other' | null;
 }

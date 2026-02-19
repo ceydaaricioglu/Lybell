@@ -3,7 +3,16 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { TimelineTask } from '@/lib/types';
-import { saveTaskToSupabase } from '@/lib/helpers';
+import { saveTaskToSupabase, fetchTasksFromSupabase, filterRecurringTasks } from '@/lib/helpers';
+import {
+  getNotificationsEnabled,
+  getDailyDigestEnabled,
+  getDailyDigestTime,
+  getOverdueReminderEnabled,
+  getOverdueReminderTime,
+  LAST_DAILY_DIGEST_PREFIX,
+  LAST_OVERDUE_REMINDER_PREFIX,
+} from '@/lib/notifications';
 import LoginView from '@/components/LoginView';
 import { OnboardingStep1, OnboardingStep2 } from '@/components/Onboarding';
 import HomeView from '@/components/HomeView';
@@ -12,13 +21,17 @@ import CategoriesView from '@/components/CategoriesView';
 import EditTaskView from '@/components/EditTaskView';
 import TasksView from '@/components/TasksView';
 import SettingsView from '@/components/SettingsView';
+import ProfileView from '@/components/ProfileView';
+import ProUpgradeView from '@/components/ProUpgradeView';
+import type { PlanId } from '@/components/ProUpgradeView';
 import BottomNav from '@/components/BottomNav';
 import PomodoroTimer from '@/components/PomodoroTimer';
 import CalendarView from '@/components/CalendarView';
+import { LocaleProvider } from '@/components/LocaleContext';
 
 export default function Home() {
   const [userId, setUserId] = useState<string>('');
-  const [currentView, setCurrentView] = useState<'login' | 'onboarding1' | 'onboarding2' | 'home' | 'category' | 'categories' | 'tasks' | 'calendar' | 'edit-task' | 'settings'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'onboarding1' | 'onboarding2' | 'home' | 'category' | 'categories' | 'tasks' | 'calendar' | 'edit-task' | 'settings' | 'profile' | 'pro'>('login');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
   const [viewingDate, setViewingDate] = useState<string | undefined>(undefined);
@@ -31,44 +44,137 @@ export default function Home() {
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<string | undefined>(undefined);
   /** Karanlık mod (Ana Sayfa tasarımı Dark Refined olur) */
   const [isDarkMode, setIsDarkMode] = useState(false);
+  /** Pro abonelik (mock – test için localStorage 'app_pro_mock' = '1' yapılabilir) */
+  const [isPro, setIsPro] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<PlanId>('yearly');
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('app_dark_mode') : null;
     setIsDarkMode(stored === 'true');
   }, []);
 
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('app_pro_mock') : null;
+    setIsPro(stored === '1');
+  }, [currentView]);
+
   const handleDarkModeChange = (value: boolean) => {
     if (typeof window !== 'undefined') localStorage.setItem('app_dark_mode', String(value));
     setIsDarkMode(value);
   };
 
+  // Bildirimler: hatırlatma + günlük özet + gecikmiş görev (ayar açıksa, dakikada bir kontrol)
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    if (!userId || typeof window === 'undefined' || !('Notification' in window)) return;
+
+    const today = new Date();
+    const todayStr = today.getDate().toString();
+    const todayDateKey = today.toISOString().slice(0, 10); // YYYY-MM-DD
+
+    const getCurrentTime = () => {
+      const d = new Date();
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    };
+
+    const showNotification = (title: string, body: string, tag: string) => {
+      try {
+        if (Notification.permission === 'granted') {
+          new Notification(title, { body, tag });
+        }
+      } catch (_) {}
+    };
+
+    const run = async () => {
+      if (!getNotificationsEnabled()) return;
+
+      const tasks = await fetchTasksFromSupabase(userId);
+      const now = getCurrentTime();
+
+      // 1) Görev hatırlatmaları (reminderAt)
+      const todayTasks = filterRecurringTasks(tasks, todayStr).filter(t => t.reminderAt && t.reminderAt.trim());
+      for (const task of todayTasks) {
+        if (task.reminderAt?.trim() !== now) continue;
+        const key = `reminder_done_${userId}_${task.id}_${todayStr}_${task.reminderAt}`;
+        if (localStorage.getItem(key)) continue;
+        if (Notification.permission === 'default') await Notification.requestPermission();
+        if (Notification.permission === 'granted') {
+          showNotification(task.title, 'Hatırlatma', key);
+          localStorage.setItem(key, '1');
+        }
+      }
+
+      // 2) Günlük özet (bir kez günde, ayarlanan saatte)
+      if (getDailyDigestEnabled() && getDailyDigestTime() === now) {
+        const digestKey = `${LAST_DAILY_DIGEST_PREFIX}${todayDateKey}`;
+        if (!localStorage.getItem(digestKey)) {
+          if (Notification.permission === 'default') await Notification.requestPermission();
+          const count = filterRecurringTasks(tasks, todayStr).filter(t => !t.completed).length;
+          showNotification('Günlük özet', count > 0 ? `Bugün ${count} görevin var.` : 'Bugün planlanan görev yok.', digestKey);
+          localStorage.setItem(digestKey, '1');
+        }
+      }
+
+      // 3) Gecikmiş görev uyarısı (bir kez günde, ayarlanan saatte)
+      if (getOverdueReminderEnabled() && getOverdueReminderTime() === now) {
+        const overdueKey = `${LAST_OVERDUE_REMINDER_PREFIX}${todayDateKey}`;
+        if (!localStorage.getItem(overdueKey)) {
+          const todayNum = parseInt(todayStr, 10);
+          const overdueCount = tasks.filter(t => !t.completed && t.date && parseInt(t.date, 10) < todayNum).length;
+          if (overdueCount > 0) {
+            if (Notification.permission === 'default') await Notification.requestPermission();
+            if (Notification.permission === 'granted') {
+              showNotification('Gecikmiş görevler', `${overdueCount} gecikmiş görevin var.`, overdueKey);
+            }
+            localStorage.setItem(overdueKey, '1');
+          }
+        }
+      }
+    };
+
+    run();
+    const interval = setInterval(run, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [userId]);
+
+  // İlk yükleme + Supabase oturum değişince (giriş/çıkış, magic link, OAuth) güncelle
+  useEffect(() => {
+    const applySession = (session: { user: { id: string } } | null) => {
       if (session?.user) {
         setUserId(session.user.id);
         const onboardingCompleted = localStorage.getItem(`onboarding_${session.user.id}`);
-        if (onboardingCompleted) {
-          setCurrentView('home');
-        } else {
-          setCurrentView('onboarding1');
-        }
+        setCurrentView(onboardingCompleted ? 'home' : 'onboarding1');
       } else {
+        setUserId('');
         const mockUserId = localStorage.getItem('mock_user_id');
         if (mockUserId) {
           setUserId(mockUserId);
           const onboardingCompleted = localStorage.getItem(`onboarding_${mockUserId}`);
-          if (onboardingCompleted) {
-            setCurrentView('home');
-          } else {
-            setCurrentView('onboarding1');
-          }
+          setCurrentView(onboardingCompleted ? 'home' : 'onboarding1');
         } else {
           setCurrentView('login');
         }
       }
     };
+
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      applySession(session);
+    };
+
     checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+        const onboardingCompleted = localStorage.getItem(`onboarding_${session.user.id}`);
+        setCurrentView(onboardingCompleted ? 'home' : 'onboarding1');
+      } else if (event === 'SIGNED_OUT') {
+        setUserId('');
+        setCurrentView('login');
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogin = (newUserId: string) => {
@@ -100,15 +206,17 @@ export default function Home() {
   };
 
   if (currentView === 'login') {
-    return <LoginView onLogin={handleLogin} onSkip={handleSkip} />;
+    return <LoginView onLogin={handleLogin} onSkip={handleSkip} darkMode={isDarkMode} />;
   }
 
   if (currentView === 'onboarding1') {
     return (
       <OnboardingStep1
         onNext={() => setCurrentView('onboarding2')}
+        onSkip={handleOnboardingComplete}
         selectedFocus={selectedFocus}
         setSelectedFocus={setSelectedFocus}
+        darkMode={isDarkMode}
       />
     );
   }
@@ -118,8 +226,10 @@ export default function Home() {
       <OnboardingStep2
         onComplete={handleOnboardingComplete}
         onBack={() => setCurrentView('onboarding1')}
+        onSkip={handleOnboardingComplete}
         selectedSchedule={selectedSchedule}
         setSelectedSchedule={setSelectedSchedule}
+        darkMode={isDarkMode}
       />
     );
   }
@@ -148,8 +258,8 @@ export default function Home() {
     }
   };
 
-  // Bottom nav'ın gösterileceği ekranlar
-  const showBottomNav = ['home', 'tasks', 'calendar', 'category', 'categories', 'edit-task', 'settings'].includes(currentView);
+  // Bottom nav'ın gösterileceği ekranlar (pro tam ekran, nav yok)
+  const showBottomNav = ['home', 'tasks', 'calendar', 'category', 'categories', 'edit-task', 'settings', 'profile'].includes(currentView);
 
   const handleLogout = () => {
     setUserId('');
@@ -161,16 +271,41 @@ export default function Home() {
   };
 
   const renderCurrentView = () => {
-    if (currentView === 'settings') {
-      return (
-        <SettingsView
-          userId={userId}
-          onLogout={handleLogout}
-          darkMode={isDarkMode}
-          onDarkModeChange={handleDarkModeChange}
-        />
-      );
-    }
+if (currentView === 'profile') {
+    return (
+      <ProfileView
+        userId={userId}
+        darkMode={isDarkMode}
+        onBack={() => setCurrentView('settings')}
+      />
+    );
+  }
+
+  if (currentView === 'pro') {
+    return (
+      <ProUpgradeView
+        darkMode={isDarkMode}
+        isPro={isPro}
+        selectedPlan={selectedPlan}
+        onSelectPlan={setSelectedPlan}
+        onClose={() => setCurrentView('settings')}
+        onRestore={() => {}}
+      />
+    );
+  }
+
+  if (currentView === 'settings') {
+    return (
+      <SettingsView
+        userId={userId}
+        onLogout={handleLogout}
+        darkMode={isDarkMode}
+        onDarkModeChange={handleDarkModeChange}
+        onOpenProfile={() => setCurrentView('profile')}
+        onOpenPro={() => setCurrentView('pro')}
+      />
+    );
+  }
 
     if (currentView === 'edit-task') {
       return (
@@ -304,18 +439,20 @@ export default function Home() {
   };
 
   return (
-    <div className="pb-16">
-      {renderCurrentView()}
-      {showBottomNav && (
-        <BottomNav currentView={currentView} onNavigate={handleBottomNav} darkMode={isDarkMode} />
-      )}
-      {pomodoroTask && (
-        <PomodoroTimer
-          task={pomodoroTask}
-          userId={userId}
-          onClose={() => setPomodoroTask(null)}
-        />
-      )}
-    </div>
+    <LocaleProvider>
+      <div className="main-content-pad">
+        {renderCurrentView()}
+        {showBottomNav && (
+          <BottomNav currentView={currentView} onNavigate={handleBottomNav} darkMode={isDarkMode} />
+        )}
+        {pomodoroTask && (
+          <PomodoroTimer
+            task={pomodoroTask}
+            userId={userId}
+            onClose={() => setPomodoroTask(null)}
+          />
+        )}
+      </div>
+    </LocaleProvider>
   );
 }

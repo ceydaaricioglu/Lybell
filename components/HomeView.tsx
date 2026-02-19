@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Category, TimelineTask } from '@/lib/types';
-import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, DEFAULT_TAGS, getTagColorClasses, getTodayPomodoroCount, getWeekPomodoroCount, getPomodoroStreak } from '@/lib/helpers';
+import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, DEFAULT_TAGS, getTagColorClasses, getTodayPomodoroCount, getWeekPomodoroCount, getPomodoroStreak, getWeekCompletedCount, getMyDayTaskIds, toggleMyDayTask } from '@/lib/helpers';
 import { TaskListSkeleton } from '@/components/Skeletons';
 
 interface HomeViewProps {
@@ -22,6 +22,8 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
   const dark = darkMode;
   const [categories, setCategories] = useState<Category[]>([]);
   const [allTasks, setAllTasks] = useState<TimelineTask[]>([]);
+  const [weekCompletedCount, setWeekCompletedCount] = useState<number>(0);
+  const [myDayIds, setMyDayIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const today = new Date();
@@ -38,6 +40,9 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
       
       const loadedTasks = await fetchTasksFromSupabase(userId);
       setAllTasks(loadedTasks);
+      const count = await getWeekCompletedCount(userId);
+      setWeekCompletedCount(count);
+      setMyDayIds(getMyDayTaskIds(userId));
       setLoading(false);
     };
     loadData();
@@ -47,6 +52,14 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
   const todayTasks = filterRecurringTasks(allTasks, todayStr)
     .filter(t => !t.completed)
     .sort((a, b) => a.time.localeCompare(b.time));
+
+  // Bugün Odakta (My Day) – bugünkü görevlerden odak listesinde olanlar
+  const myDayTasks = filterRecurringTasks(allTasks, todayStr).filter(t => t.id && myDayIds.includes(t.id)).sort((a, b) => a.time.localeCompare(b.time));
+
+  const handleToggleMyDay = (taskId: string) => {
+    const added = toggleMyDayTask(userId, taskId);
+    setMyDayIds(getMyDayTaskIds(userId));
+  };
 
   // Yaklaşan görevler (bugünden sonraki 3 gün)
   const upcomingDays = Array.from({ length: 3 }, (_, i) => {
@@ -125,8 +138,45 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
           </h1>
           <p className={dark ? 'text-sm text-zinc-500 mt-1' : 'text-stone-500 mt-1'}>
             {todayStr} {MONTHS[currentMonth]} · {dark ? `${todayTasks.length} görev bugün` : 'Gününü planla'}
+            {weekCompletedCount > 0 && (
+              <span className={dark ? ' text-zinc-400' : ' text-stone-500'}> · Bu hafta {weekCompletedCount} tamamlandı</span>
+            )}
           </p>
         </header>
+
+        {/* Bugün Odakta (My Day) */}
+        {myDayTasks.length > 0 && (
+          <div className={`rounded-2xl overflow-hidden mb-4 ${dark ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-amber-50/80 border border-amber-200/80'}`}>
+            <div className={`px-5 py-3 flex items-center justify-between ${dark ? 'border-b border-amber-500/20' : 'border-b border-amber-200/60'}`}>
+              <h2 className={`text-sm font-semibold ${dark ? 'text-amber-400' : 'text-amber-800'}`}>⭐ Bugün Odakta</h2>
+              <span className={`text-xs font-medium ${dark ? 'text-amber-400/80' : 'text-amber-700'}`}>{myDayTasks.length}</span>
+            </div>
+            <div className="divide-y divide-amber-200/50">
+              {myDayTasks.slice(0, 5).map((task) => (
+                <div
+                  key={task.id}
+                  className={`flex items-center gap-3 px-4 py-3 ${dark ? 'hover:bg-amber-500/5' : 'hover:bg-amber-50/50'}`}
+                >
+                  <button
+                    onClick={() => task.id && handleToggleMyDay(task.id)}
+                    className="flex-shrink-0 text-amber-500"
+                    title="Odak listesinden çıkar"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                  </button>
+                  <button onClick={() => onEditTask(task, todayStr)} className="flex-1 min-w-0 text-left">
+                    <span className={`font-medium truncate block ${dark ? 'text-zinc-200' : 'text-stone-800'}`}>{task.title}</span>
+                    <span className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{task.time}</span>
+                  </button>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${task.completed ? (dark ? 'bg-amber-400/80' : 'bg-amber-500') : (dark ? 'border-zinc-600' : 'border-stone-300')}`}>
+                    {task.completed && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {myDayTasks.length > 5 && <p className={`text-center py-2 text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>+{myDayTasks.length - 5} daha</p>}
+          </div>
+        )}
 
         {/* Pomodoro Özet */}
         {(todayPomodoros > 0 || weekPomodoros > 0) && (
@@ -201,11 +251,24 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
             </div>
           ) : (
             <div className={dark ? '' : 'p-2'}>
-              {todayTasks.slice(0, 5).map((task) => (
+              {todayTasks.slice(0, 5).map((task) => {
+                const inMyDay = task.id && myDayIds.includes(task.id);
+                return (
                 <div
                   key={task.id}
                   className={`w-full flex items-center gap-3 group rounded-2xl ${dark ? 'py-3 px-4 border-b border-zinc-800/80 last:border-0' : 'p-4 mx-2 mb-2 bg-stone-50/80 hover:bg-amber-50/60'}`}
                 >
+                  <button
+                    onClick={(e) => { e.stopPropagation(); task.id && handleToggleMyDay(task.id); }}
+                    className={`flex-shrink-0 p-0.5 ${inMyDay ? 'text-amber-500' : dark ? 'text-zinc-600 hover:text-amber-500/70' : 'text-stone-300 hover:text-amber-500'}`}
+                    title={inMyDay ? 'Odak listesinden çıkar' : 'Bugün odakta'}
+                  >
+                    {inMyDay ? (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+                    )}
+                  </button>
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                     task.completed ? (dark ? 'bg-amber-400/80 border-amber-400/80' : 'bg-amber-500 border-amber-500') : (dark ? 'border-zinc-600' : 'border-stone-300')
                   }`}>
@@ -265,7 +328,8 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
               {todayTasks.length > 5 && (
                 <button
                   onClick={onViewAll}

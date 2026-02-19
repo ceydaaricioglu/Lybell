@@ -24,6 +24,9 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
   const [category, setCategory] = useState<'routines' | 'reading' | string | null>(task?.category || null);
   const [recurrence, setRecurrence] = useState<'weekly' | 'monthly' | 'weekdays' | null>(task?.recurrence || null);
   const [priority, setPriority] = useState<'high' | 'medium' | 'low' | null>(task?.priority || null);
+  const [reminderAt, setReminderAt] = useState<string | null>(task?.reminderAt ?? null);
+  const [attachmentName, setAttachmentName] = useState<string | null>(task?.attachmentName ?? null);
+  const [attachmentData, setAttachmentData] = useState<string | null>(task?.attachmentData ?? null);
   const [description, setDescription] = useState(task?.description || '');
   const [tags, setTags] = useState<string[]>(task?.tags || []);
   const [subtasks, setSubtasks] = useState<SubTask[]>(task?.subtasks || []);
@@ -44,6 +47,9 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
       setCategory(task.category || null);
       setRecurrence(task.recurrence || null);
       setPriority(task.priority || null);
+      setReminderAt(task.reminderAt ?? null);
+      setAttachmentName(task.attachmentName ?? null);
+      setAttachmentData(task.attachmentData ?? null);
       setTags(task.tags || []);
       setSubtasks(task.subtasks || []);
     } else {
@@ -54,6 +60,9 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
       setCategory(null);
       setRecurrence(null);
       setPriority(null);
+      setReminderAt(null);
+      setAttachmentName(null);
+      setAttachmentData(null);
       setTags([]);
       setSubtasks([]);
     }
@@ -76,6 +85,9 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
         priority,
         tags: tags.length > 0 ? tags : undefined,
         subtasks: subtasks.length > 0 ? subtasks : undefined,
+        reminderAt: reminderAt || undefined,
+        attachmentName: attachmentName || undefined,
+        attachmentData: attachmentData || undefined,
         originalDate: date,
       };
       onSave(taskToSave);
@@ -91,6 +103,10 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
         priority,
         tags: tags.length > 0 ? tags : undefined,
         subtasks: subtasks.length > 0 ? subtasks : undefined,
+        reminderAt: reminderAt || undefined,
+        attachmentName: attachmentName || undefined,
+        attachmentData: attachmentData || undefined,
+        completedAt: task!.completed ? (task!.completedAt || new Date().toISOString()) : undefined,
       };
       onSave(taskToSave);
     }
@@ -220,6 +236,79 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
               <label className={labelClass}>Saat</label>
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputBase} />
             </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Hatırlatma (isteğe bağlı)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={reminderAt ?? ''}
+                onChange={(e) => setReminderAt(e.target.value || null)}
+                className={inputBase}
+              />
+              {reminderAt && (
+                <button
+                  type="button"
+                  onClick={() => setReminderAt(null)}
+                  className={`shrink-0 px-3 py-3 rounded-xl text-sm font-medium ${dark ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
+                >
+                  Kaldır
+                </button>
+              )}
+            </div>
+            <p className={`mt-1 text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Bildirimler açıksa bu saatte hatırlatılacaksın.</p>
+          </div>
+
+          <div>
+            <label className={labelClass}>Dosya ekle (isteğe bağlı, max 500 KB)</label>
+            {attachmentName ? (
+              <div className={`flex items-center justify-between gap-2 rounded-xl px-4 py-3 ${dark ? 'bg-zinc-800 border border-zinc-700' : 'bg-stone-50 border border-stone-200'}`}>
+                <span className={`text-sm truncate flex-1 ${dark ? 'text-zinc-300' : 'text-stone-700'}`}>📎 {attachmentName}</span>
+                <button
+                  type="button"
+                  onClick={() => { setAttachmentName(null); setAttachmentData(null); }}
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium ${dark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'}`}
+                >
+                  Kaldır
+                </button>
+                {attachmentData && (
+                  <a
+                    href={attachmentData}
+                    download={attachmentName || 'ek'}
+                    className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}`}
+                  >
+                    İndir
+                  </a>
+                )}
+              </div>
+            ) : (
+              <label className={`flex items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-4 cursor-pointer transition-colors ${dark ? 'border-zinc-600 hover:border-amber-500/40 bg-zinc-900/40' : 'border-stone-200 hover:border-amber-300 bg-stone-50/50'}`}>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="*/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const MAX = 500 * 1024;
+                    if (file.size > MAX) {
+                      alert('Dosya 500 KB\'dan büyük olamaz.');
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const data = reader.result as string;
+                      setAttachmentName(file.name);
+                      setAttachmentData(data);
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
+                  }}
+                />
+                <span className={dark ? 'text-zinc-400' : 'text-stone-500'}>Dosya seç</span>
+              </label>
+            )}
           </div>
 
           <div>
