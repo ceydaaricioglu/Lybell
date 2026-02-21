@@ -30,7 +30,7 @@ export function OnboardingStep1({ onNext, onSkip, selectedFocus, setSelectedFocu
         </div>
       </div>
 
-      <div className="flex-1 max-w-md mx-auto w-full px-5 pt-10 pb-8">
+      <div className="flex-1 max-w-md mx-auto w-full px-5 pt-6 pb-4">
         {dark && <div className="h-px w-12 bg-amber-400/80 mb-5" />}
         <h2 className={`text-2xl font-semibold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>Odak alanını seç</h2>
         <p className={`text-sm mb-6 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>İlk olarak neyi organize etmek istersin?</p>
@@ -116,7 +116,7 @@ export function OnboardingStep2({ onComplete, onBack, onSkip, selectedSchedule, 
         </div>
       </div>
 
-      <div className="flex-1 max-w-md mx-auto w-full px-5 pt-10 pb-8">
+      <div className="flex-1 max-w-md mx-auto w-full px-5 pt-6 pb-4">
         {dark && <div className="h-px w-12 bg-amber-400/80 mb-5" />}
         <h2 className={`text-2xl font-semibold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>Programını ayarla</h2>
         <p className={`text-sm mb-6 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Gününü planlamayı ne zaman tercih edersin?</p>

@@ -13,7 +13,7 @@ export interface TimelineTask {
   date: string;
   icon?: 'Laptop' | 'Utensils';
   completed: boolean;
-  recurrence?: 'weekly' | 'monthly' | 'weekdays' | null;
+  recurrence?: 'daily' | 'weekly' | 'monthly' | 'weekdays' | null;
   recurrenceEndDate?: string;
   excludedDates?: string[];
   originalDate?: string;
@@ -21,8 +21,13 @@ export interface TimelineTask {
   priority?: 'high' | 'medium' | 'low' | null;
   tags?: string[];
   subtasks?: SubTask[];
-  /** Opsiyonel hatırlatma saati (HH:mm). Bildirim tetiklemesi ayrı yapılacak. */
+  /** Opsiyonel hatırlatma saati (HH:mm). Free: 1, Pro: 2. */
   reminderAt?: string | null;
+  reminderAt2?: string | null;
+  /** Pro: Bildirimde gösterilecek özel mesaj. */
+  reminderMessage?: string | null;
+  /** Pro: Geri sayım hedefi (YYYY-MM-DD veya YYYY-MM-DDTHH:mm). */
+  countdownTarget?: string | null;
   /** Aynı gün içinde sıralama (küçük önce). */
   orderIndex?: number | null;
   /** Tamamlanma anı (ISO string); "bu hafta tamamlanan" için kullanılır. */
@@ -31,6 +36,12 @@ export interface TimelineTask {
   attachmentName?: string | null;
   /** Ekli dosya (base64, ~500KB limit). */
   attachmentData?: string | null;
+  /** Pro: Ses notu (data URL veya boş). */
+  voiceNote?: string | null;
+  /** Pro: Bu görev Google Takvim'de görünsün mü (sadece kategori syncToGoogle açıksa anlamlı). */
+  syncToGoogle?: boolean | null;
+  /** Google Calendar event id (güncelleme/silme için; senkron açıkken doldurulur). */
+  googleEventId?: string | null;
 }
 
 export interface Tag {
@@ -45,6 +56,23 @@ export interface Category {
   icon: string;
   color: string;
   userId: string;
+  /** Pro: Bu listenin görevleri Google Takvim'e aktarılabilsin mi (liste bazlı anahtar). */
+  syncToGoogle?: boolean;
+}
+
+/** Görev şablonu – tarih ve tamamlanma yok; Free’de kullanılabilir. */
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  title: string;
+  description?: string;
+  time: string;
+  category?: string | null;
+  recurrence?: TimelineTask['recurrence'];
+  priority?: TimelineTask['priority'];
+  tags?: string[];
+  subtasks?: SubTask[];
+  reminderAt?: string | null;
 }
 
 /** Kullanıcı profili – Ayarlar > Profil ekranında düzenlenir. */

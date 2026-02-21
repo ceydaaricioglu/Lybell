@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Category } from '@/lib/types';
+import Modal from '@/components/Modal';
 
 interface AddCategoryModalProps {
   onClose: () => void;
@@ -9,14 +10,16 @@ interface AddCategoryModalProps {
   userId: string;
   category?: Category;
   darkMode?: boolean;
+  isPro?: boolean;
 }
 
-export default function AddCategoryModal({ onClose, onSave, userId, category, darkMode = false }: AddCategoryModalProps) {
+export default function AddCategoryModal({ onClose, onSave, userId, category, darkMode = false, isPro = false }: AddCategoryModalProps) {
   const dark = darkMode;
   const isEditMode = !!category;
   const [categoryName, setCategoryName] = useState(category?.name || '');
   const [selectedIcon, setSelectedIcon] = useState(category?.icon || '📋');
   const [selectedColor, setSelectedColor] = useState(category?.color || 'emerald');
+  const [syncToGoogle, setSyncToGoogle] = useState(!!category?.syncToGoogle);
   const [showIconPicker, setShowIconPicker] = useState(false);
 
   useEffect(() => {
@@ -24,6 +27,7 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
       setCategoryName(category.name);
       setSelectedIcon(category.icon);
       setSelectedColor(category.color);
+      setSyncToGoogle(!!category.syncToGoogle);
     }
   }, [category]);
 
@@ -45,6 +49,7 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
         icon: selectedIcon,
         color: selectedColor,
         userId,
+        syncToGoogle: isPro ? syncToGoogle : undefined,
       };
       onSave(categoryToSave);
       onClose();
@@ -52,29 +57,17 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className={`rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto ${
-        dark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'
-      }`}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className={`text-2xl font-bold ${dark ? 'text-white' : 'text-stone-800'}`}>
-            {isEditMode ? 'Kategori Düzenle' : 'Yeni Kategori'}
-          </h2>
-          <button
-            onClick={onClose}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${
-              dark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800' : 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'
-            }`}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="space-y-6">
+    <Modal
+      open
+      onClose={onClose}
+      title={isEditMode ? 'Liste Düzenle' : 'Yeni Liste'}
+      dark={dark}
+      maxWidth="md"
+      contentClassName="max-h-[90vh] overflow-y-auto"
+    >
+      <div className="space-y-6">
           <div>
-            <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-zinc-300' : 'text-stone-700'}`}>Kategori Adı</label>
+            <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-zinc-300' : 'text-stone-700'}`}>Liste adı</label>
             <input
               type="text"
               value={categoryName}
@@ -84,7 +77,7 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
                   ? 'bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus:ring-amber-500/50 focus:border-amber-500/50'
                   : 'bg-white border-2 border-stone-200 text-stone-900 placeholder:text-stone-400 focus:ring-amber-500 focus:border-amber-500'
               }`}
-              placeholder="Kategori adını gir"
+              placeholder="Liste adını gir"
               autoFocus
             />
           </div>
@@ -131,8 +124,8 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
             <div className="grid grid-cols-6 gap-2">
               {colors.map((color) => {
                 const isSelected = selectedColor === color.name;
-                const bg = dark ? (isSelected ? color.darkBg : 'bg-zinc-800') : (isSelected ? color.lightBg : 'bg-stone-100');
-                const border = dark ? (isSelected ? color.darkBorder : 'border-transparent') : (isSelected ? color.lightBorder : 'border-transparent');
+                const bg = dark ? (isSelected ? color.darkBg : 'bg-zinc-800') : (isSelected ? color.lightBg : color.lightBg);
+                const border = dark ? (isSelected ? color.darkBorder : 'border-transparent') : (isSelected ? color.lightBorder : color.lightBorder);
                 return (
                   <button
                     key={color.name}
@@ -150,6 +143,24 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
             </div>
           </div>
 
+          {isPro && (
+            <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${dark ? 'bg-zinc-800/80' : 'bg-stone-50'}`}>
+              <div>
+                <p className={`font-medium ${dark ? 'text-zinc-200' : 'text-stone-800'}`}>Google Takvim'e aktar</p>
+                <p className={`text-xs mt-0.5 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Bu listedeki görevler (işaretlenenler) Google Takvim'de görünebilir</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={syncToGoogle}
+                onClick={() => setSyncToGoogle((v) => !v)}
+                className={`relative w-12 h-7 rounded-full transition-colors ${syncToGoogle ? (dark ? 'bg-amber-500' : 'bg-amber-500') : dark ? 'bg-zinc-600' : 'bg-stone-300'}`}
+              >
+                <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${syncToGoogle ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+          )}
+
           <button
             onClick={handleSave}
             disabled={!categoryName.trim()}
@@ -159,10 +170,9 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
                 : 'bg-amber-500 text-black hover:bg-amber-600 hover:shadow-lg'
             }`}
           >
-            {isEditMode ? 'Değişiklikleri Kaydet' : 'Kategori Oluştur'}
+            {isEditMode ? 'Değişiklikleri Kaydet' : 'Liste Oluştur'}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

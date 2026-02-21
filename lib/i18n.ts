@@ -5,7 +5,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'nav.home': 'Ana Sayfa',
     'nav.tasks': 'Görevler',
     'nav.calendar': 'Takvim',
-    'nav.categories': 'Kategoriler',
+    'nav.categories': 'Listeler',
     'nav.settings': 'Ayarlar',
     'settings.title': 'Ayarlar',
     'settings.subtitle': 'Uygulama tercihlerini yönet',

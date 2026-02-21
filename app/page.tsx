@@ -1,15 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { TimelineTask } from '@/lib/types';
-import { saveTaskToSupabase, fetchTasksFromSupabase, filterRecurringTasks } from '@/lib/helpers';
+import { saveTaskToSupabase, fetchTasksFromSupabase, filterRecurringTasks, syncTaskToGoogleCalendar } from '@/lib/helpers';
+import { FREE_MAX_TASKS } from '@/lib/limits';
 import {
   getNotificationsEnabled,
   getDailyDigestEnabled,
   getDailyDigestTime,
   getOverdueReminderEnabled,
   getOverdueReminderTime,
+  getNotificationSound,
+  playNotificationSound,
+  requestNotificationPermission,
   LAST_DAILY_DIGEST_PREFIX,
   LAST_OVERDUE_REMINDER_PREFIX,
 } from '@/lib/notifications';
@@ -28,6 +32,7 @@ import BottomNav from '@/components/BottomNav';
 import PomodoroTimer from '@/components/PomodoroTimer';
 import CalendarView from '@/components/CalendarView';
 import { LocaleProvider } from '@/components/LocaleContext';
+import { DEFAULT_NAV_TABS, getVisibleNavTabs } from '@/lib/navTabs';
 
 export default function Home() {
   const [userId, setUserId] = useState<string>('');
@@ -45,8 +50,21 @@ export default function Home() {
   /** Karanlık mod (Ana Sayfa tasarımı Dark Refined olur) */
   const [isDarkMode, setIsDarkMode] = useState(false);
   /** Pro abonelik (mock – test için localStorage 'app_pro_mock' = '1' yapılabilir) */
-  const [isPro, setIsPro] = useState(false);
+  const [isPro, setIsPro] = useState(() => typeof window !== 'undefined' && localStorage.getItem('app_pro_mock') === '1');
   const [selectedPlan, setSelectedPlan] = useState<PlanId>('yearly');
+  const [visibleNavTabs, setVisibleNavTabsState] = useState<string[]>(() => [...DEFAULT_NAV_TABS]);
+  /** Optimistic silme: liste ekranında bu id'ler siliniyor gibi gizlenir */
+  const [deletingTaskIds, setDeletingTaskIds] = useState<Set<string>>(new Set());
+  /** Merkezi görev listesi – ekranlar arası tek fetch, mutasyonlarda refresh */
+  const [tasks, setTasks] = useState<TimelineTask[]>([]);
+  const loadTasks = useCallback(async () => {
+    if (!userId) return;
+    const list = await fetchTasksFromSupabase(userId);
+    setTasks(list);
+  }, [userId]);
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('app_dark_mode') : null;
@@ -57,6 +75,20 @@ export default function Home() {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('app_pro_mock') : null;
     setIsPro(stored === '1');
   }, [currentView]);
+
+  useEffect(() => {
+    if (isPro) setVisibleNavTabsState(getVisibleNavTabs(true));
+    else setVisibleNavTabsState([...DEFAULT_NAV_TABS]);
+  }, [isPro]);
+
+  // Google Takvim OAuth'dan dönünce doğrudan Takvim sekmesine geç (bağlantı yüklensin)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('google_calendar') === 'callback' && params.get('success') === '1') {
+      setCurrentView('calendar');
+    }
+  }, []);
 
   const handleDarkModeChange = (value: boolean) => {
     if (typeof window !== 'undefined') localStorage.setItem('app_dark_mode', String(value));
@@ -90,16 +122,25 @@ export default function Home() {
       const tasks = await fetchTasksFromSupabase(userId);
       const now = getCurrentTime();
 
-      // 1) Görev hatırlatmaları (reminderAt)
-      const todayTasks = filterRecurringTasks(tasks, todayStr).filter(t => t.reminderAt && t.reminderAt.trim());
+      // 1) Görev hatırlatmaları (reminderAt + reminderAt2) – saati geçmişse de bir kez bildir
+      const todayTasks = filterRecurringTasks(tasks, todayStr);
+      const [nowH, nowM] = now.split(':').map(Number);
+      const currentMinutes = nowH * 60 + nowM;
       for (const task of todayTasks) {
-        if (task.reminderAt?.trim() !== now) continue;
-        const key = `reminder_done_${userId}_${task.id}_${todayStr}_${task.reminderAt}`;
-        if (localStorage.getItem(key)) continue;
-        if (Notification.permission === 'default') await Notification.requestPermission();
-        if (Notification.permission === 'granted') {
-          showNotification(task.title, 'Hatırlatma', key);
-          localStorage.setItem(key, '1');
+        const reminders = [task.reminderAt, task.reminderAt2].filter((r): r is string => !!r?.trim());
+        for (const rem of reminders) {
+          const key = `reminder_done_${userId}_${task.id}_${todayStr}_${rem}`;
+          if (localStorage.getItem(key)) continue;
+          const [remH, remM] = rem.split(':').map(Number);
+          const remMinutes = remH * 60 + remM;
+          if (currentMinutes < remMinutes) continue;
+          if (Notification.permission === 'default') await requestNotificationPermission();
+          if (Notification.permission === 'granted') {
+            const body = task.reminderMessage?.trim() || `${task.time} · Hatırlatma`;
+            showNotification('⏰ ' + task.title, body, key);
+            playNotificationSound(getNotificationSound());
+            localStorage.setItem(key, '1');
+          }
         }
       }
 
@@ -110,6 +151,7 @@ export default function Home() {
           if (Notification.permission === 'default') await Notification.requestPermission();
           const count = filterRecurringTasks(tasks, todayStr).filter(t => !t.completed).length;
           showNotification('Günlük özet', count > 0 ? `Bugün ${count} görevin var.` : 'Bugün planlanan görev yok.', digestKey);
+          playNotificationSound(getNotificationSound());
           localStorage.setItem(digestKey, '1');
         }
       }
@@ -124,6 +166,7 @@ export default function Home() {
             if (Notification.permission === 'default') await Notification.requestPermission();
             if (Notification.permission === 'granted') {
               showNotification('Gecikmiş görevler', `${overdueCount} gecikmiş görevin var.`, overdueKey);
+              playNotificationSound(getNotificationSound());
             }
             localStorage.setItem(overdueKey, '1');
           }
@@ -141,8 +184,14 @@ export default function Home() {
     const applySession = (session: { user: { id: string } } | null) => {
       if (session?.user) {
         setUserId(session.user.id);
-        const onboardingCompleted = localStorage.getItem(`onboarding_${session.user.id}`);
-        setCurrentView(onboardingCompleted ? 'home' : 'onboarding1');
+        const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const fromGoogleCalendar = params?.get('google_calendar') === 'callback' && params?.get('success') === '1';
+        if (fromGoogleCalendar) {
+          setCurrentView('calendar');
+        } else {
+          const onboardingCompleted = localStorage.getItem(`onboarding_${session.user.id}`);
+          setCurrentView(onboardingCompleted ? 'home' : 'onboarding1');
+        }
       } else {
         setUserId('');
         const mockUserId = localStorage.getItem('mock_user_id');
@@ -166,8 +215,19 @@ export default function Home() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         setUserId(session.user.id);
-        const onboardingCompleted = localStorage.getItem(`onboarding_${session.user.id}`);
-        setCurrentView(onboardingCompleted ? 'home' : 'onboarding1');
+        const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const fromGoogleCalendar = params?.get('google_calendar') === 'callback' && params?.get('success') === '1';
+        if (fromGoogleCalendar) setCurrentView('calendar');
+        else {
+          // Sadece giriş ekranındayken yönlendir; token yenilenince (TOKEN_REFRESHED) mevcut sayfada kal
+          setCurrentView((prev) => {
+            if (prev === 'login') {
+              const onboardingCompleted = localStorage.getItem(`onboarding_${session.user.id}`);
+              return onboardingCompleted ? 'home' : 'onboarding1';
+            }
+            return prev;
+          });
+        }
       } else if (event === 'SIGNED_OUT') {
         setUserId('');
         setCurrentView('login');
@@ -200,9 +260,27 @@ export default function Home() {
   };
 
   const handleSaveTask = async (task: TimelineTask) => {
-    await saveTaskToSupabase(userId, task);
+    const isNewTask = !editingTask && !task.id;
+    if (isNewTask && !isPro) {
+      const tasks = await fetchTasksFromSupabase(userId);
+      if (tasks.length >= FREE_MAX_TASKS) {
+        setCurrentView('pro');
+        return;
+      }
+    }
+    const savedId = await saveTaskToSupabase(userId, task);
+    if (isPro && savedId) {
+      const taskWithId = { ...task, id: savedId };
+      if (task.syncToGoogle) {
+        const action = task.googleEventId ? 'update' : 'create';
+        await syncTaskToGoogleCalendar(userId, taskWithId, action, savedId);
+      } else if (task.googleEventId) {
+        await syncTaskToGoogleCalendar(userId, taskWithId, 'delete');
+      }
+    }
     setCurrentView(returnViewAfterEdit);
     setEditingTask(null);
+    loadTasks();
   };
 
   if (currentView === 'login') {
@@ -270,6 +348,13 @@ export default function Home() {
     setCurrentView('login');
   };
 
+  /** Gerçek kullanıcı var ama Supabase oturumu yok (süre doldu / temizlendi) → girişe yönlendir */
+  const handleSessionLost = () => {
+    setUserId('');
+    setSelectedCategory(null);
+    setCurrentView('login');
+  };
+
   const renderCurrentView = () => {
 if (currentView === 'profile') {
     return (
@@ -290,6 +375,7 @@ if (currentView === 'profile') {
         onSelectPlan={setSelectedPlan}
         onClose={() => setCurrentView('settings')}
         onRestore={() => {}}
+        onTestUpgrade={() => setIsPro(true)}
       />
     );
   }
@@ -299,10 +385,13 @@ if (currentView === 'profile') {
       <SettingsView
         userId={userId}
         onLogout={handleLogout}
+        onSessionLost={handleSessionLost}
         darkMode={isDarkMode}
         onDarkModeChange={handleDarkModeChange}
         onOpenProfile={() => setCurrentView('profile')}
         onOpenPro={() => setCurrentView('pro')}
+        isPro={isPro}
+        onNavTabsChange={(tabs) => setVisibleNavTabsState(tabs)}
       />
     );
   }
@@ -312,6 +401,8 @@ if (currentView === 'profile') {
         <EditTaskView
           task={editingTask || undefined}
           darkMode={isDarkMode}
+          isPro={isPro}
+          onOpenPro={() => setCurrentView('pro')}
           onBack={() => {
             setViewingDate(undefined);
             setCurrentView(returnViewAfterEdit);
@@ -325,8 +416,12 @@ if (currentView === 'profile') {
             setViewingDate(undefined);
             setCurrentView(returnViewAfterEdit);
           }}
+          onDeleteStart={returnViewAfterEdit === 'category' ? (taskId) => setDeletingTaskIds((s) => new Set(s).add(taskId)) : undefined}
+          onDeleteDone={(taskId) => setDeletingTaskIds((s) => { const n = new Set(s); n.delete(taskId); return n; })}
+          onDeleteFailed={(taskId) => setDeletingTaskIds((s) => { const n = new Set(s); n.delete(taskId); return n; })}
           userId={userId}
           defaultDate={editingTask?.date}
+          defaultCategory={selectedCategory}
           viewingDate={viewingDate}
         />
       );
@@ -338,13 +433,24 @@ if (currentView === 'profile') {
           category={selectedCategory}
           onBack={() => setCurrentView('home')}
           userId={userId}
+          isPro={isPro}
+          deletingTaskIds={deletingTaskIds}
           onEditTask={(task, date) => {
             setReturnViewAfterEdit('category');
             setEditingTask(task);
             setViewingDate(date);
             setCurrentView('edit-task');
           }}
+          onAddTask={(categoryId) => {
+            setSelectedCategory(categoryId);
+            setReturnViewAfterEdit('category');
+            setEditingTask(null);
+            setViewingDate(undefined);
+            setCurrentView('edit-task');
+          }}
           onStartPomodoro={(task) => setPomodoroTask(task)}
+          tasks={tasks}
+          setTasks={setTasks}
         />
       );
     }
@@ -354,6 +460,7 @@ if (currentView === 'profile') {
         <TasksView
           userId={userId}
           darkMode={isDarkMode}
+          isPro={isPro}
           initialDateFromCalendar={calendarSelectedDate}
           onBack={() => setCurrentView('home')}
           onEditTask={(task: TimelineTask, date?: string) => {
@@ -369,6 +476,8 @@ if (currentView === 'profile') {
             setCurrentView('edit-task');
           }}
           onStartPomodoro={(task) => setPomodoroTask(task)}
+          tasks={tasks}
+          setTasks={setTasks}
         />
       );
     }
@@ -379,6 +488,7 @@ if (currentView === 'profile') {
           userId={userId}
           darkMode={isDarkMode}
           onBack={() => setCurrentView('home')}
+          onSessionLost={handleSessionLost}
           onDateSelect={(date) => {
             setSelectedCategory(null);
             setCalendarSelectedDate(date);
@@ -390,6 +500,7 @@ if (currentView === 'profile') {
             setViewingDate(date);
             setCurrentView('edit-task');
           }}
+          tasks={tasks}
         />
       );
     }
@@ -399,11 +510,15 @@ if (currentView === 'profile') {
         <CategoriesView
           userId={userId}
           darkMode={isDarkMode}
+          isPro={isPro}
+          onOpenPro={() => setCurrentView('pro')}
           onBack={() => setCurrentView('home')}
           onCategorySelect={(category) => {
             setSelectedCategory(category);
             setCurrentView('category');
           }}
+          tasks={tasks}
+          onRefreshTasks={loadTasks}
         />
       );
     }
@@ -434,6 +549,7 @@ if (currentView === 'profile') {
           setCurrentView('edit-task');
         }}
         onStartPomodoro={(task) => setPomodoroTask(task)}
+        tasks={tasks}
       />
     );
   };
@@ -443,7 +559,12 @@ if (currentView === 'profile') {
       <div className="main-content-pad">
         {renderCurrentView()}
         {showBottomNav && (
-          <BottomNav currentView={currentView} onNavigate={handleBottomNav} darkMode={isDarkMode} />
+          <BottomNav
+            currentView={currentView}
+            onNavigate={handleBottomNav}
+            darkMode={isDarkMode}
+            visibleTabs={isPro ? visibleNavTabs : undefined}
+          />
         )}
         {pomodoroTask && (
           <PomodoroTimer

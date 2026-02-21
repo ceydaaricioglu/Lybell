@@ -1,30 +1,44 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TimelineTask, Category, SubTask } from '@/lib/types';
-import { getMockCategories, deleteTaskFromSupabase, excludeDateFromTask, setRecurrenceEndDate, DEFAULT_TAGS, getTagColorClasses } from '@/lib/helpers';
+import { TimelineTask, Category, SubTask, TaskTemplate } from '@/lib/types';
+import { getMockCategories, deleteTaskFromSupabase, syncTaskToGoogleCalendar, excludeDateFromTask, setRecurrenceEndDate, DEFAULT_TAGS, getTagColorClasses, fetchTemplates, saveTemplateToSupabase } from '@/lib/helpers';
+import { canAddSubtask } from '@/lib/limits';
+import Modal from '@/components/Modal';
 
 interface EditTaskViewProps {
   task?: TimelineTask;
   darkMode?: boolean;
+  isPro?: boolean;
+  onOpenPro?: () => void;
   onBack: () => void;
   onSave: (task: TimelineTask) => void;
   onDelete?: () => void;
+  /** Optimistic silme: ekran hemen kapanır, silme arka planda biter */
+  onDeleteStart?: (taskId: string) => void;
+  onDeleteDone?: (taskId: string) => void;
+  onDeleteFailed?: (taskId: string) => void;
   userId: string;
   defaultDate?: string;
+  defaultCategory?: string | null;
   viewingDate?: string;
 }
 
-export default function EditTaskView({ task, darkMode = false, onBack, onSave, onDelete, userId, defaultDate, viewingDate }: EditTaskViewProps) {
+export default function EditTaskView({ task, darkMode = false, isPro = false, onOpenPro, onBack, onSave, onDelete, onDeleteStart, onDeleteDone, onDeleteFailed, userId, defaultDate, defaultCategory, viewingDate }: EditTaskViewProps) {
   const dark = darkMode;
   const isNewTask = !task || !task.id;
   const [title, setTitle] = useState(task?.title || '');
-  const [time, setTime] = useState(task?.time || '08:00');
+  const [time, setTime] = useState(task?.time ?? '08:00');
   const [date, setDate] = useState(task?.date || defaultDate || new Date().getDate().toString());
-  const [category, setCategory] = useState<'routines' | 'reading' | string | null>(task?.category || null);
-  const [recurrence, setRecurrence] = useState<'weekly' | 'monthly' | 'weekdays' | null>(task?.recurrence || null);
+  const [category, setCategory] = useState<'routines' | 'reading' | string | null>(task?.category ?? defaultCategory ?? null);
+  const [recurrence, setRecurrence] = useState<'daily' | 'weekly' | 'monthly' | 'weekdays' | null>(task?.recurrence || null);
   const [priority, setPriority] = useState<'high' | 'medium' | 'low' | null>(task?.priority || null);
   const [reminderAt, setReminderAt] = useState<string | null>(task?.reminderAt ?? null);
+  const [reminderAt2, setReminderAt2] = useState<string | null>(task?.reminderAt2 ?? null);
+  const [reminderMessage, setReminderMessage] = useState<string | null>(task?.reminderMessage ?? null);
+  const [countdownTarget, setCountdownTarget] = useState<string | null>(task?.countdownTarget ?? null);
+  const [voiceNote, setVoiceNote] = useState<string | null>(task?.voiceNote ?? null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [attachmentName, setAttachmentName] = useState<string | null>(task?.attachmentName ?? null);
   const [attachmentData, setAttachmentData] = useState<string | null>(task?.attachmentData ?? null);
   const [description, setDescription] = useState(task?.description || '');
@@ -36,7 +50,52 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
   const [showPriorityOptions, setShowPriorityOptions] = useState(false);
   const [showTagOptions, setShowTagOptions] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showTemplateList, setShowTemplateList] = useState(false);
+  const [templateList, setTemplateList] = useState<TaskTemplate[]>([]);
+  const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
+  const [showDetaySection, setShowDetaySection] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [syncToGoogle, setSyncToGoogle] = useState<boolean>(!!task?.syncToGoogle);
   const categories = getMockCategories(userId);
+  const effectiveCategory = category || defaultCategory || null;
+  const selectedCategorySyncToGoogle = effectiveCategory ? (categories.find(c => c.id === effectiveCategory)?.syncToGoogle) : false;
+
+  const loadTemplates = () => {
+    fetchTemplates(userId).then(setTemplateList);
+  };
+
+  const applyTemplate = (t: TaskTemplate) => {
+    setTitle(t.title);
+    setDescription(t.description || '');
+    setTime(t.time);
+    setCategory(t.category ?? null);
+    setRecurrence(t.recurrence ?? null);
+    setPriority(t.priority ?? null);
+    setTags(t.tags || []);
+    setSubtasks(t.subtasks || []);
+    setReminderAt(t.reminderAt ?? null);
+    setShowTemplateList(false);
+  };
+
+  const handleSaveAsTemplate = async () => {
+    const name = templateName.trim() || title.trim() || 'Şablonsuz';
+    const template: TaskTemplate = {
+      id: `template-${Date.now()}`,
+      name,
+      title: title.trim() || 'Görev',
+      description: description.trim() || undefined,
+      time,
+      category: category ?? undefined,
+      recurrence: recurrence ?? undefined,
+      priority: priority ?? undefined,
+      tags: tags.length > 0 ? tags : undefined,
+      subtasks: subtasks.length > 0 ? subtasks : undefined,
+      reminderAt: reminderAt ?? undefined,
+    };
+    await saveTemplateToSupabase(userId, template);
+    setShowSaveAsTemplate(false);
+    setTemplateName('');
+  };
 
   useEffect(() => {
     if (task) {
@@ -48,6 +107,11 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
       setRecurrence(task.recurrence || null);
       setPriority(task.priority || null);
       setReminderAt(task.reminderAt ?? null);
+      setReminderAt2(task.reminderAt2 ?? null);
+      setSyncToGoogle(task.syncToGoogle ?? true);
+      setReminderMessage(task.reminderMessage ?? null);
+      setCountdownTarget(task.countdownTarget ?? null);
+      setVoiceNote(task.voiceNote ?? null);
       setAttachmentName(task.attachmentName ?? null);
       setAttachmentData(task.attachmentData ?? null);
       setTags(task.tags || []);
@@ -57,38 +121,53 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
       setDescription('');
       setTime('08:00');
       setDate(defaultDate || new Date().getDate().toString());
-      setCategory(null);
+      setCategory(defaultCategory ?? null);
       setRecurrence(null);
       setPriority(null);
       setReminderAt(null);
+      setReminderAt2(null);
+      setReminderMessage(null);
+      setCountdownTarget(null);
+      setVoiceNote(null);
       setAttachmentName(null);
       setAttachmentData(null);
       setTags([]);
       setSubtasks([]);
     }
-  }, [task, defaultDate]);
+  }, [task, defaultDate, defaultCategory]);
+
+  // Liste içinden açıldıysa (defaultCategory var) ama category state boş kaldıysa senkronize et
+  useEffect(() => {
+    if (defaultCategory && !category && isNewTask) setCategory(defaultCategory);
+  }, [defaultCategory, category, isNewTask]);
 
   const handleSave = () => {
     if (!title.trim()) return;
     
     if (isNewTask) {
-      if (!category) return;
+      if (!effectiveCategory) return;
       const taskToSave: TimelineTask = {
-        id: Date.now().toString(),
+        id: '', // Yeni görev: id boş bırakılır; saveTaskToSupabase insert yapar ve gerçek id döner
         title: title.trim(),
         description: description.trim() || undefined,
         time,
         date,
-        category,
+        category: effectiveCategory,
         completed: false,
         recurrence,
         priority,
         tags: tags.length > 0 ? tags : undefined,
         subtasks: subtasks.length > 0 ? subtasks : undefined,
         reminderAt: reminderAt || undefined,
+        reminderAt2: isPro ? (reminderAt2 || undefined) : undefined,
+        reminderMessage: isPro ? (reminderMessage || undefined) : undefined,
+        countdownTarget: isPro ? (countdownTarget || undefined) : undefined,
+        voiceNote: isPro ? (voiceNote || undefined) : undefined,
         attachmentName: attachmentName || undefined,
         attachmentData: attachmentData || undefined,
         originalDate: date,
+        syncToGoogle: selectedCategorySyncToGoogle ? syncToGoogle : undefined,
+        googleEventId: undefined,
       };
       onSave(taskToSave);
     } else {
@@ -104,9 +183,15 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
         tags: tags.length > 0 ? tags : undefined,
         subtasks: subtasks.length > 0 ? subtasks : undefined,
         reminderAt: reminderAt || undefined,
+        reminderAt2: isPro ? (reminderAt2 || undefined) : undefined,
+        reminderMessage: isPro ? (reminderMessage || undefined) : undefined,
+        countdownTarget: isPro ? (countdownTarget || undefined) : undefined,
+        voiceNote: isPro ? (voiceNote || undefined) : undefined,
         attachmentName: attachmentName || undefined,
         attachmentData: attachmentData || undefined,
         completedAt: task!.completed ? (task!.completedAt || new Date().toISOString()) : undefined,
+        syncToGoogle: selectedCategorySyncToGoogle ? syncToGoogle : undefined,
+        googleEventId: task!.googleEventId ?? undefined,
       };
       onSave(taskToSave);
     }
@@ -138,13 +223,43 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
   };
 
   // Tüm tekrarlı görevleri sil (veya tekrarsız görev sil)
-  const handleDeleteAll = async () => {
-    if (task?.id) {
-      await deleteTaskFromSupabase(userId, task.id);
-      setShowDeleteConfirm(false);
+  const handleDeleteAll = () => {
+    if (!task?.id) return;
+    const taskId = task.id;
+    setShowDeleteConfirm(false);
+
+    if (onDeleteStart) {
+      // Optimistic: ekranı hemen kapat, silmeyi arka planda yap
+      onDeleteStart(taskId);
       if (onDelete) onDelete();
       else onBack();
+      const run = async () => {
+        try {
+          await Promise.all([
+            task.googleEventId ? syncTaskToGoogleCalendar(userId, task, 'delete') : Promise.resolve(),
+            deleteTaskFromSupabase(userId, taskId),
+          ]);
+        } catch {
+          onDeleteFailed?.(taskId);
+        } finally {
+          onDeleteDone?.(taskId);
+        }
+      };
+      run();
+      return;
     }
+
+    (async () => {
+      try {
+        await Promise.all([
+          task.googleEventId ? syncTaskToGoogleCalendar(userId, task, 'delete') : Promise.resolve(),
+          deleteTaskFromSupabase(userId, taskId),
+        ]);
+      } finally {
+        if (onDelete) onDelete();
+        else onBack();
+      }
+    })();
   };
 
   const inputBase = dark
@@ -158,21 +273,33 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
 
   return (
     <div className={`min-h-screen flex flex-col ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
-      <header className="px-5 py-6">
+      <header className="px-5 pt-6 pb-4">
         <div className="max-w-md mx-auto flex items-center gap-4">
-          <button onClick={onBack} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}>
+          <button onClick={onBack} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`} aria-label="Geri">
             <svg className={`w-6 h-6 ${dark ? 'text-zinc-300' : 'text-stone-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           <h1 className={`text-xl font-semibold flex-1 ${dark ? 'text-white' : 'text-stone-800'}`}>{isNewTask ? 'Yeni Görev' : 'Görevi Düzenle'}</h1>
+          {isNewTask && (
+            <button
+              type="button"
+              onClick={() => { loadTemplates(); setShowTemplateList(true); }}
+              className={`text-sm font-medium px-3 py-2 rounded-xl ${dark ? 'text-amber-400 hover:bg-zinc-800' : 'text-amber-600 hover:bg-amber-50'}`}
+            >
+              Şablondan
+            </button>
+          )}
           <button
             onClick={handleSave}
-            disabled={!title.trim() || (!category && !task)}
+            disabled={!(title ?? '').trim() || (!effectiveCategory && !task)}
             className={`px-4 py-2 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dark ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
           >
             Kaydet
           </button>
+          {isNewTask && !effectiveCategory && (
+            <p className={`text-xs mt-1 ${dark ? 'text-amber-400/90' : 'text-amber-700'}`}>Görevi kaydetmek için aşağıdan bir liste seçin.</p>
+          )}
         </div>
       </header>
 
@@ -182,7 +309,7 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
             <label className={labelClass}>Görev Başlığı</label>
             <input
               type="text"
-              value={title}
+              value={title ?? ''}
               onChange={(e) => setTitle(e.target.value)}
               className={`${inputBase} py-4 text-lg`}
               placeholder="Ne yapman gerekiyor?"
@@ -200,44 +327,87 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
             />
           </div>
 
-          <div>
-            <label className={labelClass}>Kategori</label>
-            <button onClick={() => setShowCategoryOptions(!showCategoryOptions)} className={selectBtn}>
-              <span className={category ? (dark ? 'text-zinc-100 font-medium' : 'text-stone-900 font-medium') : (dark ? 'text-zinc-500' : 'text-stone-400')}>
-                {category ? categories.find(c => c.id === category)?.name || category : 'Kategori seç'}
-              </span>
-              <svg className={`w-5 h-5 transition-transform ${dark ? 'text-zinc-500' : 'text-stone-400'} ${showCategoryOptions ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {showCategoryOptions && (
-              <div className={dropdownPanel}>
-                {categories.map((cat) => (
-                  <button key={cat.id} onClick={() => { setCategory(cat.id); setShowCategoryOptions(false); }} className={`w-full px-4 py-4 text-left flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800' : 'border-stone-100 hover:bg-amber-50/50'}`}>
-                    <span className="text-2xl">{cat.icon}</span>
-                    <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>{cat.name}</div>
-                  </button>
-                ))}
+          {!defaultCategory && (
+            <div>
+              <label className={labelClass}>Liste</label>
+              <button onClick={() => setShowCategoryOptions(!showCategoryOptions)} className={selectBtn}>
+                <span className={category ? (dark ? 'text-zinc-100 font-medium' : 'text-stone-900 font-medium') : (dark ? 'text-zinc-500' : 'text-stone-400')}>
+                  {category ? categories.find(c => c.id === category)?.name || category : 'Liste seç'}
+                </span>
+                <svg className={`w-5 h-5 transition-transform ${dark ? 'text-zinc-500' : 'text-stone-400'} ${showCategoryOptions ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showCategoryOptions && (
+                <div className={dropdownPanel}>
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        setCategory(cat.id);
+                        if (cat.syncToGoogle) setSyncToGoogle(true);
+                        else setSyncToGoogle(false);
+                        setShowCategoryOptions(false);
+                      }}
+                      className={`w-full px-4 py-4 text-left flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800' : 'border-stone-100 hover:bg-amber-50/50'}`}
+                    >
+                      <span className="text-2xl">{cat.icon}</span>
+                      <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>{cat.name}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {isPro && selectedCategorySyncToGoogle && (
+            <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${dark ? 'bg-zinc-800/80' : 'bg-stone-50'}`}>
+              <div>
+                <p className={`font-medium ${dark ? 'text-zinc-200' : 'text-stone-800'}`}>Google Takvim'de görünsün</p>
+                <p className={`text-xs mt-0.5 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Bu görev Google Takvim'e aktarılır</p>
               </div>
-            )}
-          </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={syncToGoogle}
+                onClick={() => setSyncToGoogle((v) => !v)}
+                className={`relative w-12 h-7 rounded-full transition-colors ${syncToGoogle ? (dark ? 'bg-amber-500' : 'bg-amber-500') : dark ? 'bg-zinc-600' : 'bg-stone-300'}`}
+              >
+                <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${syncToGoogle ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Tarih</label>
               <input
                 type="date"
-                value={(() => { const now = new Date(); const y = now.getFullYear(); const m = String(now.getMonth() + 1).padStart(2, '0'); const d = date.padStart(2, '0'); return `${y}-${m}-${d}`; })()}
+                value={(() => { const now = new Date(); const y = now.getFullYear(); const m = String(now.getMonth() + 1).padStart(2, '0'); const d = (date ?? now.getDate().toString()).padStart(2, '0'); return `${y}-${m}-${d}`; })()}
                 onChange={(e) => { const dateStr = e.target.value; const day = dateStr.split('-')[2]; setDate(parseInt(day, 10).toString()); }}
                 className={inputBase}
               />
             </div>
             <div>
               <label className={labelClass}>Saat</label>
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputBase} />
+              <input type="time" value={time ?? ''} onChange={(e) => setTime(e.target.value || '08:00')} className={inputBase} />
             </div>
           </div>
 
+          {/* Detay bölümü (accordion) */}
+          <button
+            type="button"
+            onClick={() => setShowDetaySection((v) => !v)}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${dark ? 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
+          >
+            <span className="font-medium">Detay (Tekrarlama, öncelik, etiketler…)</span>
+            <svg className={`w-5 h-5 transition-transform ${showDetaySection ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {showDetaySection && (
+          <>
           <div>
             <label className={labelClass}>Hatırlatma (isteğe bağlı)</label>
             <div className="flex items-center gap-2">
@@ -259,6 +429,145 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
             </div>
             <p className={`mt-1 text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Bildirimler açıksa bu saatte hatırlatılacaksın.</p>
           </div>
+
+          {isPro && (
+            <div>
+              <label className={labelClass}>Hatırlatma mesajı (Pro)</label>
+              <input
+                type="text"
+                value={reminderMessage ?? ''}
+                onChange={(e) => setReminderMessage(e.target.value || null)}
+                placeholder="Bildirimde görünecek özel mesaj (örn: Toplantıyı unutma!)"
+                className={inputBase}
+              />
+            </div>
+          )}
+
+          {isPro && (
+            <div>
+              <label className={labelClass}>İkinci hatırlatma (Pro)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="time"
+                  value={reminderAt2 ?? ''}
+                  onChange={(e) => setReminderAt2(e.target.value || null)}
+                  className={inputBase}
+                />
+                {reminderAt2 && (
+                  <button
+                    type="button"
+                    onClick={() => setReminderAt2(null)}
+                    className={`shrink-0 px-3 py-3 rounded-xl text-sm font-medium ${dark ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
+                  >
+                    Kaldır
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {isPro && (
+            <div>
+              <label className={labelClass}>Geri sayım hedefi (Pro)</label>
+              <input
+                type="datetime-local"
+                value={countdownTarget ?? ''}
+                onChange={(e) => setCountdownTarget(e.target.value || null)}
+                className={inputBase}
+              />
+              {countdownTarget && (
+                <button
+                  type="button"
+                  onClick={() => setCountdownTarget(null)}
+                  className={`mt-2 text-sm font-medium ${dark ? 'text-zinc-400 hover:text-zinc-300' : 'text-stone-500 hover:text-stone-700'}`}
+                >
+                  Geri sayımı kaldır
+                </button>
+              )}
+            </div>
+          )}
+
+          {isPro && (
+            <div>
+              <label className={labelClass}>Ses notu (Pro)</label>
+              {voiceNote ? (
+                <div className={`flex items-center gap-2 rounded-xl px-4 py-3 ${dark ? 'bg-zinc-800 border border-zinc-700' : 'bg-stone-50 border border-stone-200'}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const a = new Audio(voiceNote);
+                      a.play().catch(() => {});
+                    }}
+                    className={`shrink-0 p-2 rounded-lg ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}`}
+                    title="Oynat"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  </button>
+                  <span className={`text-sm flex-1 ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>Ses kaydı</span>
+                  <button
+                    type="button"
+                    onClick={() => setVoiceNote(null)}
+                    className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium ${dark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'}`}
+                  >
+                    Sil
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {!isRecordingVoice ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                          const recorder = new MediaRecorder(stream);
+                          const chunks: BlobPart[] = [];
+                          recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+                          recorder.onstop = () => {
+                            stream.getTracks().forEach(t => t.stop());
+                            const blob = new Blob(chunks, { type: 'audio/webm' });
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              const data = reader.result as string;
+                              const MAX = 500 * 1024;
+                              if (data.length > MAX) {
+                                alert('Ses kaydı çok uzun (max ~500 KB). Kısa kaydedin.');
+                                return;
+                              }
+                              setVoiceNote(data);
+                            };
+                            reader.readAsDataURL(blob);
+                          };
+                          (recorder as unknown as { _stream: MediaStream })._stream = stream;
+                          (window as unknown as { __voiceRecorder: MediaRecorder }).__voiceRecorder = recorder;
+                          recorder.start();
+                          setIsRecordingVoice(true);
+                        } catch (err) {
+                          alert('Mikrofon erişimi gerekli.');
+                        }
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium ${dark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'}`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> Kaydet
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const r = (window as unknown as { __voiceRecorder?: MediaRecorder }).__voiceRecorder;
+                        if (r && r.state !== 'inactive') r.stop();
+                        (window as unknown as { __voiceRecorder?: MediaRecorder }).__voiceRecorder = undefined;
+                        setIsRecordingVoice(false);
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium ${dark ? 'bg-zinc-700 text-zinc-200' : 'bg-stone-200 text-stone-800'}`}
+                    >
+                      Durdur
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <label className={labelClass}>Dosya ekle (isteğe bağlı, max 500 KB)</label>
@@ -318,7 +627,9 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
               className={selectBtn}
             >
               <span className={recurrence ? (dark ? 'text-zinc-100 font-medium' : 'text-stone-900 font-medium') : (dark ? 'text-zinc-500' : 'text-stone-400')}>
-                {recurrence === 'weekly'
+                {recurrence === 'daily'
+                  ? '📆 Her gün'
+                  : recurrence === 'weekly'
                   ? '🔄 Her hafta'
                   : recurrence === 'monthly'
                   ? '📅 Her ay'
@@ -339,9 +650,10 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
             {showRecurrenceOptions && (
               <div className={dropdownPanel}>
                 {[
+                  { v: 'daily' as const, l: '📆 Her gün' },
                   { v: 'weekly' as const, l: '🔄 Her hafta' },
                   { v: 'monthly' as const, l: '📅 Her ay' },
-                  { v: 'weekdays' as const, l: '📆 Sadece hafta içi' },
+                  ...(isPro ? [{ v: 'weekdays' as const, l: '📆 Sadece hafta içi' }] : []),
                 ].map(({ v, l }) => (
                   <button key={v} onClick={() => { setRecurrence(v); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-200' : 'border-stone-100 hover:bg-amber-50/50 text-stone-800'}`}>{l}</button>
                 ))}
@@ -518,7 +830,14 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
 
           {/* Alt Görevler */}
           <div>
-            <label className={labelClass}>Alt Görevler</label>
+            <label className={labelClass}>
+              Alt Görevler
+              {!isPro && (
+                <span className={`ml-2 text-xs font-normal ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                  (Free: en fazla 3)
+                </span>
+              )}
+            </label>
             
             {/* Mevcut Alt Görevler */}
             {subtasks.length > 0 && (
@@ -590,6 +909,10 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
                 onChange={(e) => setNewSubtaskTitle(e.target.value)}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && newSubtaskTitle.trim()) {
+                    if (!canAddSubtask(isPro, subtasks.length)) {
+                      onOpenPro?.();
+                      return;
+                    }
                     setSubtasks([...subtasks, {
                       id: `subtask-${Date.now()}`,
                       title: newSubtaskTitle.trim(),
@@ -603,14 +926,17 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
               />
               <button
                 onClick={() => {
-                  if (newSubtaskTitle.trim()) {
-                    setSubtasks([...subtasks, {
-                      id: `subtask-${Date.now()}`,
-                      title: newSubtaskTitle.trim(),
-                      completed: false,
-                    }]);
-                    setNewSubtaskTitle('');
+                  if (!newSubtaskTitle.trim()) return;
+                  if (!canAddSubtask(isPro, subtasks.length)) {
+                    onOpenPro?.();
+                    return;
                   }
+                  setSubtasks([...subtasks, {
+                    id: `subtask-${Date.now()}`,
+                    title: newSubtaskTitle.trim(),
+                    completed: false,
+                  }]);
+                  setNewSubtaskTitle('');
                 }}
                 disabled={!newSubtaskTitle.trim()}
                 className={`px-4 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white hover:bg-amber-700'}`}
@@ -622,18 +948,33 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
             </div>
           </div>
 
+          </>
+          )}
+
           <button
             onClick={handleSave}
-            disabled={!title.trim() || (!category && !task)}
+            disabled={!(title ?? '').trim() || (!effectiveCategory && !task)}
             className={`w-full py-4 font-semibold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white shadow-lg hover:shadow-xl hover:bg-amber-700'}`}
+            aria-label={isNewTask ? 'Görevi oluştur' : 'Değişiklikleri kaydet'}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <span>{isNewTask ? 'Görevi Oluştur' : 'Değişiklikleri Kaydet'}</span>
           </button>
+          {isNewTask && !effectiveCategory && (
+            <p className={`text-center text-sm mt-2 ${dark ? 'text-amber-400/90' : 'text-amber-700'}`}>Görevi kaydetmek için yukarıdan <strong>Liste</strong> seçin.</p>
+          )}
 
           {/* Silme Butonu - sadece mevcut görevlerde göster */}
+          <button
+              type="button"
+              onClick={() => { setTemplateName(title.trim() || ''); setShowSaveAsTemplate(true); }}
+              className={`w-full py-3 font-medium rounded-xl transition-all flex items-center justify-center gap-2 ${dark ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 border border-stone-200 text-stone-700 hover:bg-stone-200'}`}
+            >
+              <span>📋 Şablon olarak kaydet</span>
+            </button>
+
           {!isNewTask && task?.id && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
@@ -648,18 +989,59 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
         </div>
       </div>
 
+      {/* Şablondan oluştur listesi */}
+      {showTemplateList && (
+        <Modal open dark={dark} onClose={() => setShowTemplateList(false)} maxWidth="sm" contentClassName="max-h-[70vh] overflow-hidden flex flex-col" contentNoPadding>
+          <div className={`p-4 border-b flex items-center justify-between ${dark ? 'border-zinc-800' : 'border-stone-200'}`}>
+            <h3 className={`font-semibold ${dark ? 'text-white' : 'text-stone-900'}`}>Şablondan oluştur</h3>
+            <button onClick={() => setShowTemplateList(false)} className={`p-2 rounded-xl ${dark ? 'hover:bg-zinc-800' : 'hover:bg-stone-100'}`} aria-label="Kapat">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <div className="overflow-y-auto max-h-[60vh] p-2">
+            {templateList.length === 0 ? (
+              <p className={`py-6 text-center text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Henüz şablon yok. Bir görevi &quot;Şablon olarak kaydet&quot; ile kaydedebilirsin.</p>
+            ) : (
+              templateList.map((t) => (
+                <button key={t.id} onClick={() => applyTemplate(t)} className={`w-full text-left px-4 py-3 rounded-xl mb-1 ${dark ? 'hover:bg-zinc-800 text-zinc-100' : 'hover:bg-amber-50 text-stone-900'}`}>
+                  <span className="font-medium">{t.name}</span>
+                  <span className={`block text-sm truncate ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{t.title}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Şablon olarak kaydet */}
+      {showSaveAsTemplate && (
+        <Modal open dark={dark} onClose={() => { setShowSaveAsTemplate(false); setTemplateName(''); }} maxWidth="sm">
+          <h3 className={`font-semibold mb-3 ${dark ? 'text-white' : 'text-stone-900'}`}>Şablon olarak kaydet</h3>
+          <input
+            type="text"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            placeholder="Şablon adı (örn. Haftalık toplantı)"
+            className={`${inputBase} mb-4`}
+          />
+          <div className="flex gap-2">
+            <button onClick={() => { setShowSaveAsTemplate(false); setTemplateName(''); }} className={`flex-1 py-3 rounded-xl font-medium ${dark ? 'bg-zinc-800 text-zinc-300' : 'bg-stone-100 text-stone-700'}`}>İptal</button>
+            <button onClick={handleSaveAsTemplate} className="flex-1 py-3 rounded-xl font-medium bg-amber-500 text-black hover:bg-amber-400">Kaydet</button>
+          </div>
+        </Modal>
+      )}
+
       {/* Silme Onay Dialogu */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl ${dark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`}>
-            <div className="text-center mb-5">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${dark ? 'bg-red-900/40' : 'bg-red-100'}`}>
-                <svg className={`w-8 h-8 ${dark ? 'text-red-400' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </div>
-              <h3 className={`text-lg font-bold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>
-                {isRecurring ? 'Tekrarlı Görevi Sil' : 'Görevi Sil'}
+        <Modal open dark={dark} onClose={() => setShowDeleteConfirm(false)} maxWidth="sm">
+          <div className="text-center mb-5">
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${dark ? 'bg-red-900/40' : 'bg-red-100'}`}>
+              <svg className={`w-8 h-8 ${dark ? 'text-red-400' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className={`text-lg font-bold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>
+              {isRecurring ? 'Tekrarlı Görevi Sil' : 'Görevi Sil'}
               </h3>
               <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>
                 {isRecurring
@@ -742,8 +1124,7 @@ export default function EditTaskView({ task, darkMode = false, onBack, onSave, o
                 </button>
               </div>
             )}
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

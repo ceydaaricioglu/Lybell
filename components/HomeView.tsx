@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Category, TimelineTask } from '@/lib/types';
-import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, DEFAULT_TAGS, getTagColorClasses, getTodayPomodoroCount, getWeekPomodoroCount, getPomodoroStreak, getWeekCompletedCount, getMyDayTaskIds, toggleMyDayTask } from '@/lib/helpers';
+import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, DEFAULT_TAGS, getTagColorClasses, getTodayPomodoroCount, getWeekPomodoroCount, getPomodoroStreak, getWeekCompletedCount, getMyDayTaskIds, toggleMyDayTask, getCountdownLabel } from '@/lib/helpers';
+import { getCategoryColor, MONTHS_TR } from '@/lib/constants';
 import { TaskListSkeleton } from '@/components/Skeletons';
 
 interface HomeViewProps {
@@ -14,17 +15,18 @@ interface HomeViewProps {
   onViewStats: () => void;
   onEditTask: (task: TimelineTask, viewingDate?: string) => void;
   onStartPomodoro: (task: TimelineTask) => void;
+  /** Merkezi cache: verilirse kullanılır, fetch yapılmaz */
+  tasks?: TimelineTask[];
 }
 
-const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-
-export default function HomeView({ darkMode = false, onCategorySelect, userId, onViewAll, onViewCalendar, onViewStats, onEditTask, onStartPomodoro }: HomeViewProps) {
+export default function HomeView({ darkMode = false, onCategorySelect, userId, onViewAll, onViewCalendar, onViewStats, onEditTask, onStartPomodoro, tasks: tasksFromParent }: HomeViewProps) {
   const dark = darkMode;
   const [categories, setCategories] = useState<Category[]>([]);
-  const [allTasks, setAllTasks] = useState<TimelineTask[]>([]);
+  const [localTasks, setLocalTasks] = useState<TimelineTask[]>([]);
   const [weekCompletedCount, setWeekCompletedCount] = useState<number>(0);
   const [myDayIds, setMyDayIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const allTasks = tasksFromParent ?? localTasks;
 
   const today = new Date();
   const currentDay = today.getDate();
@@ -33,53 +35,74 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
   const todayStr = currentDay.toString();
 
   useEffect(() => {
+    setCategories(getMockCategories(userId));
+    setMyDayIds(getMyDayTaskIds(userId));
+    if (tasksFromParent !== undefined) {
+      setLoading(false);
+      getWeekCompletedCount(userId).then(setWeekCompletedCount);
+      return;
+    }
     const loadData = async () => {
       setLoading(true);
-      const loadedCategories = getMockCategories(userId);
-      setCategories(loadedCategories);
-      
       const loadedTasks = await fetchTasksFromSupabase(userId);
-      setAllTasks(loadedTasks);
+      setLocalTasks(loadedTasks);
       const count = await getWeekCompletedCount(userId);
       setWeekCompletedCount(count);
-      setMyDayIds(getMyDayTaskIds(userId));
       setLoading(false);
     };
     loadData();
-  }, [userId]);
+  }, [userId, tasksFromParent]);
 
-  // Bugünün görevleri
-  const todayTasks = filterRecurringTasks(allTasks, todayStr)
-    .filter(t => !t.completed)
-    .sort((a, b) => a.time.localeCompare(b.time));
+  // Bugünün görevleri (useMemo: allTasks/todayStr değişmedikçe yeniden hesaplanmaz)
+  const todayTasks = useMemo(
+    () => filterRecurringTasks(allTasks, todayStr)
+      .filter(t => !t.completed)
+      .sort((a, b) => a.time.localeCompare(b.time)),
+    [allTasks, todayStr]
+  );
 
   // Bugün Odakta (My Day) – bugünkü görevlerden odak listesinde olanlar
-  const myDayTasks = filterRecurringTasks(allTasks, todayStr).filter(t => t.id && myDayIds.includes(t.id)).sort((a, b) => a.time.localeCompare(b.time));
+  const myDayTasks = useMemo(
+    () => filterRecurringTasks(allTasks, todayStr)
+      .filter(t => t.id && myDayIds.includes(t.id))
+      .sort((a, b) => a.time.localeCompare(b.time)),
+    [allTasks, todayStr, myDayIds]
+  );
 
   const handleToggleMyDay = (taskId: string) => {
-    const added = toggleMyDayTask(userId, taskId);
+    toggleMyDayTask(userId, taskId);
     setMyDayIds(getMyDayTaskIds(userId));
   };
 
   // Yaklaşan görevler (bugünden sonraki 3 gün)
-  const upcomingDays = Array.from({ length: 3 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(currentDay + i + 1);
-    return d.getDate().toString();
-  });
+  const upcomingTasks = useMemo(() => {
+    const upcomingDays = Array.from({ length: 3 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(currentDay + i + 1);
+      return d.getDate().toString();
+    });
+    const list: TimelineTask[] = [];
+    upcomingDays.forEach(day => {
+      const dayTasks = filterRecurringTasks(allTasks, day)
+        .filter(t => !t.completed)
+        .map(t => ({ ...t, date: day }));
+      list.push(...dayTasks);
+    });
+    list.sort((a, b) => {
+      const dateCompare = parseInt(a.date) - parseInt(b.date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.time.localeCompare(b.time);
+    });
+    return list;
+  }, [allTasks, currentDay, today]);
 
-  const upcomingTasks: TimelineTask[] = [];
-  upcomingDays.forEach(day => {
-    const dayTasks = filterRecurringTasks(allTasks, day)
-      .filter(t => !t.completed)
-      .map(t => ({ ...t, date: day }));
-    upcomingTasks.push(...dayTasks);
-  });
-  upcomingTasks.sort((a, b) => {
-    const dateCompare = parseInt(a.date) - parseInt(b.date);
-    if (dateCompare !== 0) return dateCompare;
-    return a.time.localeCompare(b.time);
-  });
+  // Gecikmiş görevler (tarihi bugünden önce, tamamlanmamış)
+  const overdueTasks = useMemo(
+    () => allTasks
+      .filter(t => !t.completed && t.date && parseInt(t.date, 10) < currentDay)
+      .sort((a, b) => parseInt(a.date!) - parseInt(b.date!) || a.time.localeCompare(b.time)),
+    [allTasks, currentDay]
+  );
 
   // Pomodoro istatistikleri
   const todayPomodoros = getTodayPomodoroCount(userId);
@@ -99,23 +122,11 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
     };
   }).sort((a, b) => b.total - a.total).slice(0, 3);
 
-  const getCategoryColor = (color?: string) => {
-    const colorMap: Record<string, { bg: string; light: string; text: string }> = {
-      blue: { bg: 'bg-blue-600', light: 'bg-blue-100', text: 'text-blue-600' },
-      purple: { bg: 'bg-purple-600', light: 'bg-purple-100', text: 'text-purple-600' },
-      pink: { bg: 'bg-pink-600', light: 'bg-pink-100', text: 'text-pink-600' },
-      orange: { bg: 'bg-orange-600', light: 'bg-orange-100', text: 'text-orange-600' },
-      yellow: { bg: 'bg-yellow-600', light: 'bg-yellow-100', text: 'text-yellow-600' },
-      emerald: { bg: 'bg-emerald-600', light: 'bg-emerald-100', text: 'text-emerald-600' },
-    };
-    return colorMap[color || 'emerald'] || colorMap.emerald;
-  };
-
   if (loading) {
     return (
       <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
-        <div className="max-w-md mx-auto px-5 pt-10 pb-8">
-          <div className={dark ? 'h-px w-12 bg-amber-400/80 mb-5' : 'mb-8'}>
+        <div className="max-w-md mx-auto px-5 pt-6 pb-4">
+          <div className={dark ? 'h-px w-12 bg-amber-400/80 mb-5' : 'mb-6'}>
             <div className={`h-8 rounded w-48 mb-2 animate-pulse ${dark ? 'bg-zinc-700' : 'bg-stone-200'}`}></div>
             <div className={`h-4 rounded w-32 animate-pulse ${dark ? 'bg-zinc-800' : 'bg-stone-100'}`}></div>
           </div>
@@ -129,20 +140,49 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
 
   return (
     <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f] text-zinc-100' : 'bg-[#f5f0ea] text-stone-800'}`}>
-      <div className="max-w-md mx-auto px-5 pt-10 pb-8">
+      <div className="max-w-md mx-auto px-5 pt-6 pb-4">
         {/* Header — Tasarım 3: Hoş geldin 👋 / Tasarım 2: Günaydın + amber çizgi */}
-        <header className="mb-8">
+        <header className="mb-6">
           {dark && <div className="h-px w-12 bg-amber-400/80 mb-5" />}
           <h1 className={dark ? 'text-2xl font-semibold text-white tracking-tight' : 'text-3xl font-semibold text-stone-800'}>
             {dark ? 'Günaydın' : 'Hoş geldin 👋'}
           </h1>
           <p className={dark ? 'text-sm text-zinc-500 mt-1' : 'text-stone-500 mt-1'}>
-            {todayStr} {MONTHS[currentMonth]} · {dark ? `${todayTasks.length} görev bugün` : 'Gününü planla'}
+            {todayStr} {MONTHS_TR[currentMonth]} · {dark ? `${todayTasks.length} görev bugün` : 'Gününü planla'}
             {weekCompletedCount > 0 && (
-              <span className={dark ? ' text-zinc-400' : ' text-stone-500'}> · Bu hafta {weekCompletedCount} tamamlandı</span>
+              <span className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'}`}>
+                <span aria-hidden>✓</span> Bu hafta {weekCompletedCount} tamamlandı
+              </span>
             )}
           </p>
         </header>
+
+        {/* Gecikmiş görevler */}
+        {overdueTasks.length > 0 && (
+          <div className={`rounded-2xl overflow-hidden mb-4 ${dark ? 'bg-red-950/30 border border-red-900/50' : 'bg-red-50/80 border border-red-200/80'}`}>
+            <div className={`px-5 py-3 flex items-center justify-between ${dark ? 'border-b border-red-900/40' : 'border-b border-red-200/60'}`}>
+              <h2 className={`text-sm font-semibold ${dark ? 'text-red-400' : 'text-red-700'}`}>⏰ Gecikmiş</h2>
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${dark ? 'bg-red-900/50 text-red-300' : 'bg-red-200/80 text-red-700'}`}>{overdueTasks.length}</span>
+            </div>
+            <div className="divide-y divide-red-200/50">
+              {overdueTasks.slice(0, 5).map((task) => (
+                <button
+                  key={task.id}
+                  onClick={() => onEditTask(task, task.date)}
+                  className={`w-full text-left flex items-center gap-3 px-4 py-3 ${dark ? 'hover:bg-red-900/20' : 'hover:bg-red-50/50'}`}
+                >
+                  <span className={`text-xs w-10 ${dark ? 'text-red-400/90' : 'text-red-600'}`}>{task.date} {MONTHS_TR[currentMonth]}</span>
+                  <span className={`text-xs tabular-nums w-10 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{task.time}</span>
+                  <span className={`flex-1 font-medium truncate ${dark ? 'text-zinc-200' : 'text-stone-800'}`}>{task.title}</span>
+                  <svg className={`w-4 h-4 flex-shrink-0 ${dark ? 'text-zinc-500' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              ))}
+            </div>
+            {overdueTasks.length > 5 && (
+              <p className={`text-center py-2 text-xs ${dark ? 'text-red-400/80' : 'text-red-600/80'}`}>+{overdueTasks.length - 5} gecikmiş görev daha</p>
+            )}
+          </div>
+        )}
 
         {/* Bugün Odakta (My Day) */}
         {myDayTasks.length > 0 && (
@@ -242,10 +282,10 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
                   + İlk Görevini Ekle
                 </button>
                 <button
-                  onClick={onViewAll}
+                  onClick={onViewCalendar}
                   className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-colors ${dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}
                 >
-                  Tüm Görevleri Gör
+                  Takvime Git
                 </button>
               </div>
             </div>
@@ -297,6 +337,14 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
                         }`}>
                           {task.priority === 'high' ? 'Yüksek' : task.priority === 'medium' ? 'Orta' : 'Düşük'}
                         </span>
+                      )}
+                      {getCountdownLabel(task.countdownTarget) && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${dark ? 'bg-violet-900/40 text-violet-300' : 'bg-violet-100 text-violet-700'}`}>
+                          ⏱ {getCountdownLabel(task.countdownTarget)}
+                        </span>
+                      )}
+                      {task.voiceNote && (
+                        <span className="text-xs opacity-80" title="Ses notu">🎤</span>
                       )}
                       {task.tags && task.tags.slice(0, 2).map(tagId => {
                         const tag = DEFAULT_TAGS.find(t => t.id === tagId);
@@ -352,12 +400,12 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
               {upcomingTasks.slice(0, 3).map((task, idx) => {
                 const taskDate = parseInt(task.date);
                 const isTomorrow = taskDate === currentDay + 1;
-                const dateLabel = isTomorrow ? 'Yarın' : `${taskDate} ${MONTHS[currentMonth]}`;
+                const dateLabel = isTomorrow ? 'Yarın' : `${taskDate} ${MONTHS_TR[currentMonth]}`;
                 return (
                   <button
                     key={`${task.id}-${idx}`}
                     onClick={() => onEditTask(task, task.date)}
-                    className={`w-full text-left flex items-center gap-3 rounded-2xl ${dark ? 'py-2.5 px-5 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/30' : 'py-3 px-4 mx-2 mb-2 bg-stone-50/60 hover:bg-stone-100/80'}`}
+                    className={`w-full text-left flex items-center gap-3 rounded-2xl transition-all active:scale-[0.99] active:opacity-95 ${dark ? 'py-2.5 px-5 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/30' : 'py-3 px-4 mx-2 mb-2 bg-stone-50/60 hover:bg-stone-100/80'}`}
                   >
                     <span className={`text-xs w-14 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{dateLabel}</span>
                     <span className={`text-xs tabular-nums w-10 ${dark ? 'text-zinc-500' : 'text-stone-400'}`}>{task.time}</span>
@@ -385,7 +433,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
         {categoryStats.length > 0 && (
           <section className="mb-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className={dark ? 'text-xs font-medium text-zinc-500' : 'text-sm font-semibold text-stone-600'}>Kategoriler</h2>
+              <h2 className={dark ? 'text-xs font-medium text-zinc-500' : 'text-sm font-semibold text-stone-600'}>Listeler</h2>
               <button
                 onClick={() => onCategorySelect('categories')}
                 className={`text-sm font-medium ${dark ? 'text-amber-400/90 hover:text-amber-400' : 'text-amber-700 hover:text-amber-800'}`}
@@ -400,7 +448,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
                   <button
                     key={cat.id}
                     onClick={() => onCategorySelect(cat.id)}
-                    className={`flex items-center gap-3 rounded-2xl transition-all ${
+                    className={`flex items-center gap-3 rounded-2xl transition-all active:scale-[0.99] active:opacity-95 ${
                       dark
                         ? 'px-4 py-2.5 bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/80 text-zinc-300'
                         : 'px-5 py-3 bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md hover:border-amber-200/60 text-stone-700 font-medium'
@@ -420,7 +468,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
         <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => onCategorySelect('add-task')}
-            className={`rounded-2xl p-4 transition-all text-center ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
+            className={`rounded-2xl p-4 transition-all text-center active:scale-[0.99] active:opacity-95 ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${dark ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
               <svg className={`w-5 h-5 ${dark ? 'text-amber-400' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -431,7 +479,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
           </button>
           <button
             onClick={onViewAll}
-            className={`rounded-2xl p-4 transition-all text-center ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
+            className={`rounded-2xl p-4 transition-all text-center active:scale-[0.99] active:opacity-95 ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${dark ? 'bg-zinc-700' : 'bg-stone-100'}`}>
               <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -442,7 +490,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
           </button>
           <button
             onClick={onViewCalendar}
-            className={`rounded-2xl p-4 transition-all text-center ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
+            className={`rounded-2xl p-4 transition-all text-center active:scale-[0.99] active:opacity-95 ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${dark ? 'bg-zinc-700' : 'bg-stone-100'}`}>
               <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

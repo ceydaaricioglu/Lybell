@@ -128,9 +128,9 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
   if (showForgotPassword) {
     return (
       <div className={`min-h-screen ${dark ? 'bg-[#0f0f0f] text-zinc-100' : 'bg-[#f5f0ea] text-stone-800'}`}>
-        <div className="max-w-md mx-auto px-5 pt-12 pb-8">
-          <header className="mb-8">
-            <h1 className={dark ? 'text-2xl font-semibold text-white' : 'text-2xl font-semibold text-stone-800'}>Şifremi unuttum</h1>
+        <div className="max-w-md mx-auto px-5 pt-6 pb-4">
+          <header className="mb-6">
+            <h1 className={dark ? 'text-xl font-semibold text-white' : 'text-xl font-semibold text-stone-800'}>Şifremi unuttum</h1>
             <p className={dark ? 'text-sm text-zinc-500 mt-1' : 'text-stone-500 mt-1'}>
               E-posta adresinizi girin, size şifre sıfırlama bağlantısı gönderelim.
             </p>
@@ -184,9 +184,9 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
 
   return (
     <div className={`min-h-screen ${dark ? 'bg-[#0f0f0f] text-zinc-100' : 'bg-[#f5f0ea] text-stone-800'}`}>
-      <div className="max-w-md mx-auto px-5 pt-12 pb-8">
+      <div className="max-w-md mx-auto px-5 pt-6 pb-4">
         {/* Header – Ana sayfa / Ayarlar ile aynı stil */}
-        <header className="mb-8">
+        <header className="mb-6">
           {dark && <div className="h-px w-12 bg-amber-400/80 mb-5" />}
           <h1 className={dark ? 'text-2xl font-semibold text-white tracking-tight' : 'text-3xl font-semibold text-stone-800'}>
             Hoş geldin

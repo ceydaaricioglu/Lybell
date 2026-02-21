@@ -1,5 +1,13 @@
 # Yapılacaklar ve Notlar
 
+## 🔜 Sonraki aşamada yapılacaklar (veri / performans)
+
+| Öncelik | Madde | Açıklama |
+|--------|--------|----------|
+| C | **Görev/liste verisi için merkezi cache** | Şu an HomeView, CategoryTaskView, TasksView, CalendarView, CategoriesView kendi içinde `fetchTasksFromSupabase` / `getMockCategories` ile veri çekiyor; ekranlar arası geçişte her seferinde yeniden fetch oluyor. İleride: React Query / SWR ile tek bir cache veya sayfa seviyesinde merkezi tasks state ile veriyi paylaşmak; böylece gereksiz istekler azalır ve liste/görev güncellemeleri tutarlı olur. |
+
+---
+
 ## 📱 Arayüz stratejisi
 - **Şu an:** Arayüz sadece **app** (mobil/tek ekran) olarak düşünülüyor.
 - **Proje bitince:** Ayrı bir **web arayüzü** yapılacak; o zaman web için farklı ilerlenecek.

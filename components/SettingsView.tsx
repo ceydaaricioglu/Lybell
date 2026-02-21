@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { isMockUser, getTodayPomodoroCount, getWeekPomodoroCount, getMonthPomodoroCount, getPomodoroStreak, getTotalFocusTime, getWeeklyPomodoroDistribution, getPomodoroRecords, getMockCategories, getProfile, fetchTasksFromSupabase } from '@/lib/helpers';
+import { isMockUser, getTodayPomodoroCount, getWeekPomodoroCount, getMonthPomodoroCount, getPomodoroStreak, getTotalFocusTime, getWeeklyPomodoroDistribution, getPomodoroRecords, getMockCategories, getProfile, fetchTasksFromSupabase, fetchTemplates, deleteTemplateFromSupabase } from '@/lib/helpers';
+import type { TimelineTask } from '@/lib/types';
+import type { TaskTemplate } from '@/lib/types';
 import { useToast } from '@/components/Toast';
 import { useLocale } from '@/components/LocaleContext';
 import { t, SUPPORTED_LOCALES, getLocaleLabel } from '@/lib/i18n';
@@ -17,18 +19,26 @@ import {
   setOverdueReminderEnabled,
   getOverdueReminderTime,
   setOverdueReminderTime as persistOverdueReminderTime,
+  getNotificationSound,
+  setNotificationSound,
+  type NotificationSound,
 } from '@/lib/notifications';
+import { DEFAULT_NAV_TABS, getVisibleNavTabs, setVisibleNavTabs } from '@/lib/navTabs';
+import Modal from '@/components/Modal';
 
 interface SettingsViewProps {
   userId: string;
   onLogout: () => void;
+  onSessionLost?: () => void;
   darkMode?: boolean;
   onDarkModeChange?: (value: boolean) => void;
   onOpenProfile?: () => void;
   onOpenPro?: () => void;
+  isPro?: boolean;
+  onNavTabsChange?: (tabs: string[]) => void;
 }
 
-export default function SettingsView({ userId, onLogout, darkMode = false, onDarkModeChange, onOpenProfile, onOpenPro }: SettingsViewProps) {
+export default function SettingsView({ userId, onLogout, onSessionLost, darkMode = false, onDarkModeChange, onOpenProfile, onOpenPro, isPro = false, onNavTabsChange }: SettingsViewProps) {
   const dark = darkMode;
   const { showToast } = useToast();
   const { locale, setLocale } = useLocale();
@@ -37,6 +47,7 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
   const [dailyDigestTime, setDailyDigestTime] = useState(() => getDailyDigestTime());
   const [overdueReminder, setOverdueReminder] = useState(() => getOverdueReminderEnabled());
   const [overdueReminderTime, setOverdueReminderTime] = useState(() => getOverdueReminderTime());
+  const [notificationSound, setNotificationSoundState] = useState<NotificationSound>(() => getNotificationSound());
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -44,10 +55,27 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+  const [visibleNavTabs, setVisibleNavTabsState] = useState<string[]>(() => getVisibleNavTabs(true));
+  useEffect(() => {
+    if (isPro) setVisibleNavTabsState(getVisibleNavTabs(true));
+  }, [isPro]);
 
   useEffect(() => {
     getProfile(userId).then((p) => setDisplayName(p.displayName || null));
   }, [userId]);
+
+  useEffect(() => {
+    fetchTemplates(userId).then(setTemplates);
+  }, [userId]);
+
+  // Gerçek kullanıcı görünüyor ama Supabase oturumu yoksa state'i düzelt (girişe yönlendir)
+  useEffect(() => {
+    if (!userId || isMockUser(userId) || !onSessionLost) return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) onSessionLost();
+    });
+  }, [userId, onSessionLost]);
 
   const isMock = isMockUser(userId);
   const userEmail = isMock ? 'Hesap olmadan kullanılıyor' : 'Kayıtlı kullanıcı';
@@ -94,18 +122,28 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
   const handleExportData = async () => {
     setExporting(true);
     try {
-      const tasks = await fetchTasksFromSupabase(userId);
-      const categories = getMockCategories(userId);
+      const [tasks, categories, templates, profile] = await Promise.all([
+        fetchTasksFromSupabase(userId),
+        Promise.resolve(getMockCategories(userId)),
+        fetchTemplates(userId),
+        getProfile(userId),
+      ]);
       const exportData = {
+        version: 1,
         exportDate: new Date().toISOString(),
-        tasks,
-        categories,
+        app: 'TaskFlow',
+        data: {
+          tasks,
+          categories,
+          templates,
+          profile,
+        },
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `taskflow-verileri-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `taskflow-yedek-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -113,6 +151,46 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
       showToast(locale === 'tr' ? 'Veriler başarıyla dışa aktarıldı' : 'Data exported successfully', 'success');
     } catch {
       showToast(locale === 'tr' ? 'Dışa aktarma başarısız' : 'Export failed', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  /** Görev listesini CSV olarak indir (Excel vb. için). */
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const tasks = await fetchTasksFromSupabase(userId);
+      const categories = getMockCategories(userId);
+      const header = 'Başlık,Tarih,Saat,Liste,Tamamlandı,Öncelik,Tekrar,Hatırlatma,Açıklama';
+      const rows = tasks.map((t: TimelineTask) => {
+        const catName = t.category ? (categories.find(c => c.id === t.category)?.name ?? t.category) : '';
+        const escape = (v: string) => (v == null ? '' : String(v).replace(/"/g, '""'));
+        return [
+          `"${escape(t.title ?? '')}"`,
+          t.date ?? '',
+          t.time ?? '',
+          `"${escape(catName)}"`,
+          t.completed ? 'Evet' : 'Hayır',
+          t.priority ?? '',
+          t.recurrence ?? '',
+          t.reminderAt ?? '',
+          `"${escape((t.description ?? '').slice(0, 200))}"`,
+        ].join(',');
+      });
+      const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `taskflow-gorevler-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(locale === 'tr' ? 'Görev listesi CSV olarak indirildi' : 'Tasks exported as CSV', 'success');
+    } catch {
+      showToast(locale === 'tr' ? 'CSV dışa aktarma başarısız' : 'CSV export failed', 'error');
     } finally {
       setExporting(false);
     }
@@ -141,7 +219,7 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
       {/* Header */}
       <div className={`border-b px-6 py-5 ${dark ? 'bg-[#0f0f0f] border-zinc-800' : 'bg-[#f5f0ea] border-stone-200'}`}>
         <div className="max-w-md mx-auto">
-          <h1 className={`text-2xl font-bold ${dark ? 'text-white' : 'text-stone-900'}`}>{t('settings.title', locale)}</h1>
+          <h1 className={`text-xl font-semibold ${dark ? 'text-white' : 'text-stone-900'}`}>{t('settings.title', locale)}</h1>
           <p className={`text-sm mt-1 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{t('settings.subtitle', locale)}</p>
         </div>
       </div>
@@ -176,8 +254,24 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
           </div>
         </button>
 
-        {/* Pro'ya Yükselt */}
-        {onOpenPro && (
+        {/* Pro: üyeyse bilgi, değilse yükselt butonu */}
+        {isPro ? (
+          <div className={`w-full rounded-2xl p-5 text-left ${dark ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40' : 'bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200'}`}>
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${dark ? 'bg-amber-500/30' : 'bg-amber-100'}`}>
+                <span className="text-2xl">👑</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className={`text-lg font-bold ${dark ? 'text-amber-200' : 'text-amber-800'}`}>
+                  {locale === 'tr' ? 'Pro üyesisiniz' : 'You are Pro'}
+                </h2>
+                <p className={`text-sm mt-0.5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>
+                  {locale === 'tr' ? 'Tüm Pro özellikleri açık' : 'All Pro features are enabled'}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : onOpenPro ? (
           <button
             type="button"
             onClick={onOpenPro}
@@ -200,7 +294,7 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
               </svg>
             </div>
           </button>
-        )}
+        ) : null}
 
         {/* Genel Ayarlar */}
         <div>
@@ -292,7 +386,69 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
                     />
                   </div>
                 </div>
+                <div className={`flex items-center justify-between px-5 py-3 ${dark ? 'hover:bg-zinc-800/50' : ''}`}>
+                  <span className={`text-sm ${dark ? 'text-zinc-300' : 'text-stone-700'}`}>{locale === 'tr' ? 'Bildirim sesi' : 'Notification sound'}</span>
+                  <select
+                    value={notificationSound}
+                    onChange={(e) => {
+                      const v = e.target.value as NotificationSound;
+                      setNotificationSoundState(v);
+                      setNotificationSound(v);
+                    }}
+                    className={`text-sm rounded-lg border px-2 py-1.5 ${dark ? 'bg-zinc-800 border-zinc-600 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
+                  >
+                    <option value="default">{locale === 'tr' ? 'Varsayılan' : 'Default'}</option>
+                    <option value="silent">{locale === 'tr' ? 'Sessiz' : 'Silent'}</option>
+                    {isPro && (
+                      <>
+                        <option value="chime">{locale === 'tr' ? 'Zil (Pro)' : 'Chime (Pro)'}</option>
+                        <option value="bell">{locale === 'tr' ? 'Çan (Pro)' : 'Bell (Pro)'}</option>
+                        <option value="gentle">{locale === 'tr' ? 'Yumuşak (Pro)' : 'Gentle (Pro)'}</option>
+                      </>
+                    )}
+                  </select>
+                </div>
               </>
+            )}
+
+            {isPro && (
+              <div className={`px-5 py-3 ${dark ? 'border-b border-zinc-800' : 'border-b border-stone-100'}`}>
+                <div className={`text-sm font-medium mb-2 ${dark ? 'text-zinc-300' : 'text-stone-700'}`}>
+                  {locale === 'tr' ? 'Alt menü sekmeleri (Pro)' : 'Bottom nav tabs (Pro)'}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {DEFAULT_NAV_TABS.map((tabId) => {
+                    const label = locale === 'tr'
+                      ? { home: 'Ana Sayfa', tasks: 'Görevler', calendar: 'Takvim', 'add-task': 'Ekle', categories: 'Listeler', settings: 'Ayarlar' }[tabId] ?? tabId
+                      : { home: 'Home', tasks: 'Tasks', calendar: 'Calendar', 'add-task': 'Add', categories: 'Categories', settings: 'Settings' }[tabId] ?? tabId;
+                    const isOn = visibleNavTabs.includes(tabId);
+                    return (
+                      <label
+                        key={tabId}
+                        className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer ${
+                          dark ? 'bg-zinc-800' : 'bg-stone-100'
+                        } ${isOn ? (dark ? 'text-amber-400' : 'text-amber-700') : (dark ? 'text-zinc-500' : 'text-stone-500')}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isOn}
+                          onChange={() => {
+                            const next = isOn
+                              ? visibleNavTabs.filter(t => t !== tabId)
+                              : [...visibleNavTabs, tabId].sort((a, b) => DEFAULT_NAV_TABS.indexOf(a as 'home') - DEFAULT_NAV_TABS.indexOf(b as 'home'));
+                            if (next.length === 0) return;
+                            setVisibleNavTabs(next);
+                            setVisibleNavTabsState(next);
+                            onNavTabsChange?.(next);
+                          }}
+                          className="rounded border-stone-300"
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             <button
@@ -315,6 +471,59 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
                 </svg>
               </div>
             </button>
+          </div>
+        </div>
+
+        {/* Ana ekrana ekle / Widget kısayolu (Free) */}
+        <div>
+          <h3 className={`text-xs font-semibold uppercase tracking-wider px-1 mb-3 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{locale === 'tr' ? 'Kısayol' : 'Shortcut'}</h3>
+          <div className={`rounded-2xl p-5 ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${dark ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
+                <span className="text-xl">📱</span>
+              </div>
+              <div>
+                <h4 className={`font-semibold ${dark ? 'text-white' : 'text-stone-900'}`}>{locale === 'tr' ? 'Ana ekrana ekle' : 'Add to Home Screen'}</h4>
+                <p className={`text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                  {locale === 'tr' ? 'Tarayıcı menüsünden "Ana ekrana ekle" veya "Uygulama olarak yükle" ile hızlı erişim.' : 'Use browser menu "Add to Home Screen" for quick access.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Şablonlarım (Free) */}
+        <div>
+          <h3 className={`text-xs font-semibold uppercase tracking-wider px-1 mb-3 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{locale === 'tr' ? 'Şablonlarım' : 'My templates'}</h3>
+          <div className={`rounded-2xl overflow-hidden ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white border border-stone-100 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)]'}`}>
+            {templates.length === 0 ? (
+              <div className={`px-5 py-6 text-center text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                {locale === 'tr' ? 'Henüz şablon yok. Görev düzenlerken "Şablon olarak kaydet" ile ekleyebilirsin.' : 'No templates yet. Save a task as template from the task edit screen.'}
+              </div>
+            ) : (
+              <ul className={`divide-y ${dark ? 'divide-zinc-800' : 'divide-stone-100'}`}>
+                {templates.map((t) => (
+                  <li key={t.id} className={`flex items-center justify-between px-5 py-4 ${dark ? 'hover:bg-zinc-800/50' : 'hover:bg-stone-50'}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className={`font-medium truncate ${dark ? 'text-zinc-100' : 'text-stone-900'}`}>{t.name}</div>
+                      <div className={`text-sm truncate ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{t.title}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await deleteTemplateFromSupabase(userId, t.id);
+                        setTemplates((prev) => prev.filter((x) => x.id !== t.id));
+                        showToast(locale === 'tr' ? 'Şablon silindi' : 'Template deleted', 'info');
+                      }}
+                      className={`ml-2 p-2 rounded-xl shrink-0 ${dark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-red-400' : 'text-stone-400 hover:bg-red-50 hover:text-red-600'}`}
+                      aria-label={locale === 'tr' ? 'Şablonu sil' : 'Delete template'}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
@@ -432,6 +641,23 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
                 </svg>
               )}
             </button>
+            <button onClick={handleExportCsv} disabled={exporting} className={`w-full flex items-center justify-between px-5 py-4 transition-colors ${dark ? 'hover:bg-zinc-800/50' : 'hover:bg-stone-50'} disabled:opacity-50 disabled:cursor-not-allowed`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? 'bg-zinc-800' : 'bg-stone-100'}`}>
+                  <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <span className={`font-medium ${dark ? 'text-zinc-100' : 'text-stone-900'}`}>{locale === 'tr' ? 'Görevleri CSV olarak indir' : 'Export tasks as CSV'}</span>
+              </div>
+              {exporting ? (
+                <span className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{locale === 'tr' ? 'Hazırlanıyor...' : 'Preparing...'}</span>
+              ) : (
+                <svg className={`w-4 h-4 ${dark ? 'text-zinc-500' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              )}
+            </button>
             <button onClick={handleArchiveCompleted} className={`w-full flex items-center justify-between px-5 py-4 transition-colors ${dark ? 'hover:bg-zinc-800/50' : 'hover:bg-stone-50'}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? 'bg-zinc-800' : 'bg-amber-50'}`}>
@@ -500,106 +726,96 @@ export default function SettingsView({ userId, onLogout, darkMode = false, onDar
       </div>
 
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl ${dark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`}>
-            <div className="text-center mb-6">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${dark ? 'bg-red-900/40' : 'bg-red-100'}`}>
-                <svg className={`w-8 h-8 ${dark ? 'text-red-400' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </div>
-              <h3 className={`text-lg font-bold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>Çıkış Yap</h3>
-              <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>Hesabından çıkış yapmak istediğine emin misin?</p>
+        <Modal open dark={dark} onClose={() => setShowLogoutConfirm(false)} maxWidth="sm">
+          <div className="text-center mb-6">
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${dark ? 'bg-red-900/40' : 'bg-red-100'}`}>
+              <svg className={`w-8 h-8 ${dark ? 'text-red-400' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
             </div>
-            <div className="flex gap-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className={`flex-1 py-3 rounded-xl font-semibold transition-all ${dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
-                İptal
-              </button>
-              <button onClick={handleLogout} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all">
-                Çıkış Yap
-              </button>
-            </div>
+            <h3 className={`text-lg font-bold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>Çıkış Yap</h3>
+            <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>Hesabından çıkış yapmak istediğine emin misin?</p>
           </div>
-        </div>
+          <div className="flex gap-3">
+            <button onClick={() => setShowLogoutConfirm(false)} className={`flex-1 py-3 rounded-xl font-semibold transition-all ${dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
+              İptal
+            </button>
+            <button onClick={handleLogout} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all">
+              Çıkış Yap
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl ${dark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`}>
-            <div className="text-center mb-6">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${dark ? 'bg-red-900/40' : 'bg-red-100'}`}>
-                <svg className={`w-8 h-8 ${dark ? 'text-red-400' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </div>
-              <h3 className={`text-lg font-bold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>{t('settings.deleteAll', locale)}</h3>
-              <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>{locale === 'tr' ? 'Tüm görevlerin ve kategorilerin silinecek. Bu işlem geri alınamaz.' : 'All your tasks and categories will be deleted. This cannot be undone.'}</p>
+        <Modal open dark={dark} onClose={() => setShowDeleteConfirm(false)} maxWidth="sm">
+          <div className="text-center mb-6">
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${dark ? 'bg-red-900/40' : 'bg-red-100'}`}>
+              <svg className={`w-8 h-8 ${dark ? 'text-red-400' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
             </div>
-            <div className="flex gap-3">
-              <button onClick={() => setShowDeleteConfirm(false)} className={`flex-1 py-3 rounded-xl font-semibold transition-all ${dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
-                {locale === 'tr' ? 'İptal' : 'Cancel'}
-              </button>
-              <button onClick={handleDeleteAllData} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all">
-                {locale === 'tr' ? 'Tümünü Sil' : 'Delete All'}
-              </button>
-            </div>
+            <h3 className={`text-lg font-bold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>{t('settings.deleteAll', locale)}</h3>
+            <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>{locale === 'tr' ? 'Tüm görevlerin ve kategorilerin silinecek. Bu işlem geri alınamaz.' : 'All your tasks and categories will be deleted. This cannot be undone.'}</p>
           </div>
-        </div>
+          <div className="flex gap-3">
+            <button onClick={() => setShowDeleteConfirm(false)} className={`flex-1 py-3 rounded-xl font-semibold transition-all ${dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}>
+              {locale === 'tr' ? 'İptal' : 'Cancel'}
+            </button>
+            <button onClick={handleDeleteAllData} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all">
+              {locale === 'tr' ? 'Tümünü Sil' : 'Delete All'}
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showLangModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowLangModal(false)}>
-          <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl ${dark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
-            <h3 className={`text-lg font-bold mb-4 ${dark ? 'text-white' : 'text-stone-900'}`}>{t('settings.language', locale)}</h3>
-            <div className="space-y-2">
-              {SUPPORTED_LOCALES.map((loc) => (
-                <button
-                  key={loc}
-                  type="button"
-                  onClick={() => { setLocale(loc); setShowLangModal(false); }}
-                  className={`w-full py-3.5 rounded-xl font-medium transition-all text-left px-4 ${locale === loc ? (dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700') : (dark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-stone-100 text-stone-800 hover:bg-stone-200')}`}
-                >
-                  {getLocaleLabel(loc)}
-                </button>
-              ))}
-            </div>
-            <button type="button" onClick={() => setShowLangModal(false)} className={`mt-4 w-full py-2.5 rounded-xl font-medium ${dark ? 'text-zinc-400 hover:bg-zinc-800' : 'text-stone-500 hover:bg-stone-100'}`}>
-              {t('common.close', locale)}
-            </button>
+        <Modal open dark={dark} onClose={() => setShowLangModal(false)} maxWidth="sm">
+          <h3 className={`text-lg font-bold mb-4 ${dark ? 'text-white' : 'text-stone-900'}`}>{t('settings.language', locale)}</h3>
+          <div className="space-y-2">
+            {SUPPORTED_LOCALES.map((loc) => (
+              <button
+                key={loc}
+                type="button"
+                onClick={() => { setLocale(loc); setShowLangModal(false); }}
+                className={`w-full py-3.5 rounded-xl font-medium transition-all text-left px-4 ${locale === loc ? (dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700') : (dark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-stone-100 text-stone-800 hover:bg-stone-200')}`}
+              >
+                {getLocaleLabel(loc)}
+              </button>
+            ))}
           </div>
-        </div>
+          <button type="button" onClick={() => setShowLangModal(false)} className={`mt-4 w-full py-2.5 rounded-xl font-medium ${dark ? 'text-zinc-400 hover:bg-zinc-800' : 'text-stone-500 hover:bg-stone-100'}`}>
+            {t('common.close', locale)}
+          </button>
+        </Modal>
       )}
 
       {showPrivacyModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowPrivacyModal(false)}>
-          <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl max-h-[80vh] overflow-y-auto ${dark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
-            <h3 className={`text-lg font-bold mb-3 ${dark ? 'text-white' : 'text-stone-900'}`}>{t('settings.privacy', locale)}</h3>
-            <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>
-              {locale === 'tr'
-                ? 'Gizlilik politikası metni burada yer alacaktır. Uygulama verilerinizi yalnızca hesabınız ve cihazınızla sınırlı tutar; üçüncü taraflarla paylaşmayız.'
-                : 'Privacy policy text will appear here. We keep your data limited to your account and device and do not share with third parties.'}
-            </p>
-            <button type="button" onClick={() => setShowPrivacyModal(false)} className={`mt-4 w-full py-2.5 rounded-xl font-medium ${dark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-stone-100 text-stone-800 hover:bg-stone-200'}`}>
-              {t('common.close', locale)}
-            </button>
-          </div>
-        </div>
+        <Modal open dark={dark} onClose={() => setShowPrivacyModal(false)} maxWidth="sm" contentClassName="max-h-[80vh] overflow-y-auto">
+          <h3 className={`text-lg font-bold mb-3 ${dark ? 'text-white' : 'text-stone-900'}`}>{t('settings.privacy', locale)}</h3>
+          <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>
+            {locale === 'tr'
+              ? 'Gizlilik politikası metni burada yer alacaktır. Uygulama verilerinizi yalnızca hesabınız ve cihazınızla sınırlı tutar; üçüncü taraflarla paylaşmayız.'
+              : 'Privacy policy text will appear here. We keep your data limited to your account and device and do not share with third parties.'}
+          </p>
+          <button type="button" onClick={() => setShowPrivacyModal(false)} className={`mt-4 w-full py-2.5 rounded-xl font-medium ${dark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-stone-100 text-stone-800 hover:bg-stone-200'}`}>
+            {t('common.close', locale)}
+          </button>
+        </Modal>
       )}
 
       {showTermsModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowTermsModal(false)}>
-          <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl max-h-[80vh] overflow-y-auto ${dark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
-            <h3 className={`text-lg font-bold mb-3 ${dark ? 'text-white' : 'text-stone-900'}`}>{t('settings.terms', locale)}</h3>
-            <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>
-              {locale === 'tr'
-                ? 'Kullanım şartları metni burada yer alacaktır. Uygulamayı kullanarak bu şartları kabul etmiş sayılırsınız.'
-                : 'Terms of use text will appear here. By using the app you agree to these terms.'}
-            </p>
-            <button type="button" onClick={() => setShowTermsModal(false)} className={`mt-4 w-full py-2.5 rounded-xl font-medium ${dark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-stone-100 text-stone-800 hover:bg-stone-200'}`}>
-              {t('common.close', locale)}
-            </button>
-          </div>
-        </div>
+        <Modal open dark={dark} onClose={() => setShowTermsModal(false)} maxWidth="sm" contentClassName="max-h-[80vh] overflow-y-auto">
+          <h3 className={`text-lg font-bold mb-3 ${dark ? 'text-white' : 'text-stone-900'}`}>{t('settings.terms', locale)}</h3>
+          <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>
+            {locale === 'tr'
+              ? 'Kullanım şartları metni burada yer alacaktır. Uygulamayı kullanarak bu şartları kabul etmiş sayılırsınız.'
+              : 'Terms of use text will appear here. By using the app you agree to these terms.'}
+          </p>
+          <button type="button" onClick={() => setShowTermsModal(false)} className={`mt-4 w-full py-2.5 rounded-xl font-medium ${dark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-stone-100 text-stone-800 hover:bg-stone-200'}`}>
+            {t('common.close', locale)}
+          </button>
+        </Modal>
       )}
     </div>
   );

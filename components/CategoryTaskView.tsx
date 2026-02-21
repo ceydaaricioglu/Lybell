@@ -1,28 +1,40 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { TimelineTask } from '@/lib/types';
-import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, getDayAbbreviation, saveTaskToSupabase, DEFAULT_TAGS, getTagColorClasses, getCategoryPomodoroCount } from '@/lib/helpers';
+import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, getDayAbbreviation, saveTaskToSupabase, DEFAULT_TAGS, getTagColorClasses, getCategoryPomodoroCount, getCountdownLabel, createListShare } from '@/lib/helpers';
+import { getCategoryColor as getCategoryColorFromConstants } from '@/lib/constants';
+import { useToast } from '@/components/Toast';
 
 interface CategoryTaskViewProps {
   category: string;
   onBack: () => void;
   userId: string;
+  isPro?: boolean;
+  /** Optimistic silme: bu id'ler siliniyor gibi listeden gizlenir */
+  deletingTaskIds?: Set<string>;
   onEditTask: (task: TimelineTask, viewingDate?: string) => void;
+  /** Liste içinden yeni görev eklerken çağrılır; böylece açılan formda liste otomatik seçili olur */
+  onAddTask?: (categoryId: string) => void;
   onStartPomodoro?: (task: TimelineTask) => void;
+  /** Merkezi cache: verilirse kullanılır */
+  tasks?: TimelineTask[];
+  setTasks?: React.Dispatch<React.SetStateAction<TimelineTask[]>>;
 }
 
-export default function CategoryTaskView({ category, onBack, userId, onEditTask, onStartPomodoro }: CategoryTaskViewProps) {
-  const [tasks, setTasks] = useState<TimelineTask[]>([]);
+export default function CategoryTaskView({ category, onBack, userId, isPro = false, deletingTaskIds, onEditTask, onAddTask, onStartPomodoro, tasks: tasksFromParent, setTasks: setTasksFromParent }: CategoryTaskViewProps) {
+  const { showToast } = useToast();
+  const [sharing, setSharing] = useState(false);
+  const [localTasks, setLocalTasks] = useState<TimelineTask[]>([]);
+  const tasks = tasksFromParent ?? localTasks;
+  const setTasks = setTasksFromParent ?? setLocalTasks;
   const today = new Date();
   const currentDay = today.getDate();
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
-  const [selectedDate, setSelectedDate] = useState<string | 'all'>(currentDay.toString());
+  const [selectedDate, setSelectedDate] = useState<string | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
-
-  const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
   // Bugünden itibaren 14 gün
   const days = Array.from({ length: 14 }, (_, i) => {
@@ -33,22 +45,7 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
 
   const categories = getMockCategories(userId);
   const categoryData = categories.find(c => c.id === category);
-
-  // Kategori renk mapping
-  const getCategoryColor = () => {
-    const color = categoryData?.color || 'emerald';
-    const colorMap: Record<string, { bg: string; light: string; text: string; gradient: string }> = {
-      blue: { bg: 'bg-blue-600', light: 'bg-blue-100', text: 'text-blue-600', gradient: 'from-blue-500 to-blue-600' },
-      purple: { bg: 'bg-purple-600', light: 'bg-purple-100', text: 'text-purple-600', gradient: 'from-purple-500 to-purple-600' },
-      pink: { bg: 'bg-pink-600', light: 'bg-pink-100', text: 'text-pink-600', gradient: 'from-pink-500 to-pink-600' },
-      orange: { bg: 'bg-orange-600', light: 'bg-orange-100', text: 'text-orange-600', gradient: 'from-orange-500 to-orange-600' },
-      yellow: { bg: 'bg-yellow-600', light: 'bg-yellow-100', text: 'text-yellow-600', gradient: 'from-yellow-500 to-yellow-600' },
-      emerald: { bg: 'bg-emerald-600', light: 'bg-emerald-100', text: 'text-emerald-600', gradient: 'from-emerald-500 to-teal-500' },
-    };
-    return colorMap[color] || colorMap.emerald;
-  };
-
-  const colors = getCategoryColor();
+  const colors = useMemo(() => getCategoryColorFromConstants(categoryData?.color), [categoryData?.color]);
 
   const loadTasks = async () => {
     setLoading(true);
@@ -57,10 +54,13 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
     setLoading(false);
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (tasksFromParent !== undefined) {
+      setLoading(false);
+      return;
+    }
     loadTasks();
-  }, [userId, category]);
+  }, [userId, category, tasksFromParent]);
 
   const handleToggleTask = async (taskId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -71,10 +71,13 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
     setTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
   };
 
-  // Kategoriye ait tüm görevler
+  // Kategoriye ait tüm görevler (siliniyor olanları gizle)
   const allCategoryTasks = tasks.filter((task) => task.category === category);
-  const totalTasks = allCategoryTasks.length;
-  const completedCount = allCategoryTasks.filter(t => t.completed).length;
+  const visibleCategoryTasks = deletingTaskIds?.size
+    ? allCategoryTasks.filter((t) => !deletingTaskIds.has(t.id))
+    : allCategoryTasks;
+  const totalTasks = visibleCategoryTasks.length;
+  const completedCount = visibleCategoryTasks.filter(t => t.completed).length;
   const progressPercent = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
 
   // Seçili tarihe göre filtreleme
@@ -82,9 +85,9 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
     let filtered: TimelineTask[];
     
     if (selectedDate === 'all') {
-      filtered = allCategoryTasks;
+      filtered = visibleCategoryTasks;
     } else {
-      filtered = filterRecurringTasks(allCategoryTasks, selectedDate);
+      filtered = filterRecurringTasks(visibleCategoryTasks, selectedDate);
     }
 
     // Durum filtreleme
@@ -94,14 +97,31 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
       filtered = filtered.filter(t => t.completed);
     }
 
-    return filtered.sort((a, b) => a.time.localeCompare(b.time));
+    return filtered.sort((a, b) => (a.orderIndex ?? 9999) - (b.orderIndex ?? 9999) || a.time.localeCompare(b.time));
   };
 
   const displayTasks = getDisplayTasks();
 
+  const handleMoveTask = async (taskIndex: number, direction: 'up' | 'down') => {
+    const otherIndex = direction === 'up' ? taskIndex - 1 : taskIndex + 1;
+    if (otherIndex < 0 || otherIndex >= displayTasks.length) return;
+    const taskA = displayTasks[taskIndex];
+    const taskB = displayTasks[otherIndex];
+    if (!taskA.id || !taskB.id) return;
+    const orderA = taskA.orderIndex ?? taskIndex;
+    const orderB = taskB.orderIndex ?? otherIndex;
+    const updatedA = { ...taskA, orderIndex: orderB };
+    const updatedB = { ...taskB, orderIndex: orderA };
+    await saveTaskToSupabase(userId, updatedA);
+    await saveTaskToSupabase(userId, updatedB);
+    setTasks(prev => prev.map(t => t.id === updatedA.id ? updatedA : t.id === updatedB.id ? updatedB : t));
+  };
+  const displayedCount = displayTasks.length;
+  const displayedCompleted = displayTasks.filter(t => t.completed).length;
+
   // Gün başına görev sayısı
   const getTaskCountForDay = (day: number) => {
-    return filterRecurringTasks(allCategoryTasks, day.toString()).length;
+    return filterRecurringTasks(visibleCategoryTasks, day.toString()).length;
   };
 
   return (
@@ -119,15 +139,43 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <button
-              onClick={() => onEditTask({} as TimelineTask)}
-              className="px-4 py-2 bg-white/20 rounded-xl text-sm font-semibold hover:bg-white/30 transition-colors flex items-center gap-1"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-              </svg>
-              Görev Ekle
-            </button>
+            <div className="flex items-center gap-2">
+              {isPro && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setSharing(true);
+                    const token = await createListShare(userId, category);
+                    setSharing(false);
+                    if (token) {
+                      const url = typeof window !== 'undefined' ? window.location.origin + '/share?t=' + token : '';
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        showToast('Paylaşım linki kopyalandı!', 'success');
+                      } catch {
+                        showToast('Link: ' + url, 'info');
+                      }
+                    } else {
+                      showToast('Paylaşım için giriş yapılmış hesap gerekir.', 'error');
+                    }
+                  }}
+                  disabled={sharing}
+                  className="px-3 py-2 bg-white/20 rounded-xl text-sm font-semibold hover:bg-white/30 transition-colors flex items-center gap-1 disabled:opacity-60"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                  Paylaş
+                </button>
+              )}
+              <button
+                onClick={() => { onAddTask ? onAddTask(category) : onEditTask({} as TimelineTask); }}
+                className="px-4 py-2 bg-white/20 rounded-xl text-sm font-semibold hover:bg-white/30 transition-colors flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+                Görev Ekle
+              </button>
+            </div>
           </div>
 
           {/* Kategori Bilgisi */}
@@ -137,7 +185,7 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
             </div>
             <div className="flex-1">
               <h1 className="text-2xl font-bold">{categoryData?.name || category}</h1>
-              <p className="text-white/70 text-sm">{totalTasks} görev · {completedCount} tamamlanan</p>
+              <p className="text-white/70 text-sm">{displayedCount} görev · {displayedCompleted} tamamlanan</p>
             </div>
             {(() => {
               const categoryPomodoros = getCategoryPomodoroCount(userId, category);
@@ -267,7 +315,7 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
             </p>
             {filter === 'all' && (
               <button
-                onClick={() => onEditTask({} as TimelineTask)}
+                onClick={() => { onAddTask ? onAddTask(category) : onEditTask({} as TimelineTask); }}
                 className={`px-6 py-3 bg-gradient-to-r ${colors.gradient} text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all`}
               >
                 + Görev Ekle
@@ -276,15 +324,27 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
           </div>
         ) : (
           <div className="space-y-3">
-            {displayTasks.map((task) => (
+            {displayTasks.map((task, taskIndex) => {
+              const viewDate = selectedDate === 'all' ? task.date : selectedDate;
+              const isOverdue = viewDate && parseInt(viewDate, 10) < currentDay && !task.completed;
+              return (
               <div
                 key={task.id}
                 onClick={() => onEditTask(task, selectedDate === 'all' ? task.date : selectedDate as string)}
-                className={`bg-white rounded-2xl p-4 shadow-sm border transition-all cursor-pointer hover:shadow-md ${
-                  task.completed ? 'border-gray-100 opacity-75' : 'border-gray-100 hover:border-emerald-200'
-                }`}
+                className={`bg-white rounded-2xl p-4 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 transition-all cursor-pointer hover:shadow-md active:scale-[0.99] active:opacity-95 ${
+                  task.completed ? 'opacity-75' : 'hover:border-amber-200/40'
+                } ${isOverdue ? 'border-l-4 border-l-red-400' : ''}`}
               >
                 <div className="flex items-start gap-3">
+                  {/* Yukarı / Aşağı sıralama */}
+                  <div className="flex flex-col gap-0.5 flex-shrink-0">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); handleMoveTask(taskIndex, 'up'); }} disabled={taskIndex === 0} className="p-0.5 rounded text-gray-400 hover:text-gray-600 disabled:opacity-30" aria-label="Yukarı">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                    </button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); handleMoveTask(taskIndex, 'down'); }} disabled={taskIndex === displayTasks.length - 1} className="p-0.5 rounded text-gray-400 hover:text-gray-600 disabled:opacity-30" aria-label="Aşağı">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                  </div>
                   {/* Tamamlama Toggle */}
                   <button
                     onClick={(e) => task.id && handleToggleTask(task.id, e)}
@@ -326,6 +386,12 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
                         {task.time}
                       </span>
 
+                      {/* Gecikmiş */}
+                      {isOverdue && (
+                        <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">
+                          Gecikmiş
+                        </span>
+                      )}
                       {/* Tekrar */}
                       {task.recurrence && (
                         <span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-medium">
@@ -342,6 +408,14 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
                         }`}>
                           {task.priority === 'high' ? 'Yüksek' : task.priority === 'medium' ? 'Orta' : 'Düşük'}
                         </span>
+                      )}
+                      {getCountdownLabel(task.countdownTarget) && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-violet-100 text-violet-700">
+                          ⏱ {getCountdownLabel(task.countdownTarget)}
+                        </span>
+                      )}
+                      {task.voiceNote && (
+                        <span className="text-xs opacity-80" title="Ses notu">🎤</span>
                       )}
 
                       {/* Tags */}
@@ -378,14 +452,15 @@ export default function CategoryTaskView({ category, onBack, userId, onEditTask,
                   </svg>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>
 
       {/* FAB - Görev Ekle */}
       <button
-        onClick={() => onEditTask({} as TimelineTask)}
+        onClick={() => { onAddTask ? onAddTask(category) : onEditTask({} as TimelineTask); }}
         className={`fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-br ${colors.gradient} text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center hover:scale-110 active:scale-95 z-20`}
       >
         <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">

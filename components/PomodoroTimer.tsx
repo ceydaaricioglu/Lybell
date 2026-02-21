@@ -107,7 +107,7 @@ export default function PomodoroTimer({ task, userId, onClose }: PomodoroTimerPr
     : ((25 * 60 - timeLeft) / (25 * 60)) * 100;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-in scale-in">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
