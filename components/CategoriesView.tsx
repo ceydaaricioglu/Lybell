@@ -18,12 +18,16 @@ interface CategoriesViewProps {
   /** Merkezi cache: verilirse kullanılır */
   tasks?: TimelineTask[];
   onRefreshTasks?: () => void;
+  /** Merkezi kategori listesi: verilirse kullanılır */
+  categories?: Category[];
+  onRefreshCategories?: () => void;
 }
 
-export default function CategoriesView({ userId, darkMode = false, isPro = false, onOpenPro, onBack, onCategorySelect, tasks: tasksFromParent, onRefreshTasks }: CategoriesViewProps) {
+export default function CategoriesView({ userId, darkMode = false, isPro = false, onOpenPro, onBack, onCategorySelect, tasks: tasksFromParent, onRefreshTasks, categories: categoriesFromParent, onRefreshCategories }: CategoriesViewProps) {
   const dark = darkMode;
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [localCategories, setLocalCategories] = useState<Category[]>([]);
   const [localTasks, setLocalTasks] = useState<TimelineTask[]>([]);
+  const categories = categoriesFromParent ?? localCategories;
   const allTasks = tasksFromParent ?? localTasks;
   const [loading, setLoading] = useState(true);
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
@@ -31,7 +35,7 @@ export default function CategoriesView({ userId, darkMode = false, isPro = false
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
-    setCategories(getMockCategories(userId));
+    if (categoriesFromParent === undefined) setLocalCategories(getMockCategories(userId));
     if (tasksFromParent !== undefined) {
       setLoading(false);
       return;
@@ -42,11 +46,11 @@ export default function CategoriesView({ userId, darkMode = false, isPro = false
       setLoading(false);
     };
     load();
-  }, [userId, tasksFromParent]);
+  }, [userId, tasksFromParent, categoriesFromParent]);
 
   const loadData = async () => {
     setLoading(true);
-    setCategories(getMockCategories(userId));
+    if (categoriesFromParent === undefined) setLocalCategories(getMockCategories(userId));
     if (tasksFromParent === undefined) {
       setLocalTasks(await fetchTasksFromSupabase(userId));
     }
@@ -58,10 +62,10 @@ export default function CategoriesView({ userId, darkMode = false, isPro = false
     const updatedCategories = existingIndex >= 0
       ? categories.map((c, i) => i === existingIndex ? category : c)
       : [...categories, category];
-    setCategories(updatedCategories);
     saveMockCategories(userId, updatedCategories);
     setShowAddCategoryModal(false);
     setEditingCategory(null);
+    onRefreshCategories?.();
     loadData();
   };
 
@@ -82,9 +86,10 @@ export default function CategoriesView({ userId, darkMode = false, isPro = false
       }
     }
     const updatedCategories = categories.filter(c => c.id !== categoryId);
-    setCategories(updatedCategories);
+    if (categoriesFromParent === undefined) setLocalCategories(updatedCategories);
     saveMockCategories(userId, updatedCategories);
     setShowDeleteConfirm(null);
+    onRefreshCategories?.();
     onRefreshTasks?.();
     loadData();
   };
@@ -137,7 +142,12 @@ export default function CategoriesView({ userId, darkMode = false, isPro = false
               </svg>
             </button>
           </div>
-          <p className={`text-sm mt-1 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{categories.length} liste</p>
+          <p className={`text-sm mt-1 flex items-center gap-2 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
+            {categories.length} liste
+            {!isPro && (
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'}`}>Pro&apos;da sınırsız</span>
+            )}
+          </p>
         </header>
 
         {categoryStats.length === 0 ? (

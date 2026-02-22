@@ -36,9 +36,13 @@ interface SettingsViewProps {
   onOpenPro?: () => void;
   isPro?: boolean;
   onNavTabsChange?: (tabs: string[]) => void;
+  /** Hoş geldin / onboarding ekranlarını tekrar göstermek için */
+  onShowOnboarding?: () => void;
+  /** Test: Pro’dan çık (Free’yi denemek için) */
+  onExitPro?: () => void;
 }
 
-export default function SettingsView({ userId, onLogout, onSessionLost, darkMode = false, onDarkModeChange, onOpenProfile, onOpenPro, isPro = false, onNavTabsChange }: SettingsViewProps) {
+export default function SettingsView({ userId, onLogout, onSessionLost, darkMode = false, onDarkModeChange, onOpenProfile, onOpenPro, isPro = false, onNavTabsChange, onShowOnboarding, onExitPro }: SettingsViewProps) {
   const dark = darkMode;
   const { showToast } = useToast();
   const { locale, setLocale } = useLocale();
@@ -78,7 +82,7 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
   }, [userId, onSessionLost]);
 
   const isMock = isMockUser(userId);
-  const userEmail = isMock ? 'Hesap olmadan kullanılıyor' : 'Kayıtlı kullanıcı';
+  const userSubtitle = isMock ? 'Hesap olmadan kullanılıyor' : (displayName?.trim() ? 'Kayıtlı hesap' : 'Kayıtlı kullanıcı');
   const userDisplayTitle = displayName?.trim() || (isMock ? 'Misafir Kullanıcı' : 'Kullanıcı');
   const userInitial = displayName?.trim()?.[0]?.toUpperCase() || (isMock ? '?' : 'U');
 
@@ -241,7 +245,7 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
               <h2 className={`text-lg font-bold ${dark ? 'text-white' : 'text-stone-900'}`}>
                 {userDisplayTitle}
               </h2>
-              <p className={`text-sm truncate ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{userEmail}</p>
+              <p className={`text-sm truncate ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{userSubtitle}</p>
               <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${
                 isMock ? (dark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-600') : (dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700')
               }`}>
@@ -270,6 +274,15 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
                 </p>
               </div>
             </div>
+            {onExitPro && (
+              <button
+                type="button"
+                onClick={onExitPro}
+                className={`mt-4 w-full py-2.5 rounded-xl text-sm font-medium transition-colors ${dark ? 'text-zinc-400 hover:bg-zinc-800/60 border border-zinc-700' : 'text-stone-600 hover:bg-stone-100 border border-stone-200'}`}
+              >
+                {locale === 'tr' ? "Pro'dan çık (test)" : 'Exit Pro (test)'}
+              </button>
+            )}
           </div>
         ) : onOpenPro ? (
           <button
@@ -300,6 +313,25 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
         <div>
           <h3 className={`text-xs font-semibold uppercase tracking-wider px-1 mb-3 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Genel</h3>
           <div className={`rounded-2xl overflow-hidden divide-y ${dark ? 'bg-zinc-900/60 border border-zinc-800 divide-zinc-800' : 'bg-white border border-stone-100 divide-stone-100 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)]'}`}>
+            {onShowOnboarding && (
+              <button
+                type="button"
+                onClick={onShowOnboarding}
+                className={`w-full flex items-center justify-between px-5 py-4 ${dark ? 'hover:bg-zinc-800/50' : 'hover:bg-stone-50'} transition-colors text-left`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
+                    <svg className={`w-5 h-5 ${dark ? 'text-amber-400' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span className={`font-medium ${dark ? 'text-zinc-100' : 'text-stone-900'}`}>{locale === 'tr' ? "Hoş geldin ekranını tekrar gör" : 'Show welcome screens again'}</span>
+                </div>
+                <svg className={`w-5 h-5 flex-shrink-0 ${dark ? 'text-zinc-500' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
             <div className={`flex items-center justify-between px-5 py-4 ${dark ? 'hover:bg-zinc-800/50' : ''}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
@@ -624,7 +656,11 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
         <div>
           <h3 className={`text-xs font-semibold uppercase tracking-wider px-1 mb-3 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Veri Yönetimi</h3>
           <div className={`rounded-2xl overflow-hidden divide-y ${dark ? 'bg-zinc-900/60 border border-zinc-800 divide-zinc-800' : 'bg-white border border-stone-100 divide-stone-100 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)]'}`}>
-            <button onClick={handleExportData} disabled={exporting} className={`w-full flex items-center justify-between px-5 py-4 transition-colors ${dark ? 'hover:bg-zinc-800/50' : 'hover:bg-stone-50'} disabled:opacity-50 disabled:cursor-not-allowed`}>
+            <button
+              onClick={isPro ? handleExportData : () => onOpenPro?.()}
+              disabled={isPro && exporting}
+              className={`w-full flex items-center justify-between px-5 py-4 transition-colors ${dark ? 'hover:bg-zinc-800/50' : 'hover:bg-stone-50'} disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? 'bg-zinc-800' : 'bg-stone-100'}`}>
                   <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -632,16 +668,25 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
                   </svg>
                 </div>
                 <span className={`font-medium ${dark ? 'text-zinc-100' : 'text-stone-900'}`}>{t('settings.export', locale)}</span>
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${dark ? 'bg-amber-500/25 text-amber-400' : 'bg-amber-100 text-amber-800'}`}>Pro</span>
               </div>
-              {exporting ? (
+              {isPro && exporting ? (
                 <span className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{locale === 'tr' ? 'Hazırlanıyor...' : 'Preparing...'}</span>
+              ) : !isPro ? (
+                <svg className={`w-4 h-4 ${dark ? 'text-amber-400' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               ) : (
                 <svg className={`w-4 h-4 ${dark ? 'text-zinc-500' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               )}
             </button>
-            <button onClick={handleExportCsv} disabled={exporting} className={`w-full flex items-center justify-between px-5 py-4 transition-colors ${dark ? 'hover:bg-zinc-800/50' : 'hover:bg-stone-50'} disabled:opacity-50 disabled:cursor-not-allowed`}>
+            <button
+              onClick={isPro ? handleExportCsv : () => onOpenPro?.()}
+              disabled={isPro && exporting}
+              className={`w-full flex items-center justify-between px-5 py-4 transition-colors ${dark ? 'hover:bg-zinc-800/50' : 'hover:bg-stone-50'} disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? 'bg-zinc-800' : 'bg-stone-100'}`}>
                   <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -649,9 +694,14 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
                   </svg>
                 </div>
                 <span className={`font-medium ${dark ? 'text-zinc-100' : 'text-stone-900'}`}>{locale === 'tr' ? 'Görevleri CSV olarak indir' : 'Export tasks as CSV'}</span>
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${dark ? 'bg-amber-500/25 text-amber-400' : 'bg-amber-100 text-amber-800'}`}>Pro</span>
               </div>
-              {exporting ? (
+              {isPro && exporting ? (
                 <span className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{locale === 'tr' ? 'Hazırlanıyor...' : 'Preparing...'}</span>
+              ) : !isPro ? (
+                <svg className={`w-4 h-4 ${dark ? 'text-amber-400' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               ) : (
                 <svg className={`w-4 h-4 ${dark ? 'text-zinc-500' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { TimelineTask } from '@/lib/types';
-import { saveTaskToSupabase, fetchTasksFromSupabase, filterRecurringTasks, syncTaskToGoogleCalendar } from '@/lib/helpers';
+import { Category, TimelineTask } from '@/lib/types';
+import { saveTaskToSupabase, fetchTasksFromSupabase, getMockCategories, filterRecurringTasks, syncTaskToGoogleCalendar } from '@/lib/helpers';
 import { FREE_MAX_TASKS } from '@/lib/limits';
 import {
   getNotificationsEnabled,
@@ -40,8 +40,6 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
   const [viewingDate, setViewingDate] = useState<string | undefined>(undefined);
-  const [selectedFocus, setSelectedFocus] = useState<string | null>(null);
-  const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
   const [pomodoroTask, setPomodoroTask] = useState<TimelineTask | null>(null);
   /** Görev ekleme/düzenlemeden Geri veya Kaydet sonrası dönülecek ekran */
   const [returnViewAfterEdit, setReturnViewAfterEdit] = useState<'home' | 'tasks' | 'category' | 'categories' | 'calendar'>('home');
@@ -62,9 +60,18 @@ export default function Home() {
     const list = await fetchTasksFromSupabase(userId);
     setTasks(list);
   }, [userId]);
+  /** Merkezi liste/kategori cache – ekranlar aynı listeyi kullanır */
+  const [categories, setCategories] = useState<Category[]>([]);
+  const loadCategories = useCallback(() => {
+    if (!userId) return;
+    setCategories(getMockCategories(userId));
+  }, [userId]);
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('app_dark_mode') : null;
@@ -261,12 +268,9 @@ export default function Home() {
 
   const handleSaveTask = async (task: TimelineTask) => {
     const isNewTask = !editingTask && !task.id;
-    if (isNewTask && !isPro) {
-      const tasks = await fetchTasksFromSupabase(userId);
-      if (tasks.length >= FREE_MAX_TASKS) {
-        setCurrentView('pro');
-        return;
-      }
+    if (isNewTask && !isPro && tasks.length >= FREE_MAX_TASKS) {
+      setCurrentView('pro');
+      return;
     }
     const savedId = await saveTaskToSupabase(userId, task);
     if (isPro && savedId) {
@@ -292,8 +296,6 @@ export default function Home() {
       <OnboardingStep1
         onNext={() => setCurrentView('onboarding2')}
         onSkip={handleOnboardingComplete}
-        selectedFocus={selectedFocus}
-        setSelectedFocus={setSelectedFocus}
         darkMode={isDarkMode}
       />
     );
@@ -305,8 +307,6 @@ export default function Home() {
         onComplete={handleOnboardingComplete}
         onBack={() => setCurrentView('onboarding1')}
         onSkip={handleOnboardingComplete}
-        selectedSchedule={selectedSchedule}
-        setSelectedSchedule={setSelectedSchedule}
         darkMode={isDarkMode}
       />
     );
@@ -343,8 +343,6 @@ export default function Home() {
     setUserId('');
     setSelectedCategory(null);
     setEditingTask(null);
-    setSelectedFocus(null);
-    setSelectedSchedule(null);
     setCurrentView('login');
   };
 
@@ -392,6 +390,11 @@ if (currentView === 'profile') {
         onOpenPro={() => setCurrentView('pro')}
         isPro={isPro}
         onNavTabsChange={(tabs) => setVisibleNavTabsState(tabs)}
+        onShowOnboarding={() => setCurrentView('onboarding1')}
+        onExitPro={() => {
+          if (typeof window !== 'undefined') localStorage.removeItem('app_pro_mock');
+          setIsPro(false);
+        }}
       />
     );
   }
@@ -423,6 +426,7 @@ if (currentView === 'profile') {
           defaultDate={editingTask?.date}
           defaultCategory={selectedCategory}
           viewingDate={viewingDate}
+          categories={categories}
         />
       );
     }
@@ -451,6 +455,7 @@ if (currentView === 'profile') {
           onStartPomodoro={(task) => setPomodoroTask(task)}
           tasks={tasks}
           setTasks={setTasks}
+          categories={categories}
         />
       );
     }
@@ -487,6 +492,8 @@ if (currentView === 'profile') {
         <CalendarView
           userId={userId}
           darkMode={isDarkMode}
+          isPro={isPro}
+          onOpenPro={() => setCurrentView('pro')}
           onBack={() => setCurrentView('home')}
           onSessionLost={handleSessionLost}
           onDateSelect={(date) => {
@@ -519,6 +526,8 @@ if (currentView === 'profile') {
           }}
           tasks={tasks}
           onRefreshTasks={loadTasks}
+          categories={categories}
+          onRefreshCategories={loadCategories}
         />
       );
     }
@@ -550,6 +559,7 @@ if (currentView === 'profile') {
         }}
         onStartPomodoro={(task) => setPomodoroTask(task)}
         tasks={tasks}
+        categories={categories}
       />
     );
   };

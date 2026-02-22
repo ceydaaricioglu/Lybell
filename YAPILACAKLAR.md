@@ -1,10 +1,20 @@
 # Yapılacaklar ve Notlar
 
+## 📌 Yarın / sonra bakılacaklar (not alındı)
+
+| # | Madde | Not |
+|---|--------|-----|
+| 1 | **Görev ekle sayfası tasarımı** | ✅ Yapıldı: Başlıktaki 3 not (Şablondan, Kaydet, liste uyarısı) ve alttaki "Şablon olarak kaydet" kaldırıldı. |
+| 2 | **Pro özelliğini vurgulama** | ✅ Yapıldı: Takvimde Pro rozeti + Free’de Pro’ya yönlendirme; Görevler’de Pro filtre rozeti; Listeler’de “Pro’da sınırsız”. |
+| 3 | **Dışa aktarma → Pro** | ✅ Yapıldı: Ayarlarda dışa aktar + CSV yanına Pro işareti; Free tıklayınca Pro sayfasına yönlendiriliyor. |
+
+---
+
 ## 🔜 Sonraki aşamada yapılacaklar (veri / performans)
 
 | Öncelik | Madde | Açıklama |
 |--------|--------|----------|
-| C | **Görev/liste verisi için merkezi cache** | Şu an HomeView, CategoryTaskView, TasksView, CalendarView, CategoriesView kendi içinde `fetchTasksFromSupabase` / `getMockCategories` ile veri çekiyor; ekranlar arası geçişte her seferinde yeniden fetch oluyor. İleride: React Query / SWR ile tek bir cache veya sayfa seviyesinde merkezi tasks state ile veriyi paylaşmak; böylece gereksiz istekler azalır ve liste/görev güncellemeleri tutarlı olur. |
+| C | **Görev/liste verisi için merkezi cache** | ✅ Yapıldı: `app/page.tsx` içinde merkezi `tasks` + `loadTasks` ve `categories` + `loadCategories`; tüm ilgili view’lara prop olarak geçiriliyor. Ekran değişince yeniden fetch yok, mutasyonlarda tek seferlik refresh. |
 
 ---
 

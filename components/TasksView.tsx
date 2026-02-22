@@ -221,27 +221,28 @@ export default function TasksView({ userId, darkMode = false, isPro = false, ini
               </button>
             )}
             {isPro && (
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value as 'all' | 'high' | 'medium' | 'low')}
-                className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium border-0 ${dark ? 'bg-zinc-800/80 text-zinc-300' : 'bg-stone-100 text-stone-700'}`}
-              >
-                <option value="all">Öncelik: Tümü</option>
-                <option value="high">Yüksek</option>
-                <option value="medium">Orta</option>
-                <option value="low">Düşük</option>
-              </select>
-            )}
-            {isPro && (
-              <select
-                value={recurrenceFilter}
-                onChange={(e) => setRecurrenceFilter(e.target.value as 'all' | 'recurring' | 'one-time')}
-                className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium border-0 ${dark ? 'bg-zinc-800/80 text-zinc-300' : 'bg-stone-100 text-stone-700'}`}
-              >
-                <option value="all">Tekrar: Tümü</option>
-                <option value="recurring">Tekrarlayan</option>
-                <option value="one-time">Tekrarsız</option>
-              </select>
+              <>
+                <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'}`}>Pro</span>
+                <select
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value as 'all' | 'high' | 'medium' | 'low')}
+                  className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium border-0 ${dark ? 'bg-zinc-800/80 text-zinc-300' : 'bg-stone-100 text-stone-700'}`}
+                >
+                  <option value="all">Öncelik: Tümü</option>
+                  <option value="high">Yüksek</option>
+                  <option value="medium">Orta</option>
+                  <option value="low">Düşük</option>
+                </select>
+                <select
+                  value={recurrenceFilter}
+                  onChange={(e) => setRecurrenceFilter(e.target.value as 'all' | 'recurring' | 'one-time')}
+                  className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium border-0 ${dark ? 'bg-zinc-800/80 text-zinc-300' : 'bg-stone-100 text-stone-700'}`}
+                >
+                  <option value="all">Tekrar: Tümü</option>
+                  <option value="recurring">Tekrarlayan</option>
+                  <option value="one-time">Tekrarsız</option>
+                </select>
+              </>
             )}
             <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
               <div className="flex gap-2 pb-1" style={{ minWidth: 'max-content' }}>

@@ -16,9 +16,11 @@ interface CalendarViewProps {
   onEditTask: (task: TimelineTask, date?: string) => void;
   /** Merkezi cache: verilirse kullanılır */
   tasks?: TimelineTask[];
+  isPro?: boolean;
+  onOpenPro?: () => void;
 }
 
-export default function CalendarView({ userId, darkMode = false, onBack, onSessionLost, onDateSelect, onEditTask, tasks: tasksFromParent }: CalendarViewProps) {
+export default function CalendarView({ userId, darkMode = false, onBack, onSessionLost, onDateSelect, onEditTask, tasks: tasksFromParent, isPro = false, onOpenPro }: CalendarViewProps) {
   const dark = darkMode;
   const [localTasks, setLocalTasks] = useState<TimelineTask[]>([]);
   const tasks = tasksFromParent ?? localTasks;
@@ -211,7 +213,12 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <div className={`text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{tasks.length} görev{googleConnected ? ` · ${googleEvents.length} Google` : ''}</div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{tasks.length} görev{googleConnected ? ` · ${googleEvents.length} Google` : ''}</span>
+              {googleConnected && (
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'}`}>Pro</span>
+              )}
+            </div>
             <button
               onClick={goToNextMonth}
               className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}
@@ -246,28 +253,58 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
               {!['no_token', 'refresh_failed', 'no_auth', 'session_rejected', 'network', 'calendar_api_error'].includes(googleDisconnectReason || '') && !googleDisconnectReason?.includes('Edge Function') && `Durum: ${googleDisconnectReason}`}
             </div>
           )}
-          {/* Google Takvim bağla – gerçek kullanıcı ve bağlı değilse (yükleme olsa da buton görünsün) */}
+          {/* Google Takvim bağla (Pro) – gerçek kullanıcı ve bağlı değilse */}
           {!isMock && !googleConnected && (
             <div className="mt-3 space-y-2">
-              <p className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
-                Ne yapmalı: (1) Ayarlar → Çıkış yap, e-posta ile tekrar giriş. (2) Olmazsa Google Hesap → Güvenlik → &quot;Üçüncü taraf erişimi&quot;ndan bu uygulamayı kaldırıp &quot;Google Takvim'i Bağla&quot; ile tekrar deneyin. Hesapları silip sıfırdan kaydolmak gerekmez.
-              </p>
-              <div className="flex gap-2">
-                <a
-                  href={getGoogleCalendarAuthUrl(userId) || '#'}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${dark ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30' : 'bg-amber-500 text-black border border-amber-500 hover:bg-amber-400 shadow-sm'}`}
-                >
-                  <span className="text-base font-bold">g</span>
-                  Google Takvim&apos;i Bağla
-                </a>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${dark ? 'bg-amber-500/25 text-amber-400' : 'bg-amber-100 text-amber-800'}`}>
+                  Pro
+                </span>
+                <span className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Google Takvim senkronu</span>
+              </div>
+              {isPro ? (
+                <>
+                  <p className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                    Ne yapmalı: (1) Ayarlar → Çıkış yap, e-posta ile tekrar giriş. (2) Olmazsa Google Hesap → Güvenlik → &quot;Üçüncü taraf erişimi&quot;ndan bu uygulamayı kaldırıp &quot;Google Takvim'i Bağla&quot; ile tekrar deneyin.
+                  </p>
+                  <div className="flex gap-2">
+                    <a
+                      href={getGoogleCalendarAuthUrl(userId) || '#'}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${dark ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30' : 'bg-amber-500 text-black border border-amber-500 hover:bg-amber-400 shadow-sm'}`}
+                    >
+                      <span className="text-base font-bold">g</span>
+                      Google Takvim&apos;i Bağla
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => { setGoogleConnectError(null); loadGoogleEvents(); }}
+                      className={`shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium ${dark ? 'bg-zinc-700 text-zinc-200' : 'bg-stone-200 text-stone-700'}`}
+                    >
+                      Yenile
+                    </button>
+                  </div>
+                </>
+              ) : onOpenPro ? (
                 <button
                   type="button"
-                  onClick={() => { setGoogleConnectError(null); loadGoogleEvents(); }}
-                  className={`shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium ${dark ? 'bg-zinc-700 text-zinc-200' : 'bg-stone-200 text-stone-700'}`}
+                  onClick={onOpenPro}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${dark ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30' : 'bg-amber-500 text-black border border-amber-500 hover:bg-amber-400 shadow-sm'}`}
                 >
-                  Yenile
+                  <span className="text-base font-bold">g</span>
+                  Pro ile Google Takvim&apos;e Bağlan
                 </button>
-              </div>
+              ) : (
+                <div className="flex gap-2">
+                  <a
+                    href={getGoogleCalendarAuthUrl(userId) || '#'}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${dark ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30' : 'bg-amber-500 text-black border border-amber-500 hover:bg-amber-400 shadow-sm'}`}
+                  >
+                    <span className="text-base font-bold">g</span>
+                    Google Takvim&apos;i Bağla
+                  </a>
+                  <button type="button" onClick={() => loadGoogleEvents()} className={`shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium ${dark ? 'bg-zinc-700 text-zinc-200' : 'bg-stone-200 text-stone-700'}`}>Yenile</button>
+                </div>
+              )}
             </div>
           )}
           {!isMock && googleLoading && (

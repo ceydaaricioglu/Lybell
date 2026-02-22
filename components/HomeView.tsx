@@ -17,16 +17,19 @@ interface HomeViewProps {
   onStartPomodoro: (task: TimelineTask) => void;
   /** Merkezi cache: verilirse kullanılır, fetch yapılmaz */
   tasks?: TimelineTask[];
+  /** Merkezi kategori listesi: verilirse kullanılır */
+  categories?: Category[];
 }
 
-export default function HomeView({ darkMode = false, onCategorySelect, userId, onViewAll, onViewCalendar, onViewStats, onEditTask, onStartPomodoro, tasks: tasksFromParent }: HomeViewProps) {
+export default function HomeView({ darkMode = false, onCategorySelect, userId, onViewAll, onViewCalendar, onViewStats, onEditTask, onStartPomodoro, tasks: tasksFromParent, categories: categoriesFromParent }: HomeViewProps) {
   const dark = darkMode;
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [localCategories, setLocalCategories] = useState<Category[]>([]);
   const [localTasks, setLocalTasks] = useState<TimelineTask[]>([]);
   const [weekCompletedCount, setWeekCompletedCount] = useState<number>(0);
   const [myDayIds, setMyDayIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const allTasks = tasksFromParent ?? localTasks;
+  const categories = categoriesFromParent ?? localCategories;
 
   const today = new Date();
   const currentDay = today.getDate();
@@ -35,7 +38,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
   const todayStr = currentDay.toString();
 
   useEffect(() => {
-    setCategories(getMockCategories(userId));
+    if (categoriesFromParent === undefined) setLocalCategories(getMockCategories(userId));
     setMyDayIds(getMyDayTaskIds(userId));
     if (tasksFromParent !== undefined) {
       setLoading(false);
@@ -51,7 +54,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
       setLoading(false);
     };
     loadData();
-  }, [userId, tasksFromParent]);
+  }, [userId, tasksFromParent, categoriesFromParent]);
 
   // Bugünün görevleri (useMemo: allTasks/todayStr değişmedikçe yeniden hesaplanmaz)
   const todayTasks = useMemo(

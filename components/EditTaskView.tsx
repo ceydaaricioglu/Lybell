@@ -22,9 +22,11 @@ interface EditTaskViewProps {
   defaultDate?: string;
   defaultCategory?: string | null;
   viewingDate?: string;
+  /** Merkezi cache: verilirse kullanılır */
+  categories?: Category[];
 }
 
-export default function EditTaskView({ task, darkMode = false, isPro = false, onOpenPro, onBack, onSave, onDelete, onDeleteStart, onDeleteDone, onDeleteFailed, userId, defaultDate, defaultCategory, viewingDate }: EditTaskViewProps) {
+export default function EditTaskView({ task, darkMode = false, isPro = false, onOpenPro, onBack, onSave, onDelete, onDeleteStart, onDeleteDone, onDeleteFailed, userId, defaultDate, defaultCategory, viewingDate, categories: categoriesFromParent }: EditTaskViewProps) {
   const dark = darkMode;
   const isNewTask = !task || !task.id;
   const [title, setTitle] = useState(task?.title || '');
@@ -56,7 +58,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
   const [showDetaySection, setShowDetaySection] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [syncToGoogle, setSyncToGoogle] = useState<boolean>(!!task?.syncToGoogle);
-  const categories = getMockCategories(userId);
+  const categories = categoriesFromParent ?? getMockCategories(userId);
   const effectiveCategory = category || defaultCategory || null;
   const selectedCategorySyncToGoogle = effectiveCategory ? (categories.find(c => c.id === effectiveCategory)?.syncToGoogle) : false;
 
@@ -281,25 +283,6 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
             </svg>
           </button>
           <h1 className={`text-xl font-semibold flex-1 ${dark ? 'text-white' : 'text-stone-800'}`}>{isNewTask ? 'Yeni Görev' : 'Görevi Düzenle'}</h1>
-          {isNewTask && (
-            <button
-              type="button"
-              onClick={() => { loadTemplates(); setShowTemplateList(true); }}
-              className={`text-sm font-medium px-3 py-2 rounded-xl ${dark ? 'text-amber-400 hover:bg-zinc-800' : 'text-amber-600 hover:bg-amber-50'}`}
-            >
-              Şablondan
-            </button>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={!(title ?? '').trim() || (!effectiveCategory && !task)}
-            className={`px-4 py-2 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dark ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
-          >
-            Kaydet
-          </button>
-          {isNewTask && !effectiveCategory && (
-            <p className={`text-xs mt-1 ${dark ? 'text-amber-400/90' : 'text-amber-700'}`}>Görevi kaydetmek için aşağıdan bir liste seçin.</p>
-          )}
         </div>
       </header>
 
@@ -962,18 +945,6 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
             </svg>
             <span>{isNewTask ? 'Görevi Oluştur' : 'Değişiklikleri Kaydet'}</span>
           </button>
-          {isNewTask && !effectiveCategory && (
-            <p className={`text-center text-sm mt-2 ${dark ? 'text-amber-400/90' : 'text-amber-700'}`}>Görevi kaydetmek için yukarıdan <strong>Liste</strong> seçin.</p>
-          )}
-
-          {/* Silme Butonu - sadece mevcut görevlerde göster */}
-          <button
-              type="button"
-              onClick={() => { setTemplateName(title.trim() || ''); setShowSaveAsTemplate(true); }}
-              className={`w-full py-3 font-medium rounded-xl transition-all flex items-center justify-center gap-2 ${dark ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 border border-stone-200 text-stone-700 hover:bg-stone-200'}`}
-            >
-              <span>📋 Şablon olarak kaydet</span>
-            </button>
 
           {!isNewTask && task?.id && (
             <button

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { TimelineTask } from '@/lib/types';
+import { Category, TimelineTask } from '@/lib/types';
 import { getMockCategories, fetchTasksFromSupabase, filterRecurringTasks, getDayAbbreviation, saveTaskToSupabase, DEFAULT_TAGS, getTagColorClasses, getCategoryPomodoroCount, getCountdownLabel, createListShare } from '@/lib/helpers';
 import { getCategoryColor as getCategoryColorFromConstants } from '@/lib/constants';
 import { useToast } from '@/components/Toast';
@@ -20,9 +20,11 @@ interface CategoryTaskViewProps {
   /** Merkezi cache: verilirse kullanılır */
   tasks?: TimelineTask[];
   setTasks?: React.Dispatch<React.SetStateAction<TimelineTask[]>>;
+  /** Merkezi kategori listesi */
+  categories?: Category[];
 }
 
-export default function CategoryTaskView({ category, onBack, userId, isPro = false, deletingTaskIds, onEditTask, onAddTask, onStartPomodoro, tasks: tasksFromParent, setTasks: setTasksFromParent }: CategoryTaskViewProps) {
+export default function CategoryTaskView({ category, onBack, userId, isPro = false, deletingTaskIds, onEditTask, onAddTask, onStartPomodoro, tasks: tasksFromParent, setTasks: setTasksFromParent, categories: categoriesFromParent }: CategoryTaskViewProps) {
   const { showToast } = useToast();
   const [sharing, setSharing] = useState(false);
   const [localTasks, setLocalTasks] = useState<TimelineTask[]>([]);
@@ -43,7 +45,7 @@ export default function CategoryTaskView({ category, onBack, userId, isPro = fal
     return { day: d.getDate(), isToday: i === 0 };
   });
 
-  const categories = getMockCategories(userId);
+  const categories = categoriesFromParent ?? getMockCategories(userId);
   const categoryData = categories.find(c => c.id === category);
   const colors = useMemo(() => getCategoryColorFromConstants(categoryData?.color), [categoryData?.color]);
 
@@ -74,7 +76,7 @@ export default function CategoryTaskView({ category, onBack, userId, isPro = fal
   // Kategoriye ait tüm görevler (siliniyor olanları gizle)
   const allCategoryTasks = tasks.filter((task) => task.category === category);
   const visibleCategoryTasks = deletingTaskIds?.size
-    ? allCategoryTasks.filter((t) => !deletingTaskIds.has(t.id))
+    ? allCategoryTasks.filter((t) => !t.id || !deletingTaskIds.has(t.id))
     : allCategoryTasks;
   const totalTasks = visibleCategoryTasks.length;
   const completedCount = visibleCategoryTasks.filter(t => t.completed).length;
