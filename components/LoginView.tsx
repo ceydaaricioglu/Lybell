@@ -203,7 +203,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
               E-posta adresinizi girin, size şifre sıfırlama bağlantısı gönderelim.
             </p>
           </header>
-          <div className={`rounded-2xl p-6 mb-5 ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
+          <div className={`rounded-xl p-5 mb-4 ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
             {forgotSent ? (
               <p className={dark ? 'text-zinc-300' : 'text-stone-700'}>
                 E-posta gönderildi. Gelen kutunuzu ve <strong>spam</strong> klasörünü kontrol edin; bağlantıya tıklayarak şifrenizi sıfırlayabilirsiniz.
@@ -256,7 +256,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
         {/* Header – Ana sayfa / Ayarlar ile aynı stil */}
         <header className="mb-6">
           {dark && <div className="h-px w-12 bg-amber-400/80 mb-5" />}
-          <h1 className={dark ? 'text-2xl font-semibold text-white tracking-tight' : 'text-3xl font-semibold text-stone-800'}>
+          <h1 className={dark ? 'text-xl font-semibold text-white tracking-tight' : 'text-2xl font-semibold text-stone-800'}>
             Hoş geldin
           </h1>
           <p className={dark ? 'text-sm text-zinc-500 mt-1' : 'text-stone-500 mt-1'}>
@@ -265,8 +265,8 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
         </header>
 
         {/* Form kartı – Settings/Home ile aynı kart stili */}
-        <div className={`rounded-2xl p-6 mb-5 ${
-          dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'
+        <div className={`rounded-xl p-5 mb-4 ${
+          dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-stone-100'
         }`}>
           <div className={`flex gap-2 mb-5 rounded-xl p-1 ${dark ? 'bg-zinc-800' : 'bg-stone-100'}`}>
             <button
@@ -405,7 +405,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
             type="button"
             onClick={handleEmailSubmit}
             disabled={loading}
-            className="w-full mt-5 py-3.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="w-full mt-4 py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           >
             {loading ? (
               <>

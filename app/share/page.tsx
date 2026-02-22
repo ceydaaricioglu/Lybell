@@ -1,11 +1,12 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSharedList, type SharedListResult } from '@/lib/helpers';
 
-export default function SharePage() {
+function ShareContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('t');
   const [data, setData] = useState<SharedListResult | { error: string } | null>(null);
@@ -94,5 +95,24 @@ export default function SharePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ShareFallback() {
+  return (
+    <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-stone-500">Yükleniyor...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function SharePage() {
+  return (
+    <Suspense fallback={<ShareFallback />}>
+      <ShareContent />
+    </Suspense>
   );
 }

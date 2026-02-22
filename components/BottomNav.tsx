@@ -49,7 +49,7 @@ export default function BottomNav({ currentView, onNavigate, darkMode = false, v
           if (id === 'add-task') {
             return (
               <button key={id} onClick={() => onNavigate('add-task')} className="flex flex-col items-center -mt-6" aria-label={t('nav.add', locale)}>
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all hover:scale-105 active:scale-95 ${dark ? 'bg-amber-500 text-black hover:shadow-amber-500/25' : 'bg-amber-500 text-black hover:shadow-xl'}`}>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transition-all hover:scale-105 active:scale-95 ${dark ? 'bg-amber-500 text-black hover:shadow-amber-500/25' : 'bg-amber-500 text-black hover:shadow-xl'}`}>
                   <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">{TAB_ICONS[id]}</svg>
                 </div>
               </button>

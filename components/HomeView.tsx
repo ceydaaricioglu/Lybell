@@ -133,7 +133,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
             <div className={`h-8 rounded w-48 mb-2 animate-pulse ${dark ? 'bg-zinc-700' : 'bg-stone-200'}`}></div>
             <div className={`h-4 rounded w-32 animate-pulse ${dark ? 'bg-zinc-800' : 'bg-stone-100'}`}></div>
           </div>
-          <div className={`rounded-2xl p-5 ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white border border-stone-100 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)]'}`}>
+          <div className={`rounded-xl p-4 ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white border border-stone-100 shadow-[0_1px_3px_rgba(0,0,0,0.06)]'}`}>
             <TaskListSkeleton count={3} />
           </div>
         </div>
@@ -147,7 +147,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
         {/* Header — Tasarım 3: Hoş geldin 👋 / Tasarım 2: Günaydın + amber çizgi */}
         <header className="mb-6">
           {dark && <div className="h-px w-12 bg-amber-400/80 mb-5" />}
-          <h1 className={dark ? 'text-2xl font-semibold text-white tracking-tight' : 'text-3xl font-semibold text-stone-800'}>
+          <h1 className={dark ? 'text-xl font-semibold text-white tracking-tight' : 'text-2xl font-semibold text-stone-800'}>
             {dark ? 'Günaydın' : 'Hoş geldin 👋'}
           </h1>
           <p className={dark ? 'text-sm text-zinc-500 mt-1' : 'text-stone-500 mt-1'}>
@@ -162,8 +162,8 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
 
         {/* Gecikmiş görevler */}
         {overdueTasks.length > 0 && (
-          <div className={`rounded-2xl overflow-hidden mb-4 ${dark ? 'bg-red-950/30 border border-red-900/50' : 'bg-red-50/80 border border-red-200/80'}`}>
-            <div className={`px-5 py-3 flex items-center justify-between ${dark ? 'border-b border-red-900/40' : 'border-b border-red-200/60'}`}>
+          <div className={`rounded-xl overflow-hidden mb-3 ${dark ? 'bg-red-950/30 border border-red-900/50' : 'bg-red-50/80 border border-red-200/80'}`}>
+            <div className={`px-4 py-2.5 flex items-center justify-between ${dark ? 'border-b border-red-900/40' : 'border-b border-red-200/60'}`}>
               <h2 className={`text-sm font-semibold ${dark ? 'text-red-400' : 'text-red-700'}`}>⏰ Gecikmiş</h2>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${dark ? 'bg-red-900/50 text-red-300' : 'bg-red-200/80 text-red-700'}`}>{overdueTasks.length}</span>
             </div>
@@ -172,7 +172,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
                 <button
                   key={task.id}
                   onClick={() => onEditTask(task, task.date)}
-                  className={`w-full text-left flex items-center gap-3 px-4 py-3 ${dark ? 'hover:bg-red-900/20' : 'hover:bg-red-50/50'}`}
+                  className={`w-full text-left flex items-center gap-3 px-4 py-2.5 ${dark ? 'hover:bg-red-900/20' : 'hover:bg-red-50/50'}`}
                 >
                   <span className={`text-xs w-10 ${dark ? 'text-red-400/90' : 'text-red-600'}`}>{task.date} {MONTHS_TR[currentMonth]}</span>
                   <span className={`text-xs tabular-nums w-10 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{task.time}</span>
@@ -189,8 +189,8 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
 
         {/* Bugün Odakta (My Day) */}
         {myDayTasks.length > 0 && (
-          <div className={`rounded-2xl overflow-hidden mb-4 ${dark ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-amber-50/80 border border-amber-200/80'}`}>
-            <div className={`px-5 py-3 flex items-center justify-between ${dark ? 'border-b border-amber-500/20' : 'border-b border-amber-200/60'}`}>
+          <div className={`rounded-xl overflow-hidden mb-3 ${dark ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-amber-50/80 border border-amber-200/80'}`}>
+            <div className={`px-4 py-2.5 flex items-center justify-between ${dark ? 'border-b border-amber-500/20' : 'border-b border-amber-200/60'}`}>
               <h2 className={`text-sm font-semibold ${dark ? 'text-amber-400' : 'text-amber-800'}`}>⭐ Bugün Odakta</h2>
               <span className={`text-xs font-medium ${dark ? 'text-amber-400/80' : 'text-amber-700'}`}>{myDayTasks.length}</span>
             </div>
@@ -198,7 +198,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
               {myDayTasks.slice(0, 5).map((task) => (
                 <div
                   key={task.id}
-                  className={`flex items-center gap-3 px-4 py-3 ${dark ? 'hover:bg-amber-500/5' : 'hover:bg-amber-50/50'}`}
+                  className={`flex items-center gap-3 px-4 py-2.5 ${dark ? 'hover:bg-amber-500/5' : 'hover:bg-amber-50/50'}`}
                 >
                   <button
                     onClick={() => task.id && handleToggleMyDay(task.id)}
@@ -225,10 +225,10 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
         {(todayPomodoros > 0 || weekPomodoros > 0) && (
           <button
             onClick={onViewStats}
-            className={`w-full rounded-2xl p-5 mb-4 text-left transition-all ${
+            className={`w-full rounded-xl p-4 mb-3 text-left transition-all ${
               dark
                 ? 'bg-zinc-900/60 border border-zinc-800/80 hover:bg-zinc-800/60'
-                : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100 hover:shadow-md'
+                : 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-stone-100 hover:shadow-md'
             }`}
           >
             <div className="flex items-center justify-between mb-3">
@@ -239,15 +239,15 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className={`text-2xl font-bold mb-1 ${dark ? 'text-amber-400/90' : 'text-red-600'}`}>{todayPomodoros}</div>
+                <div className={`text-xl font-bold mb-0.5 ${dark ? 'text-amber-400/90' : 'text-red-600'}`}>{todayPomodoros}</div>
                 <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-gray-500'}>Bugün</div>
               </div>
               <div className="text-center">
-                <div className={`text-2xl font-bold mb-1 ${dark ? 'text-amber-400/80' : 'text-orange-600'}`}>{weekPomodoros}</div>
+                <div className={`text-xl font-bold mb-0.5 ${dark ? 'text-amber-400/80' : 'text-orange-600'}`}>{weekPomodoros}</div>
                 <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-gray-500'}>Bu Hafta</div>
               </div>
               <div className="text-center">
-                <div className={`text-2xl font-bold mb-1 ${dark ? 'text-amber-400/70' : 'text-amber-600'}`}>{pomodoroStreak}</div>
+                <div className={`text-xl font-bold mb-0.5 ${dark ? 'text-amber-400/70' : 'text-amber-600'}`}>{pomodoroStreak}</div>
                 <div className={dark ? 'text-xs text-zinc-500' : 'text-xs text-gray-500'}>Streak 🔥</div>
               </div>
             </div>
@@ -256,8 +256,8 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
         )}
 
         {/* Bugünün Görevleri */}
-        <div className={`rounded-[24px] overflow-hidden mb-4 ${dark ? 'bg-zinc-900/60 border border-zinc-800/80' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
-          <div className={`px-5 py-4 flex items-center justify-between ${dark ? 'border-b border-zinc-800/80' : 'border-b border-stone-100'}`}>
+        <div className={`rounded-xl overflow-hidden mb-3 ${dark ? 'bg-zinc-900/60 border border-zinc-800/80' : 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
+          <div className={`px-4 py-3 flex items-center justify-between ${dark ? 'border-b border-zinc-800/80' : 'border-b border-stone-100'}`}>
             <h2 className={dark ? 'text-xs font-medium text-zinc-500' : 'text-sm font-semibold text-stone-600'}>Bugün</h2>
             {todayTasks.length > 0 && (
               <span className={dark ? 'px-2.5 py-1 bg-zinc-800 text-zinc-300 rounded-full text-xs font-medium' : 'px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold'}>
@@ -267,13 +267,13 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
           </div>
 
           {todayTasks.length === 0 ? (
-            <div className="px-5 py-12 text-center">
-              <div className={`relative w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center ${dark ? 'bg-zinc-800/80' : 'bg-stone-100'}`}>
-                <svg className={`w-10 h-10 ${dark ? 'text-zinc-500' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="px-4 py-10 text-center">
+              <div className={`relative w-16 h-16 mx-auto mb-3 rounded-xl flex items-center justify-center ${dark ? 'bg-zinc-800/80' : 'bg-stone-100'}`}>
+                <svg className={`w-8 h-8 ${dark ? 'text-zinc-500' : 'text-stone-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               </div>
-              <h3 className={dark ? 'text-lg font-semibold text-white mb-1' : 'text-lg font-bold text-stone-800 mb-1'}>Harika bir gün!</h3>
+              <h3 className={dark ? 'text-base font-semibold text-white mb-1' : 'text-base font-bold text-stone-800 mb-1'}>Harika bir gün!</h3>
               <p className={`text-sm mb-6 px-4 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
                 Bugün için planlanmış görev yok. Yeni bir görev ekleyerek güne başla!
               </p>
@@ -299,7 +299,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
                 return (
                 <div
                   key={task.id}
-                  className={`w-full flex items-center gap-3 group rounded-2xl ${dark ? 'py-3 px-4 border-b border-zinc-800/80 last:border-0' : 'p-4 mx-2 mb-2 bg-stone-50/80 hover:bg-amber-50/60'}`}
+                  className={`w-full flex items-center gap-3 group rounded-xl ${dark ? 'py-2.5 px-4 border-b border-zinc-800/80 last:border-0' : 'p-3 mx-2 mb-1.5 bg-stone-50/80 hover:bg-amber-50/60'}`}
                 >
                   <button
                     onClick={(e) => { e.stopPropagation(); task.id && handleToggleMyDay(task.id); }}
@@ -396,7 +396,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
         {/* Yaklaşan Görevler */}
         {upcomingTasks.length > 0 && (
           <div className={`rounded-[24px] overflow-hidden mb-4 ${dark ? 'bg-zinc-900/40 border border-zinc-800/50' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
-            <div className={`px-5 py-4 ${dark ? 'border-b border-zinc-800/50' : 'border-b border-stone-100'}`}>
+            <div className={`px-4 py-3 ${dark ? 'border-b border-zinc-800/50' : 'border-b border-stone-100'}`}>
               <h2 className={dark ? 'text-xs font-medium text-zinc-500' : 'text-sm font-semibold text-stone-600'}>Yaklaşan</h2>
             </div>
             <div className="divide-y divide-transparent">
@@ -408,7 +408,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
                   <button
                     key={`${task.id}-${idx}`}
                     onClick={() => onEditTask(task, task.date)}
-                    className={`w-full text-left flex items-center gap-3 rounded-2xl transition-all active:scale-[0.99] active:opacity-95 ${dark ? 'py-2.5 px-5 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/30' : 'py-3 px-4 mx-2 mb-2 bg-stone-50/60 hover:bg-stone-100/80'}`}
+                    className={`w-full text-left flex items-center gap-3 rounded-xl transition-all active:scale-[0.99] active:opacity-95 ${dark ? 'py-2.5 px-4 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/30' : 'py-2.5 px-4 mx-2 mb-1.5 bg-stone-50/60 hover:bg-stone-100/80'}`}
                   >
                     <span className={`text-xs w-14 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{dateLabel}</span>
                     <span className={`text-xs tabular-nums w-10 ${dark ? 'text-zinc-500' : 'text-stone-400'}`}>{task.time}</span>
@@ -451,13 +451,13 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
                   <button
                     key={cat.id}
                     onClick={() => onCategorySelect(cat.id)}
-                    className={`flex items-center gap-3 rounded-2xl transition-all active:scale-[0.99] active:opacity-95 ${
+                    className={`flex items-center gap-3 rounded-xl transition-all active:scale-[0.99] active:opacity-95 ${
                       dark
                         ? 'px-4 py-2.5 bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/80 text-zinc-300'
                         : 'px-5 py-3 bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md hover:border-amber-200/60 text-stone-700 font-medium'
                     }`}
                   >
-                    <span className="text-xl">{cat.icon}</span>
+                    <span className="text-lg">{cat.icon}</span>
                     <span className="text-sm">{cat.name}</span>
                     <span className={dark ? 'text-zinc-500 text-sm' : 'text-stone-400 text-sm font-normal'}>{cat.total} görev</span>
                   </button>
@@ -471,7 +471,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
         <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => onCategorySelect('add-task')}
-            className={`rounded-2xl p-4 transition-all text-center active:scale-[0.99] active:opacity-95 ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
+            className={`rounded-xl p-3 transition-all text-center active:scale-[0.99] active:opacity-95 ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-stone-100 hover:shadow-md'}`}
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${dark ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
               <svg className={`w-5 h-5 ${dark ? 'text-amber-400' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -482,7 +482,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
           </button>
           <button
             onClick={onViewAll}
-            className={`rounded-2xl p-4 transition-all text-center active:scale-[0.99] active:opacity-95 ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
+            className={`rounded-xl p-3 transition-all text-center active:scale-[0.99] active:opacity-95 ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-stone-100 hover:shadow-md'}`}
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${dark ? 'bg-zinc-700' : 'bg-stone-100'}`}>
               <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -493,7 +493,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
           </button>
           <button
             onClick={onViewCalendar}
-            className={`rounded-2xl p-4 transition-all text-center active:scale-[0.99] active:opacity-95 ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)] border border-stone-100 hover:shadow-md'}`}
+            className={`rounded-xl p-3 transition-all text-center active:scale-[0.99] active:opacity-95 ${dark ? 'bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-800/80' : 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-stone-100 hover:shadow-md'}`}
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${dark ? 'bg-zinc-700' : 'bg-stone-100'}`}>
               <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

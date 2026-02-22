@@ -34,7 +34,7 @@ export function OnboardingStep1({ onNext, onSkip, darkMode = false }: Onboarding
           />
         </div>
         {dark && <div className="h-px w-12 bg-amber-400/80 mb-6" />}
-        <h2 className={`text-2xl font-semibold mb-3 ${dark ? 'text-white' : 'text-stone-900'}`}>
+        <h2 className={`text-xl font-semibold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>
           Hoş geldin
         </h2>
         <p className={`text-base mb-8 ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>
@@ -44,7 +44,7 @@ export function OnboardingStep1({ onNext, onSkip, darkMode = false }: Onboarding
         <button
           type="button"
           onClick={onNext}
-          className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
           Devam
         </button>
@@ -90,7 +90,7 @@ export function OnboardingStep2({ onComplete, onBack, onSkip, darkMode = false }
 
       <div className="flex-1 max-w-md mx-auto w-full px-5 pt-8 pb-4">
         {dark && <div className="h-px w-12 bg-amber-400/80 mb-6" />}
-        <h2 className={`text-2xl font-semibold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>
+        <h2 className={`text-xl font-semibold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>
           Hemen başla
         </h2>
         <p className={`text-sm mb-6 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
@@ -111,7 +111,7 @@ export function OnboardingStep2({ onComplete, onBack, onSkip, darkMode = false }
         <button
           type="button"
           onClick={onComplete}
-          className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
           Başla
         </button>

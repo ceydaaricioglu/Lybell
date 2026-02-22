@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Capacitor / native (builds can be regenerated)
+/android
+/ios
+supabase/.temp
+supabase/functions
