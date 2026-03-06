@@ -128,7 +128,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
   if (loading) {
     return (
       <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
-        <div className="max-w-md mx-auto px-5 pt-6 pb-4">
+        <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 px-4 md:px-0 pt-6 pb-4">
           <div className={dark ? 'h-px w-12 bg-amber-400/80 mb-5' : 'mb-6'}>
             <div className={`h-8 rounded w-48 mb-2 animate-pulse ${dark ? 'bg-zinc-700' : 'bg-stone-200'}`}></div>
             <div className={`h-4 rounded w-32 animate-pulse ${dark ? 'bg-zinc-800' : 'bg-stone-100'}`}></div>
@@ -143,7 +143,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
 
   return (
     <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f] text-zinc-100' : 'bg-[#f5f0ea] text-stone-800'}`}>
-      <div className="max-w-md mx-auto px-5 pt-6 pb-4">
+      <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 px-4 md:px-0 pt-6 pb-4">
         {/* Header — Tasarım 3: Hoş geldin 👋 / Tasarım 2: Günaydın + amber çizgi */}
         <header className="mb-6">
           {dark && <div className="h-px w-12 bg-amber-400/80 mb-5" />}
@@ -395,7 +395,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
 
         {/* Yaklaşan Görevler */}
         {upcomingTasks.length > 0 && (
-          <div className={`rounded-[24px] overflow-hidden mb-4 ${dark ? 'bg-zinc-900/40 border border-zinc-800/50' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
+          <div className={`rounded-xl overflow-hidden mb-4 ${dark ? 'bg-zinc-900/40 border border-zinc-800' : 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
             <div className={`px-4 py-3 ${dark ? 'border-b border-zinc-800/50' : 'border-b border-stone-100'}`}>
               <h2 className={dark ? 'text-xs font-medium text-zinc-500' : 'text-sm font-semibold text-stone-600'}>Yaklaşan</h2>
             </div>

@@ -34,6 +34,8 @@ import CalendarView from '@/components/CalendarView';
 import { LocaleProvider } from '@/components/LocaleContext';
 import { DEFAULT_NAV_TABS, getVisibleNavTabs } from '@/lib/navTabs';
 
+const AUTH_CHECK_TIMEOUT_MS = 6000;
+
 export default function Home() {
   const [userId, setUserId] = useState<string>('');
   const [currentView, setCurrentView] = useState<'login' | 'onboarding1' | 'onboarding2' | 'home' | 'category' | 'categories' | 'tasks' | 'calendar' | 'edit-task' | 'settings' | 'profile' | 'pro'>('login');
@@ -213,11 +215,28 @@ export default function Home() {
     };
 
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      applySession(session);
+      try {
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('auth_timeout')), AUTH_CHECK_TIMEOUT_MS)
+        );
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
+        const session = result?.data?.session ?? null;
+        applySession(session);
+      } catch (_) {
+        setUserId('');
+        const mockUserId = typeof window !== 'undefined' ? localStorage.getItem('mock_user_id') : null;
+        if (mockUserId) {
+          setUserId(mockUserId);
+          const onboardingCompleted = typeof window !== 'undefined' ? localStorage.getItem(`onboarding_${mockUserId}`) : null;
+          setCurrentView(onboardingCompleted ? 'home' : 'onboarding1');
+        } else {
+          setCurrentView('login');
+        }
+      }
     };
 
-    checkAuth();
+    const t = setTimeout(() => checkAuth(), 50);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
@@ -226,7 +245,6 @@ export default function Home() {
         const fromGoogleCalendar = params?.get('google_calendar') === 'callback' && params?.get('success') === '1';
         if (fromGoogleCalendar) setCurrentView('calendar');
         else {
-          // Sadece giriş ekranındayken yönlendir; token yenilenince (TOKEN_REFRESHED) mevcut sayfada kal
           setCurrentView((prev) => {
             if (prev === 'login') {
               const onboardingCompleted = localStorage.getItem(`onboarding_${session.user.id}`);
@@ -241,7 +259,10 @@ export default function Home() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(t);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleLogin = (newUserId: string) => {
@@ -336,7 +357,6 @@ export default function Home() {
     }
   };
 
-  // Bottom nav'ın gösterileceği ekranlar (pro tam ekran, nav yok)
   const showBottomNav = ['home', 'tasks', 'calendar', 'category', 'categories', 'edit-task', 'settings', 'profile'].includes(currentView);
 
   const handleLogout = () => {
@@ -346,7 +366,6 @@ export default function Home() {
     setCurrentView('login');
   };
 
-  /** Gerçek kullanıcı var ama Supabase oturumu yok (süre doldu / temizlendi) → girişe yönlendir */
   const handleSessionLost = () => {
     setUserId('');
     setSelectedCategory(null);
@@ -354,50 +373,50 @@ export default function Home() {
   };
 
   const renderCurrentView = () => {
-if (currentView === 'profile') {
-    return (
-      <ProfileView
-        userId={userId}
-        darkMode={isDarkMode}
-        onBack={() => setCurrentView('settings')}
-      />
-    );
-  }
+    if (currentView === 'profile') {
+      return (
+        <ProfileView
+          userId={userId}
+          darkMode={isDarkMode}
+          onBack={() => setCurrentView('settings')}
+        />
+      );
+    }
 
-  if (currentView === 'pro') {
-    return (
-      <ProUpgradeView
-        darkMode={isDarkMode}
-        isPro={isPro}
-        selectedPlan={selectedPlan}
-        onSelectPlan={setSelectedPlan}
-        onClose={() => setCurrentView('settings')}
-        onRestore={() => {}}
-        onTestUpgrade={() => setIsPro(true)}
-      />
-    );
-  }
+    if (currentView === 'pro') {
+      return (
+        <ProUpgradeView
+          darkMode={isDarkMode}
+          isPro={isPro}
+          selectedPlan={selectedPlan}
+          onSelectPlan={setSelectedPlan}
+          onClose={() => setCurrentView('settings')}
+          onRestore={() => {}}
+          onTestUpgrade={() => setIsPro(true)}
+        />
+      );
+    }
 
-  if (currentView === 'settings') {
-    return (
-      <SettingsView
-        userId={userId}
-        onLogout={handleLogout}
-        onSessionLost={handleSessionLost}
-        darkMode={isDarkMode}
-        onDarkModeChange={handleDarkModeChange}
-        onOpenProfile={() => setCurrentView('profile')}
-        onOpenPro={() => setCurrentView('pro')}
-        isPro={isPro}
-        onNavTabsChange={(tabs) => setVisibleNavTabsState(tabs)}
-        onShowOnboarding={() => setCurrentView('onboarding1')}
-        onExitPro={() => {
-          if (typeof window !== 'undefined') localStorage.removeItem('app_pro_mock');
-          setIsPro(false);
-        }}
-      />
-    );
-  }
+    if (currentView === 'settings') {
+      return (
+        <SettingsView
+          userId={userId}
+          onLogout={handleLogout}
+          onSessionLost={handleSessionLost}
+          darkMode={isDarkMode}
+          onDarkModeChange={handleDarkModeChange}
+          onOpenProfile={() => setCurrentView('profile')}
+          onOpenPro={() => setCurrentView('pro')}
+          isPro={isPro}
+          onNavTabsChange={(tabs) => setVisibleNavTabsState(tabs)}
+          onShowOnboarding={() => setCurrentView('onboarding1')}
+          onExitPro={() => {
+            if (typeof window !== 'undefined') localStorage.removeItem('app_pro_mock');
+            setIsPro(false);
+          }}
+        />
+      );
+    }
 
     if (currentView === 'edit-task') {
       return (
@@ -508,6 +527,7 @@ if (currentView === 'profile') {
             setCurrentView('edit-task');
           }}
           tasks={tasks}
+          categories={categories}
         />
       );
     }

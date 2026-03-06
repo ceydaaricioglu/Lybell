@@ -82,7 +82,7 @@ export default function ProUpgradeView({
         <div className="w-10" />
       </div>
 
-      <div className="max-w-md mx-auto px-4 pt-6 pb-24">
+      <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 px-4 pt-6 pb-24">
         <p className={`text-center text-sm mb-6 ${dark ? 'text-zinc-400' : 'text-stone-500'}`}>
           {t('pro.subtitle', locale)}
         </p>

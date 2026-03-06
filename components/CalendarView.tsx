@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { TimelineTask } from '@/lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import { Category, TimelineTask } from '@/lib/types';
 import { fetchTasksFromSupabase, filterRecurringTasks, isMockUser } from '@/lib/helpers';
-import { MONTHS_TR } from '@/lib/constants';
+import { getCategoryColor, MONTHS_TR } from '@/lib/constants';
 import { supabase } from '@/lib/supabaseClient';
 import { getGoogleCalendarAuthUrl, getMonthRange, type GoogleCalendarEvent } from '@/lib/googleCalendar';
+
+const PRIMARY = '#ec5b13';
+const DAY_NAMES = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
 interface CalendarViewProps {
   userId: string;
@@ -14,13 +17,40 @@ interface CalendarViewProps {
   onSessionLost?: () => void;
   onDateSelect: (date: string) => void;
   onEditTask: (task: TimelineTask, date?: string) => void;
-  /** Merkezi cache: verilirse kullanılır */
+  onNewTask?: () => void;
   tasks?: TimelineTask[];
+  categories?: Category[];
   isPro?: boolean;
   onOpenPro?: () => void;
 }
 
-export default function CalendarView({ userId, darkMode = false, onBack, onSessionLost, onDateSelect, onEditTask, tasks: tasksFromParent, isPro = false, onOpenPro }: CalendarViewProps) {
+function getChipClass(categoryColor?: string | null): string {
+  const c = getCategoryColor(categoryColor);
+  return `${c.light} ${c.text}`;
+}
+
+const CATEGORY_BORDER: Record<string, string> = {
+  blue: 'border-l-blue-500',
+  purple: 'border-l-purple-500',
+  pink: 'border-l-pink-500',
+  orange: 'border-l-orange-500',
+  yellow: 'border-l-yellow-500',
+  emerald: 'border-l-emerald-500',
+};
+
+export default function CalendarView({
+  userId,
+  darkMode = false,
+  onBack,
+  onSessionLost,
+  onDateSelect,
+  onEditTask,
+  onNewTask,
+  tasks: tasksFromParent,
+  categories = [],
+  isPro = false,
+  onOpenPro,
+}: CalendarViewProps) {
   const dark = darkMode;
   const [localTasks, setLocalTasks] = useState<TimelineTask[]>([]);
   const tasks = tasksFromParent ?? localTasks;
@@ -32,6 +62,7 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
   const isMock = isMockUser(userId);
 
   const currentMonth = currentDate.getMonth();
@@ -41,8 +72,6 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
   const todayMonth = today.getMonth();
   const todayYear = today.getFullYear();
 
-  const dayNames = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
-
   useEffect(() => {
     if (tasksFromParent !== undefined) {
       setLoading(false);
@@ -51,7 +80,6 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
     if (userId) loadTasks();
   }, [userId, tasksFromParent]);
 
-  // URL'den Google callback sonucu → bağlantıyı yenile veya hata göster
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -71,7 +99,6 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
     if (!isMock) loadGoogleEvents();
   }, [userId, currentMonth, currentYear, isMock]);
 
-  // Yükleme takılı kalırsa "Google Takvim'i Bağla" butonunun görünmesi için zaman aşımı
   useEffect(() => {
     if (isMock || !googleLoading) return;
     const t = setTimeout(() => setGoogleLoading(false), 8000);
@@ -104,7 +131,6 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
     };
     try {
       let { data: { session } } = await supabase.auth.getSession();
-      // Giriş yapılmış (userId var) ama session henüz yoksa rehydrate için kısa bekle, tekrar dene
       if (!session?.access_token && !isMock) {
         await new Promise((r) => setTimeout(r, 300));
         const retry = await supabase.auth.getSession();
@@ -112,7 +138,6 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
       }
       let hadToken = !!session?.access_token;
       let res = await doRequest(session?.access_token ?? null);
-      // 401 alındı ama token vardı: Supabase ağ geçidi süresi dolmuş token reddetmiş olabilir → bir kez yenile ve tekrar dene
       if (res.status === 401 && hadToken) {
         const { data: refreshData } = await supabase.auth.refreshSession();
         const newSession = refreshData?.session;
@@ -130,14 +155,10 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
       } else {
         setGoogleConnected(false);
         setGoogleEvents([]);
-        if (res.status === 401) {
-          setGoogleDisconnectReason(hadToken ? 'session_rejected' : 'no_auth');
-          // Otomatik çıkış yapma: getSession() bazen geç rehydrate oluyor, kullanıcı takvime giremez kalıyordu
-        } else {
-          setGoogleDisconnectReason(res.status === 0 ? 'network' : `http_${res.status}`);
-        }
+        if (res.status === 401) setGoogleDisconnectReason(hadToken ? 'session_rejected' : 'no_auth');
+        else setGoogleDisconnectReason(res.status === 0 ? 'network' : `http_${res.status}`);
       }
-    } catch (e) {
+    } catch {
       setGoogleConnected(false);
       setGoogleEvents([]);
       setGoogleDisconnectReason('network');
@@ -147,19 +168,37 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
   };
 
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-  const adjustedFirstDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
-  const prevMonthDays = Array.from({ length: adjustedFirstDay }, (_, i) => daysInPrevMonth - adjustedFirstDay + i + 1);
+  const prevMonthDays = Array.from({ length: firstDayOfMonth }, (_, i) => daysInPrevMonth - firstDayOfMonth + i + 1);
   const currentMonthDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const totalCells = 42;
   const remainingCells = totalCells - prevMonthDays.length - currentMonthDays.length;
-  const nextMonthDays = Array.from({ length: remainingCells }, (_, i) => i + 1);
+  const nextMonthDays = Array.from({ length: Math.max(0, remainingCells) }, (_, i) => i + 1);
 
   const getTasksForDay = (day: number) => filterRecurringTasks(tasks, day.toString());
   const getGoogleEventsForDay = (day: number) => googleEvents.filter((e) => e.date === day.toString());
+  const getCategoryById = (id: string | undefined) => categories.find((c) => c.id === id);
+
   const selectedDayTasks = selectedDate ? filterRecurringTasks(tasks, selectedDate).sort((a, b) => a.time.localeCompare(b.time)) : [];
   const selectedDayGoogleEvents = selectedDate ? getGoogleEventsForDay(parseInt(selectedDate, 10)).sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00')) : [];
+
+  const upcomingTasks = useMemo(() => {
+    const list: { task: TimelineTask; date: string; label: string }[] = [];
+    const startDay = currentMonth === todayMonth && currentYear === todayYear ? todayDate : 1;
+    for (let d = startDay; d <= daysInMonth; d++) {
+      const dayStr = d.toString();
+      const dayTasks = filterRecurringTasks(tasks, dayStr).filter((t) => !t.completed);
+      const cat = getCategoryById(dayTasks[0]?.category);
+      dayTasks.forEach((task) => {
+        let label = `${d} ${MONTHS_TR[currentMonth]}`;
+        if (d === todayDate && currentMonth === todayMonth && currentYear === todayYear) label = 'Bugün';
+        else if (d === todayDate + 1 && currentMonth === todayMonth && currentYear === todayYear) label = 'Yarın';
+        list.push({ task, date: dayStr, label });
+      });
+    }
+    return list.sort((a, b) => parseInt(a.date, 10) - parseInt(b.date, 10) || a.task.time.localeCompare(b.task.time)).slice(0, 8);
+  }, [tasks, currentMonth, currentYear, todayDate, todayMonth, todayYear, daysInMonth, categories]);
 
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(currentYear, currentMonth - 1));
@@ -176,345 +215,222 @@ export default function CalendarView({ userId, darkMode = false, onBack, onSessi
     setSelectedDate(todayDate.toString());
   };
 
-  return (
-    <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
-      {/* Header */}
-      <div className={`sticky top-0 z-10 px-6 py-5 border-b ${dark ? 'bg-[#0f0f0f] border-zinc-800' : 'bg-[#f5f0ea] border-stone-200'}`}>
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={onBack}
-              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}
-              aria-label="Geri"
-            >
-              <svg className={`w-6 h-6 ${dark ? 'text-zinc-300' : 'text-stone-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <h1 className={`text-xl font-semibold ${dark ? 'text-white' : 'text-stone-900'}`}>
-              {MONTHS_TR[currentMonth]} {currentYear}
-            </h1>
-            <button
-              onClick={goToToday}
-              className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${
-                dark ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-              }`}
-            >
-              Bugün
-            </button>
-          </div>
+  const cellBorder = dark ? 'border-slate-800/50' : 'border-slate-100';
+  const cellMuted = dark ? 'bg-slate-900/10 text-slate-600' : 'bg-slate-50/30 text-slate-300';
 
-          <div className="flex items-center justify-between">
-            <button
-              onClick={goToPreviousMonth}
-              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}
-            >
-              <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{tasks.length} görev{googleConnected ? ` · ${googleEvents.length} Google` : ''}</span>
-              {googleConnected && (
-                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'}`}>Pro</span>
-              )}
-            </div>
-            <button
-              onClick={goToNextMonth}
-              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}
-            >
-              <svg className={`w-5 h-5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-          {/* Google bağlantı hatası (callback success=0) */}
-          {!isMock && googleConnectError && (
-            <div className={`mt-3 px-3 py-2 rounded-xl text-xs ${dark ? 'bg-red-900/30 text-red-300' : 'bg-red-50 text-red-700'}`}>
-              Bağlantı kurulamadı: {googleConnectError}
-              {googleConnectError === 'no_refresh_token' && ' — Google hesap ayarlarından bu uygulamanın erişimini kaldırıp tekrar &quot;Bağla&quot; deneyin.'}
-              <button type="button" onClick={() => setGoogleConnectError(null)} className="ml-2 underline">Kapat</button>
-            </div>
-          )}
-          {/* Neden bağlı değil (no_token, refresh_failed vb.) */}
-          {!isMock && !googleConnected && !googleLoading && googleDisconnectReason && (
-            <div className={`mt-2 px-3 py-2 rounded-xl text-xs ${dark ? 'bg-amber-900/20 text-amber-300' : 'bg-amber-50 text-amber-800'}`}>
-              {googleDisconnectReason === 'no_token' && 'Google token kayıtlı değil. &quot;Google Takvim\'i Bağla&quot; ile bağlanın; Google\'da erişimi kaldırıp tekrar denerseniz daha iyi çalışır.'}
-              {googleDisconnectReason === 'refresh_failed' && 'Token süresi doldu. Google hesabından erişimi kaldırıp tekrar &quot;Bağla&quot; deyin.'}
-              {googleDisconnectReason === 'no_auth' && 'Supabase oturumu yok. Ayarlar → Çıkış yap, sonra e-posta ve şifre ile giriş yapın (Atla kullanmayın).'}
-              {googleDisconnectReason === 'session_rejected' && (
-                <>
-                  Giriş yaptınız ama Google Takvim sunucusu oturumu kabul etmedi. Önce <strong>Ayarlar → Çıkış yap</strong>, sonra e-posta ile tekrar giriş yapın. Hâlâ olmazsa: .env.local içinde <code>NEXT_PUBLIC_SUPABASE_URL</code> ve <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> değerlerinin Supabase projenize ait olduğundan emin olun.
-                </>
-              )}
-              {googleDisconnectReason === 'network' && 'Ağ hatası. İnternet bağlantınızı ve Supabase proje ayarlarını kontrol edin.'}
-              {googleDisconnectReason === 'calendar_api_error' && 'Google Takvim erişimi reddedildi veya hata oluştu. Aşağıdaki &quot;Google Takvim\'i Bağla&quot; ile tekrar bağlanın.'}
-              {googleDisconnectReason?.includes('Edge Function') && 'Supabase Edge Function\'a ulaşılamıyor. .env.local içinde NEXT_PUBLIC_SUPABASE_URL ve ANON_KEY doğru projeye (gtwugoklzczszvueacxm) ait mi kontrol edin; Supabase Dashboard\'da proje duraklatılmamış olsun, Edge Function deploy edilmiş olsun.'}
-              {!['no_token', 'refresh_failed', 'no_auth', 'session_rejected', 'network', 'calendar_api_error'].includes(googleDisconnectReason || '') && !googleDisconnectReason?.includes('Edge Function') && `Durum: ${googleDisconnectReason}`}
-            </div>
-          )}
-          {/* Google Takvim bağla (Pro) – gerçek kullanıcı ve bağlı değilse */}
-          {!isMock && !googleConnected && (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${dark ? 'bg-amber-500/25 text-amber-400' : 'bg-amber-100 text-amber-800'}`}>
-                  Pro
-                </span>
-                <span className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Google Takvim senkronu</span>
-              </div>
-              {isPro ? (
-                <>
-                  <p className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
-                    Ne yapmalı: (1) Ayarlar → Çıkış yap, e-posta ile tekrar giriş. (2) Olmazsa Google Hesap → Güvenlik → &quot;Üçüncü taraf erişimi&quot;ndan bu uygulamayı kaldırıp &quot;Google Takvim'i Bağla&quot; ile tekrar deneyin.
-                  </p>
-                  <div className="flex gap-2">
-                    <a
-                      href={getGoogleCalendarAuthUrl(userId) || '#'}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${dark ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30' : 'bg-amber-500 text-black border border-amber-500 hover:bg-amber-400 shadow-sm'}`}
-                    >
-                      <span className="text-base font-bold">g</span>
-                      Google Takvim&apos;i Bağla
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => { setGoogleConnectError(null); loadGoogleEvents(); }}
-                      className={`shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium ${dark ? 'bg-zinc-700 text-zinc-200' : 'bg-stone-200 text-stone-700'}`}
-                    >
-                      Yenile
-                    </button>
-                  </div>
-                </>
-              ) : onOpenPro ? (
-                <button
-                  type="button"
-                  onClick={onOpenPro}
-                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${dark ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30' : 'bg-amber-500 text-black border border-amber-500 hover:bg-amber-400 shadow-sm'}`}
-                >
-                  <span className="text-base font-bold">g</span>
-                  Pro ile Google Takvim&apos;e Bağlan
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <a
-                    href={getGoogleCalendarAuthUrl(userId) || '#'}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${dark ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30' : 'bg-amber-500 text-black border border-amber-500 hover:bg-amber-400 shadow-sm'}`}
-                  >
-                    <span className="text-base font-bold">g</span>
-                    Google Takvim&apos;i Bağla
-                  </a>
-                  <button type="button" onClick={() => loadGoogleEvents()} className={`shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium ${dark ? 'bg-zinc-700 text-zinc-200' : 'bg-stone-200 text-stone-700'}`}>Yenile</button>
-                </div>
-              )}
-            </div>
-          )}
-          {!isMock && googleLoading && (
-            <div className={`mt-3 text-center text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Google yükleniyor...</div>
-          )}
-          {isMock && (
-            <p className={`mt-3 text-xs ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
-              Google Takvim için Ayarlar → Çıkış yap, sonra e-posta ile giriş yapın (Atla ile değil).
-            </p>
-          )}
-        </div>
+  if (loading) {
+    return (
+      <div className={`flex h-screen items-center justify-center ${dark ? 'bg-[#221610]' : 'bg-[#f8f6f6]'}`}>
+        <div className={`w-12 h-12 border-4 rounded-full animate-spin ${dark ? 'border-slate-700 border-t-[#ec5b13]' : 'border-slate-200 border-t-[#ec5b13]'}`} />
       </div>
+    );
+  }
 
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="text-center">
-              <div className={`w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4 ${dark ? 'border-zinc-700 border-t-amber-400/80' : 'border-stone-200 border-t-amber-500'}`} />
-              <p className={dark ? 'text-zinc-500' : 'text-stone-500'}>Takvim yükleniyor...</p>
+  return (
+    <div className={`flex flex-col min-h-screen pb-24 md:pb-0 ${dark ? 'bg-[#221610] text-slate-100' : 'bg-[#f8f6f6] text-slate-900'}`}>
+      {/* Top bar - Stitch style */}
+      <header className="h-16 border-b border-slate-200 flex items-center justify-between px-4 md:px-8 bg-white shrink-0 text-slate-900">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBack}
+            className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-700"
+            aria-label="Geri"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <h1 className="text-xl md:text-2xl font-bold font-display">{MONTHS_TR[currentMonth]} {currentYear}</h1>
+          <div className="hidden md:flex items-center bg-slate-100 p-1 rounded-xl ml-4">
+            <button type="button" onClick={() => setViewMode('day')} className={'px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ' + (viewMode === 'day' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>Gün</button>
+            <button type="button" onClick={() => setViewMode('week')} className={'px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ' + (viewMode === 'week' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>Hafta</button>
+            <button type="button" onClick={() => setViewMode('month')} className={'px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ' + (viewMode === 'month' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>Ay</button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+            <button type="button" onClick={() => goToPreviousMonth()} className="p-1.5 hover:bg-white rounded-lg transition-colors text-slate-700">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button type="button" onClick={goToToday} className="px-3 text-xs font-bold uppercase tracking-wider text-slate-900">Bugün</button>
+            <button type="button" onClick={goToNextMonth} className="p-1.5 hover:bg-white rounded-lg transition-colors text-slate-700">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+          <div className="h-8 w-px bg-slate-200 mx-1 md:mx-2 hidden md:block" />
+          <button type="button" className="p-2 text-slate-500 hover:bg-slate-100 rounded-full hidden md:flex" aria-label="Ara">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </button>
+          <button type="button" className="p-2 text-slate-500 hover:bg-slate-100 rounded-full hidden md:flex" aria-label="Bildirimler">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+          </button>
+          <div className="size-8 rounded-full bg-slate-300 flex items-center justify-center text-sm font-semibold text-slate-600 border-2 border-[#ec5b13]/20">?</div>
+        </div>
+      </header>
+
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Calendar grid */}
+        <div className="flex-1 overflow-auto p-4">
+          <div className={`h-full min-h-[480px] border rounded-xl overflow-hidden flex flex-col ${dark ? 'bg-[#221610]/40 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+            <div className={`grid grid-cols-7 border-b ${dark ? 'border-slate-800 bg-slate-800/50' : 'border-slate-200 bg-slate-50'}`}>
+              {DAY_NAMES.map((day) => (
+                <div key={day} className="py-3 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">{day}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 grid-rows-6 flex-1 auto-rows-fr">
+              {prevMonthDays.map((day) => (
+                <div key={`p-${day}`} className={`border-b border-r ${cellBorder} ${cellMuted} p-2`}>
+                  <span className="text-sm font-medium">{day}</span>
+                </div>
+              ))}
+              {currentMonthDays.map((day) => {
+                const dayTasks = getTasksForDay(day);
+                const dayGoogle = getGoogleEventsForDay(day);
+                const combined = [
+                  ...dayTasks.slice(0, 3).map((t) => ({ type: 'task' as const, title: t.title, id: t.id, task: t })),
+                  ...dayGoogle.slice(0, 2).map((e) => ({ type: 'google' as const, title: e.title, id: e.id, task: null })),
+                ];
+                const isToday = day === todayDate && currentMonth === todayMonth && currentYear === todayYear;
+                const isSelected = selectedDate === day.toString();
+
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => setSelectedDate(day.toString())}
+                    className={`border-b border-r ${cellBorder} p-2 text-left group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors min-h-[80px] ${
+                      isToday ? 'bg-[#ec5b13]/5' : ''
+                    } ${isSelected ? 'ring-2 ring-[#ec5b13]/40 ring-inset' : ''}`}
+                  >
+                    <span className={`text-sm font-medium block mb-1 ${isToday ? 'font-bold text-[#ec5b13]' : ''}`}>
+                      {day}
+                      {isToday && ' Bugün'}
+                    </span>
+                    <div className="space-y-1">
+                      {combined.map((item) => {
+                        if (item.type === 'google') {
+                          return (
+                            <div key={item.id} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 truncate">
+                              {item.title}
+                            </div>
+                          );
+                        }
+                        const cat = getCategoryById(item.task.category);
+                        const chipClass = getChipClass(cat?.color, dark);
+                        return (
+                          <div
+                            key={item.task.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditTask(item.task, day.toString());
+                            }}
+                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), onEditTask(item.task, day.toString()))}
+                            className={`text-[10px] px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-90 ${getChipClass(cat?.color)}`}
+                          >
+                            {item.title}
+                          </div>
+                        );
+                      })}
+                      {(dayTasks.length + dayGoogle.length) > 3 && (
+                        <div className="text-[10px] text-slate-400">+{dayTasks.length + dayGoogle.length - 3}</div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+              {nextMonthDays.map((day) => (
+                <div key={`n-${day}`} className={`border-b border-r ${cellBorder} ${cellMuted} p-2`}>
+                  <span className="text-sm font-medium">{day}</span>
+                </div>
+              ))}
             </div>
           </div>
-        ) : (
-          <>
-            <div className={`rounded-2xl overflow-hidden mb-6 ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
-              <div className={`grid grid-cols-7 border-b ${dark ? 'border-zinc-800 bg-zinc-900/40' : 'border-stone-200 bg-stone-50/80'}`}>
-                {dayNames.map((day) => (
-                  <div key={day} className={`text-center py-3 text-xs font-semibold ${dark ? 'text-zinc-500' : 'text-stone-600'}`}>
-                    {day}
-                  </div>
-                ))}
+
+          {/* Selected day detail - below calendar on mobile, or we keep it as before */}
+          {selectedDate && (
+            <div className={`mt-4 rounded-xl overflow-hidden ${dark ? 'bg-slate-900/60 border border-slate-800' : 'bg-white border border-slate-100 shadow-sm'} md:hidden`}>
+              <div className={`px-4 py-3 border-b ${dark ? 'border-slate-800' : 'border-stone-100'}`}>
+                <h2 className="font-bold">{selectedDate} {MONTHS_TR[currentMonth]}</h2>
+                <p className="text-sm text-slate-500">{selectedDayTasks.length} görev{selectedDayGoogleEvents.length > 0 ? ` · ${selectedDayGoogleEvents.length} Google` : ''}</p>
               </div>
-
-              <div className="grid grid-cols-7">
-                {prevMonthDays.map((day) => (
-                  <div
-                    key={`prev-${day}`}
-                    className={`aspect-square border p-2 opacity-40 ${dark ? 'border-zinc-800 bg-zinc-900/40' : 'border-stone-100 bg-stone-50/50'}`}
-                  >
-                    <div className={`text-sm ${dark ? 'text-zinc-600' : 'text-stone-400'}`}>{day}</div>
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {selectedDayTasks.map((task) => (
+                  <button key={task.id} type="button" onClick={() => onEditTask(task, selectedDate)} className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center justify-between">
+                    <span className="font-medium truncate">{task.title}</span>
+                    <span className="text-xs text-slate-500">{task.time}</span>
+                  </button>
+                ))}
+                {selectedDayGoogleEvents.map((e) => (
+                  <div key={e.id} className="px-4 py-3 flex items-center gap-2 bg-slate-100">
+                    <span className="text-slate-600 font-bold text-xs">g</span>
+                    <span className="font-medium truncate">{e.title}</span>
                   </div>
                 ))}
-
-                {currentMonthDays.map((day) => {
-                  const dayTasks = getTasksForDay(day);
-                  const dayGoogle = getGoogleEventsForDay(day);
-                  const combined = [
-                    ...dayTasks.map((t) => ({ type: 'task' as const, time: t.time, title: t.title, id: t.id, completed: t.completed })),
-                    ...dayGoogle.map((e) => ({ type: 'google' as const, time: e.time || '00:00', title: e.title, id: e.id, completed: false })),
-                  ].sort((a, b) => a.time.localeCompare(b.time));
-                  const isToday = day === todayDate && currentMonth === todayMonth && currentYear === todayYear;
-                  const isSelected = selectedDate === day.toString();
-                  const completedCount = dayTasks.filter(t => t.completed).length;
-                  const totalCount = dayTasks.length + dayGoogle.length;
-
-                  return (
-                    <button
-                      key={day}
-                      onClick={() => setSelectedDate(day.toString())}
-                      className={`aspect-square border p-2 text-left transition-all relative ${
-                        dark
-                          ? isSelected
-                            ? 'bg-amber-500/25 border-amber-500/60 ring-2 ring-amber-400/30'
-                            : isToday
-                              ? 'bg-amber-500/10 border-amber-500/30'
-                              : 'border-zinc-800 hover:bg-zinc-800'
-                          : isSelected
-                            ? 'bg-amber-100 border-amber-400 ring-2 ring-amber-400/20'
-                            : isToday
-                              ? 'bg-amber-50 border-amber-200'
-                              : 'border-stone-100 hover:bg-white/80'
-                      }`}
-                    >
-                      <div className={`text-sm font-semibold mb-1 ${
-                        isToday ? (dark ? 'text-amber-400' : 'text-amber-700') : isSelected ? (dark ? 'text-amber-400' : 'text-amber-700') : dark ? 'text-zinc-200' : 'text-stone-900'
-                      }`}>
-                        {day}
-                      </div>
-                      {totalCount > 0 && (
-                        <div className="space-y-0.5">
-                          {combined.slice(0, 2).map((item) =>
-                            item.type === 'task' ? (
-                              <div
-                                key={item.id}
-                                className={`text-[10px] px-1.5 py-0.5 rounded truncate flex items-center gap-0.5 ${
-                                  item.completed
-                                    ? dark ? 'bg-zinc-700 text-zinc-500' : 'bg-stone-100 text-stone-400'
-                                    : dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'
-                                }`}
-                              >
-                                <span className="truncate">{item.title}</span>
-                              </div>
-                            ) : (
-                              <div
-                                key={item.id}
-                                className={`text-[10px] px-1.5 py-0.5 rounded truncate flex items-center gap-0.5 ${dark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'}`}
-                              >
-                                <span className="font-bold text-blue-500 shrink-0">g</span>
-                                <span className="truncate">{item.title}</span>
-                              </div>
-                            )
-                          )}
-                          {totalCount > 2 && (
-                            <div className={`text-[10px] font-medium ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
-                              +{totalCount - 2} daha
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {totalCount > 0 && (
-                        <div className={`absolute bottom-1 right-1 text-[10px] font-bold ${dark ? 'text-amber-400/90' : 'text-amber-600'}`}>
-                          {completedCount}/{totalCount}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-
-                {nextMonthDays.map((day) => (
-                  <div
-                    key={`next-${day}`}
-                    className={`aspect-square border p-2 opacity-40 ${dark ? 'border-zinc-800 bg-zinc-900/40' : 'border-stone-100 bg-stone-50/50'}`}
-                  >
-                    <div className={`text-sm ${dark ? 'text-zinc-600' : 'text-stone-400'}`}>{day}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {selectedDate && (
-              <div className={`rounded-2xl overflow-hidden ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
-                <div className={`px-5 py-4 border-b ${dark ? 'bg-amber-500/20 border-zinc-800' : 'bg-amber-50 border-stone-100'}`}>
-                  <h2 className={`text-lg font-bold ${dark ? 'text-white' : 'text-stone-900'}`}>
-                    {selectedDate} {MONTHS_TR[currentMonth]}
-                  </h2>
-                  <p className={`text-sm ${dark ? 'text-amber-400/90' : 'text-amber-700/90'}`}>
-                    {selectedDayTasks.length} görev{selectedDayGoogleEvents.length > 0 ? ` · ${selectedDayGoogleEvents.length} Google` : ''}
-                  </p>
-                </div>
-
-                {selectedDayTasks.length === 0 && selectedDayGoogleEvents.length === 0 ? (
-                  <div className="px-5 py-8 text-center">
-                    <p className={`text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Bu tarihte görev veya etkinlik yok</p>
-                  </div>
-                ) : (
-                  <div className={dark ? 'divide-y divide-zinc-800' : 'divide-y divide-stone-100'}>
-                    {selectedDayTasks.map((task) => (
-                      <button
-                        key={task.id}
-                        onClick={() => onEditTask(task, selectedDate)}
-                        className={`w-full px-5 py-4 text-left flex items-center gap-3 transition-colors ${dark ? 'hover:bg-zinc-800/80' : 'hover:bg-stone-50'}`}
-                      >
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                          task.completed ? (dark ? 'bg-amber-500/80 border-amber-500/80' : 'bg-amber-500 border-amber-500') : (dark ? 'border-zinc-600' : 'border-stone-300')
-                        }`}>
-                          {task.completed && (
-                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className={`font-medium truncate ${task.completed ? (dark ? 'line-through text-zinc-500' : 'line-through text-stone-400') : (dark ? 'text-zinc-100' : 'text-stone-900')}`}>
-                            {task.title}
-                            {task.subtasks && task.subtasks.length > 0 && (
-                              <span className={`ml-2 text-xs font-semibold ${dark ? 'text-amber-400/90' : 'text-amber-600'}`}>
-                                [{task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}]
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-xs ${dark ? 'text-zinc-500' : 'text-stone-400'}`}>{task.time}</span>
-                            {task.priority && (
-                              <>
-                                <span className={dark ? 'text-zinc-600' : 'text-stone-300'}>•</span>
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  task.priority === 'high' ? (dark ? 'bg-red-900/40 text-red-400' : 'bg-red-100 text-red-600') :
-                                  task.priority === 'medium' ? (dark ? 'bg-amber-900/40 text-amber-400' : 'bg-amber-100 text-amber-700') :
-                                  dark ? 'bg-green-900/40 text-green-400' : 'bg-green-100 text-green-600'
-                                }`}>
-                                  {task.priority === 'high' ? 'Yüksek' : task.priority === 'medium' ? 'Orta' : 'Düşük'}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <svg className={`w-4 h-4 flex-shrink-0 ${dark ? 'text-zinc-500' : 'text-stone-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    ))}
-                    {selectedDayGoogleEvents.map((event) => (
-                      <div
-                        key={event.id}
-                        className={`w-full px-5 py-4 flex items-center gap-3 ${dark ? 'bg-blue-500/5' : 'bg-blue-50/50'}`}
-                      >
-                        <span className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 font-bold text-[10px] ${dark ? 'bg-blue-500/30 text-blue-400' : 'bg-blue-200 text-blue-700'}`}>g</span>
-                        <div className="flex-1 min-w-0">
-                          <div className={`font-medium truncate ${dark ? 'text-zinc-100' : 'text-stone-900'}`}>{event.title}</div>
-                          <div className={`text-xs mt-1 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
-                            {event.allDay ? 'Tüm gün' : event.time}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                {selectedDayTasks.length === 0 && selectedDayGoogleEvents.length === 0 && (
+                  <p className="px-4 py-6 text-center text-sm text-slate-500">Bu tarihte görev yok</p>
                 )}
               </div>
-            )}
-          </>
-        )}
+            </div>
+          )}
+
+          {/* Google connect - compact */}
+          {!isMock && !googleConnected && !googleLoading && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {isPro ? (
+                <a href={getGoogleCalendarAuthUrl(userId) || '#'} className="text-xs font-semibold text-[#ec5b13] hover:underline">
+                  Google Takvim&apos;i Bağla
+                </a>
+              ) : onOpenPro ? (
+                <button type="button" onClick={onOpenPro} className="text-xs font-semibold text-[#ec5b13] hover:underline">
+                  Pro ile Google Takvim
+                </button>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        {/* Right sidebar - Upcoming Tasks */}
+        <aside className={`hidden lg:flex flex-col w-80 shrink-0 border-l ${dark ? 'border-slate-800 bg-[#221610]/30' : 'border-slate-200 bg-white/50'} p-6 gap-6 overflow-auto`}>
+          <div>
+            <h3 className="text-lg font-bold mb-4">Yaklaşan Görevler</h3>
+            <div className="space-y-4">
+              {upcomingTasks.length === 0 ? (
+                <p className="text-sm text-slate-500">Yaklaşan görev yok</p>
+              ) : (
+                upcomingTasks.map(({ task, date, label }) => {
+                  const cat = getCategoryById(task.category);
+                  const borderClass = cat && cat.color ? (CATEGORY_BORDER[cat.color] ?? 'border-l-[#ec5b13]') : 'border-l-[#ec5b13]';
+                  return (
+                    <button
+                      key={task.id ?? task.title + date}
+                      type="button"
+                      onClick={() => onEditTask(task, date)}
+                      className={`w-full p-4 rounded-xl shadow-sm border-l-4 text-left transition-colors hover:opacity-90 ${dark ? 'bg-slate-800' : 'bg-white'} ${borderClass}`}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${cat ? getCategoryColor(cat.color).text : 'text-[#ec5b13]'}`}>
+                          {cat?.name ?? 'Görev'}
+                        </span>
+                        <span className="text-[10px] text-slate-400">{label}</span>
+                      </div>
+                      <h4 className="text-sm font-semibold mb-1">{task.title}</h4>
+                      <span className="text-xs text-slate-500">{task.time}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="mt-auto p-4 rounded-2xl bg-[#ec5b13]/10 border border-[#ec5b13]/20">
+            <div className="flex items-center gap-3 mb-2">
+              <svg className="w-5 h-5 text-[#ec5b13]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              <h4 className="text-sm font-bold text-[#ec5b13]">Verimlilik İpucu</h4>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Toplantıları salı günleri gruplayarak derin iş için daha fazla zaman açın.
+            </p>
+          </div>
+        </aside>
       </div>
     </div>
   );

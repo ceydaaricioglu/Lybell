@@ -1,0 +1,12 @@
+# Supabase project config (Edge Functions)
+# google-calendar-callback: Google OAuth redirect ile çağrılır, tarayıcıda JWT yok → verify_jwt kapalı
+[functions.google-calendar-callback]
+verify_jwt = false
+
+# google-calendar-events: Ağ geçidi JWT 401 veriyorsa istek fonksiyona ulaşmıyor; token fonksiyon içinde getUser() ile doğrulanıyor
+[functions.google-calendar-events]
+verify_jwt = false
+
+# google-calendar-sync-task: Pro – görev oluştur/güncelle/sil (JWT fonksiyon içinde doğrulanıyor)
+[functions.google-calendar-sync-task]
+verify_jwt = false

@@ -5,6 +5,8 @@ import { TimelineTask, Category, SubTask, TaskTemplate } from '@/lib/types';
 import { getMockCategories, deleteTaskFromSupabase, syncTaskToGoogleCalendar, excludeDateFromTask, setRecurrenceEndDate, DEFAULT_TAGS, getTagColorClasses, fetchTemplates, saveTemplateToSupabase } from '@/lib/helpers';
 import { canAddSubtask } from '@/lib/limits';
 import Modal from '@/components/Modal';
+import { useLocale } from '@/components/LocaleContext';
+import { t } from '@/lib/i18n';
 
 interface EditTaskViewProps {
   task?: TimelineTask;
@@ -28,6 +30,7 @@ interface EditTaskViewProps {
 
 export default function EditTaskView({ task, darkMode = false, isPro = false, onOpenPro, onBack, onSave, onDelete, onDeleteStart, onDeleteDone, onDeleteFailed, userId, defaultDate, defaultCategory, viewingDate, categories: categoriesFromParent }: EditTaskViewProps) {
   const dark = darkMode;
+  const { locale } = useLocale();
   const isNewTask = !task || !task.id;
   const [title, setTitle] = useState(task?.title || '');
   const [time, setTime] = useState(task?.time ?? '08:00');
@@ -276,7 +279,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
   return (
     <div className={`min-h-screen flex flex-col ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
       <header className="px-5 pt-6 pb-4">
-        <div className="max-w-md mx-auto flex items-center gap-4">
+        <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 flex items-center gap-4">
           <button onClick={onBack} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`} aria-label="Geri">
             <svg className={`w-6 h-6 ${dark ? 'text-zinc-300' : 'text-stone-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -286,8 +289,9 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
         </div>
       </header>
 
-      <div className="flex-1 max-w-md mx-auto w-full px-5 pb-24">
+      <div className="flex-1 w-full max-w-md md:max-w-none mx-auto md:mx-0 px-4 md:px-0 pb-24">
         <div className="space-y-6">
+          <p className={`text-xs font-semibold uppercase tracking-wider ${dark ? 'text-zinc-500' : 'text-stone-500'} mb-1`}>{t('edit.basic', locale)}</p>
           <div>
             <label className={labelClass}>Görev Başlığı</label>
             <input
@@ -383,7 +387,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
             onClick={() => setShowDetaySection((v) => !v)}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${dark ? 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
           >
-            <span className="font-medium">Detay (Tekrarlama, öncelik, etiketler…)</span>
+            <span className="font-medium">{t('edit.detail', locale)}</span>
             <svg className={`w-5 h-5 transition-transform ${showDetaySection ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>

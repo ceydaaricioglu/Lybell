@@ -1,0 +1,36 @@
+{
+  "name": "app",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0 -p 3000 --webpack",
+    "build": "next build",
+    "build:export": "BUILD_APP=1 next build",
+    "start": "next start",
+    "cap:sync": "cap sync",
+    "cap:android": "cap open android",
+    "android": "npm run build:export && cap sync android && cap open android",
+    "cap:ios": "cap open ios",
+    "ios": "npm run build:export && cap sync ios && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.1.0",
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/core": "^8.1.0",
+    "@capacitor/ios": "^8.1.0",
+    "@cursor-deneme/shared": "file:../../packages/shared",
+    "next": "16.1.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
