@@ -43,11 +43,15 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} antialiased safe-area-body font-sans min-h-screen bg-stone-300`}
         suppressHydrationWarning
       >
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
+          rel="stylesheet"
+        />
         <ErrorBoundary>
           <ToastProvider>
             {/* Tarayıcıda app boyutunda, ortada görünsün */}
-            <div className="min-h-screen flex justify-center">
-              <div className="w-full max-w-[412px] min-h-screen bg-[#f5f0ea] shadow-2xl relative overflow-x-hidden">
+            <div className="h-dvh max-h-dvh flex justify-center">
+              <div className="w-full max-w-[412px] h-dvh max-h-dvh flex flex-col bg-[#fdfcfb] shadow-2xl relative overflow-hidden">
                 {children}
               </div>
             </div>

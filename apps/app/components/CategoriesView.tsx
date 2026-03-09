@@ -3,13 +3,21 @@
 import { useState, useEffect } from 'react';
 import { Category, TimelineTask } from '@cursor-deneme/shared';
 import { getMockCategories, saveMockCategories, fetchTasksFromSupabase, deleteTaskFromSupabase, syncTaskToGoogleCalendar } from '@cursor-deneme/shared';
-import { getCategoryColor } from '@cursor-deneme/shared';
 import { CategoryIcon } from '@/lib/categoryIcons';
 import { canAddCategory } from '@cursor-deneme/shared';
 import AddCategoryModal from './AddCategoryModal';
 import Modal from './Modal';
 
-const PRIMARY = '#f97316';
+const PRIMARY = '#fb923c';
+
+const COLOR_BOX_CLASS: Record<string, { box: string; icon: string }> = {
+  blue: { box: 'bg-blue-50', icon: 'text-blue-500' },
+  purple: { box: 'bg-purple-50', icon: 'text-purple-500' },
+  pink: { box: 'bg-pink-50', icon: 'text-pink-500' },
+  orange: { box: 'bg-orange-50', icon: 'text-orange-500' },
+  yellow: { box: 'bg-yellow-50', icon: 'text-yellow-600' },
+  emerald: { box: 'bg-emerald-50', icon: 'text-emerald-500' },
+};
 
 interface CategoriesViewProps {
   userId: string;
@@ -36,7 +44,8 @@ export default function CategoriesView({
   categories: categoriesFromParent,
   onRefreshCategories,
 }: CategoriesViewProps) {
-  const dark = darkMode;
+  // Referans tasarım: bu sayfa her zaman açık tema (beyaz kart, koyu metin)
+  const dark = false;
   const [localCategories, setLocalCategories] = useState<Category[]>([]);
   const [localTasks, setLocalTasks] = useState<TimelineTask[]>([]);
   const categories = categoriesFromParent ?? localCategories;
@@ -131,197 +140,192 @@ export default function CategoriesView({
     return true;
   });
 
+  const pageBg = '#fdfdfd';
+
   if (loading) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
-        <div className="text-center">
-          <div className={`w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4 ${dark ? 'border-zinc-700 border-t-amber-400/80' : 'border-stone-200 border-t-amber-500'}`} />
-          <p className={dark ? 'text-zinc-500' : 'text-stone-500'}>Yükleniyor...</p>
+      <div className="flex flex-col flex-1 min-h-0 overflow-auto" style={{ backgroundColor: pageBg }}>
+        <div className="flex items-center justify-center flex-1">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4 border-slate-200 border-t-orange-500" />
+            <p className="text-slate-500">Yükleniyor...</p>
+          </div>
         </div>
       </div>
     );
   }
 
+  const colorBox = (color: string) => COLOR_BOX_CLASS[color] ?? COLOR_BOX_CLASS.orange;
+
   return (
-    <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f] text-zinc-100' : 'bg-[#f5f0ea] text-stone-800'}`}>
-      <div className="max-w-md mx-auto px-4 sm:px-5 pt-6 pb-4">
-        {/* Header - eski sade tasarım */}
-        <header className="mb-6">
+    <div className="flex flex-col flex-1 min-h-0 overflow-auto pb-24" style={{ backgroundColor: pageBg }}>
+      {/* Kart container — referans: beyaz kart */}
+      <div className="relative mx-auto w-full max-w-md flex-1 flex flex-col min-h-screen bg-white shadow-xl">
+        {/* Header — referans: pt-20 (safe area / 80px) */}
+        <header className="pt-20 px-6 pb-4">
           <div className="flex items-center justify-between">
             <button
+              type="button"
               onClick={onBack}
-              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}
+              className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 transition-colors"
               aria-label="Geri"
             >
-              <svg className={`w-6 h-6 ${dark ? 'text-zinc-300' : 'text-stone-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
+              <span className="material-symbols-outlined text-slate-700">arrow_back</span>
             </button>
-            <h1 className={`text-xl font-semibold ${dark ? 'text-white' : 'text-stone-800'}`}>Listeler</h1>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">Kategoriler</h1>
             <button
+              type="button"
               onClick={openAddCategory}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                dark ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-              }`}
+              className="flex items-center justify-center w-10 h-10 rounded-full transition-colors"
+              style={{ backgroundColor: `${PRIMARY}20`, color: PRIMARY }}
+              aria-label="Kategori ekle"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-              </svg>
+              <span className="material-symbols-outlined font-bold">add</span>
             </button>
           </div>
-          <p className={`text-sm mt-1 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{categories.length} liste</p>
-          {/* Arama */}
-          <div className="mt-3">
+        </header>
+
+        {/* Search — referans: icon sol, focus ring primary */}
+        <div className="px-6 py-4">
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <span className="material-symbols-outlined text-slate-400 group-focus-within:text-[#fb923c] transition-colors text-xl">search</span>
+            </div>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Liste ara..."
-              className={`w-full px-4 py-2.5 rounded-xl text-sm border transition-all placeholder:opacity-70 ${
-                dark ? 'bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500' : 'bg-white border-stone-200 text-stone-800 placeholder:text-stone-400'
-              }`}
+              placeholder="Listelerinde ara..."
+              className="block w-full pl-11 pr-4 py-3 border-none rounded-xl focus:ring-2 focus:ring-[#fb923c]/30 transition-all placeholder:text-slate-400 text-sm bg-slate-100 text-slate-900"
             />
           </div>
-          {/* Tabs - pill style */}
-          {categories.length > 0 && (
-            <div className="flex gap-2 mt-3 flex-wrap">
-              {[
-                { key: 'all' as const, label: `Tümü (${categories.length})` },
-                { key: 'progress' as const, label: 'Devam Eden' },
-                { key: 'archived' as const, label: 'Arşiv' },
-              ].map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setTab(key)}
-                  className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                    tab === key
-                      ? dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'
-                      : dark ? 'bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </header>
+        </div>
 
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 text-4xl ${dark ? 'bg-zinc-800/80' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
-              📁
-            </div>
-            <h2 className={`text-xl font-bold mb-2 ${dark ? 'text-white' : 'text-stone-800'}`}>
-              {tab === 'all' ? 'Henüz kategori yok' : tab === 'progress' ? 'Devam eden yok' : 'Arşivlenmiş yok'}
-            </h2>
-            <p className={`text-sm mb-6 text-center ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
-              {tab === 'all' ? 'İlk kategorini oluşturarak başla' : 'Bu filtrede liste görünmüyor.'}
-            </p>
-            {tab === 'all' && (
+        {/* Filter Tabs */}
+        <div className="px-6 py-2">
+          <div className="flex gap-2 p-1 bg-slate-100/50 rounded-xl">
+            {[
+              { key: 'all' as const, label: 'Tümü' },
+              { key: 'progress' as const, label: 'Devam Eden' },
+              { key: 'archived' as const, label: 'Arşiv' },
+            ].map(({ key, label }) => (
               <button
-                onClick={openAddCategory}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white hover:shadow-lg hover:scale-[1.02]'}`}
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                  tab === key
+                    ? 'bg-white shadow-sm font-semibold'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+                style={tab === key ? { color: PRIMARY } : undefined}
               >
-                + Kategori Oluştur
+                {label}
               </button>
-            )}
+            ))}
           </div>
-        ) : (
-          <div className="space-y-4">
-            {filtered.map((cat) => {
-              const colors = getCategoryColor(cat.color);
-              return (
-                <div
-                  key={cat.id}
-                  className={`rounded-2xl overflow-hidden transition-all ${
-                    dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'
-                  }`}
+        </div>
+
+        {/* List content */}
+        <div className="flex-1 px-6 py-6 space-y-4">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 bg-white border border-slate-100">
+                <span className="material-symbols-outlined text-4xl text-slate-400">folder</span>
+              </div>
+              <h2 className="text-xl font-bold mb-2 text-slate-900">
+                {tab === 'all' ? 'Henüz kategori yok' : tab === 'progress' ? 'Devam eden yok' : 'Arşivlenmiş yok'}
+              </h2>
+              <p className="text-sm mb-6 text-center text-slate-500">
+                {tab === 'all' ? 'İlk kategorini oluşturarak başla' : 'Bu filtrede liste görünmüyor.'}
+              </p>
+              {tab === 'all' && (
+                <button
+                  type="button"
+                  onClick={openAddCategory}
+                  className="px-6 py-3 rounded-xl font-semibold text-white transition-all hover:opacity-90"
+                  style={{ backgroundColor: PRIMARY }}
                 >
-                  <div className="flex items-start justify-between p-5">
-                    <button
-                      type="button"
-                      onClick={() => onCategorySelect(cat.id)}
-                      className="flex-1 text-left min-w-0 flex items-center gap-4"
-                    >
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${dark ? 'bg-zinc-800' : colors.light} ${!dark ? colors.text : ''}`}>
-                        <CategoryIcon icon={cat.icon} size={28} className="w-7 h-7 shrink-0" />
+                  + Kategori Oluştur
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              {filtered.map((cat) => {
+                const { box, icon } = colorBox(cat.color);
+                return (
+                  <div
+                    key={cat.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onCategorySelect(cat.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCategorySelect(cat.id); } }}
+                    className="group flex items-center justify-between p-4 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <div className="flex-1 flex items-center gap-4 min-w-0">
+                      <div className={`flex items-center justify-center w-12 h-12 rounded-xl flex-shrink-0 ${box} ${icon}`}>
+                        <CategoryIcon icon={cat.icon} size={24} className="w-6 h-6 shrink-0" />
                       </div>
                       <div className="min-w-0">
-                        <div className={`font-bold text-lg ${dark ? 'text-white' : 'text-stone-900'}`}>{cat.name}</div>
-                        <div className={`flex items-center gap-2 mt-1 text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
-                          {cat.total} görev{cat.completed > 0 ? ` · ${cat.completed} tamamlandı` : ''}
-                        </div>
-                        <div className={`w-full h-1.5 rounded-full mt-3 overflow-hidden ${dark ? 'bg-zinc-800' : 'bg-stone-100'}`}>
-                          <div className={`h-full rounded-full transition-all ${colors.bg}`} style={{ width: `${cat.progress}%` }} />
-                        </div>
+                        <h3 className="font-semibold text-slate-900">{cat.name}</h3>
+                        <p className="text-xs text-slate-500">
+                          {cat.total === 0 ? 'Görev yok' : `${cat.completed} tamamlandı`}
+                        </p>
                       </div>
-                    </button>
-                    <div className="relative flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMenuOpenId(menuOpenId === cat.id ? null : cat.id);
-                        }}
-                        className={`p-1.5 rounded-lg transition-colors ${dark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700'}`}
-                        aria-label="Menü"
-                      >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" /></svg>
-                      </button>
-                      {menuOpenId === cat.id && (
-                        <>
-                          <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} aria-hidden />
-                          <div className={`absolute right-0 top-full mt-1 py-1 rounded-lg shadow-lg z-20 min-w-[120px] ${dark ? 'bg-zinc-800 border border-zinc-700' : 'bg-white border border-stone-200'}`}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingCategory(cat);
-                                setShowAddCategoryModal(true);
-                                setMenuOpenId(null);
-                              }}
-                              className={`w-full text-left px-4 py-2 text-sm font-medium flex items-center gap-2 ${dark ? 'text-zinc-200 hover:bg-zinc-700' : 'text-stone-800 hover:bg-stone-50'}`}
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                              Düzenle
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setShowDeleteConfirm(cat.id);
-                                setMenuOpenId(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm font-medium flex items-center gap-2 text-red-500 hover:bg-red-500/10"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              Sil
-                            </button>
-                          </div>
-                        </>
-                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <span className="text-sm font-medium text-slate-400">{cat.total} görev</span>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === cat.id ? null : cat.id); }}
+                          className="p-1.5 rounded-lg transition-colors text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                          aria-label="Menü"
+                        >
+                          <span className="material-symbols-outlined text-xl">more_vert</span>
+                        </button>
+                        {menuOpenId === cat.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} aria-hidden />
+                            <div className="absolute right-0 top-full mt-1 py-1 rounded-lg shadow-lg z-20 min-w-[120px] bg-white border border-slate-200">
+                              <button
+                                type="button"
+                                onClick={() => { setEditingCategory(cat); setShowAddCategoryModal(true); setMenuOpenId(null); }}
+                                className="w-full text-left px-4 py-2 text-sm font-medium flex items-center gap-2 text-slate-800 hover:bg-slate-50"
+                              >
+                                <span className="material-symbols-outlined text-lg">edit</span>
+                                Düzenle
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setShowDeleteConfirm(cat.id); setMenuOpenId(null); }}
+                                className="w-full text-left px-4 py-2 text-sm font-medium flex items-center gap-2 text-red-500 hover:bg-red-500/10"
+                              >
+                                <span className="material-symbols-outlined text-lg">delete</span>
+                                Sil
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
 
-            {/* Yeni liste ekle kartı */}
-            <button
-              type="button"
-              onClick={openAddCategory}
-              className={`w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center py-6 transition-all group ${
-                dark
-                  ? 'border-zinc-700 bg-zinc-900/40 hover:bg-zinc-800 hover:border-amber-500/50'
-                  : 'border-stone-200 bg-white/60 hover:bg-amber-50/80 hover:border-amber-300'
-              }`}
-            >
-              <div className={`size-12 rounded-xl flex items-center justify-center mb-2 transition-colors ${dark ? 'bg-zinc-800 text-zinc-400 group-hover:bg-amber-500/20 group-hover:text-amber-400' : 'bg-stone-100 text-stone-500 group-hover:bg-amber-100 group-hover:text-amber-700'}`}>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              </div>
-              <span className={`text-sm font-semibold ${dark ? 'text-zinc-400 group-hover:text-amber-400' : 'text-stone-600 group-hover:text-amber-700'}`}>Yeni liste ekle</span>
-            </button>
-          </div>
-        )}
+              {/* Add new list — referans: border-dashed, hover primary */}
+              <button
+                type="button"
+                onClick={openAddCategory}
+                className="w-full flex items-center justify-center gap-2 p-6 border-2 border-dashed rounded-xl transition-all text-slate-400 border-slate-200 hover:border-[#fb923c]/50 hover:bg-[#fb923c]/5 hover:text-[#fb923c] group"
+              >
+                <span className="material-symbols-outlined">add_circle</span>
+                <span className="font-semibold">Yeni liste ekle</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {showAddCategoryModal && (

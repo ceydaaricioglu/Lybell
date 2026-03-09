@@ -392,6 +392,7 @@ export default function Home() {
           onSelectPlan={setSelectedPlan}
           onClose={() => setCurrentView('settings')}
           onRestore={() => {}}
+          onUpgrade={() => { /* TODO: ödeme akışı (selectedPlan) */ }}
           onTestUpgrade={() => setIsPro(true)}
         />
       );
@@ -487,6 +488,7 @@ export default function Home() {
           isPro={isPro}
           initialDateFromCalendar={calendarSelectedDate}
           onBack={() => setCurrentView('home')}
+          onViewCalendar={() => setCurrentView('calendar')}
           onEditTask={(task: TimelineTask, date?: string) => {
             setReturnViewAfterEdit('tasks');
             setEditingTask(task);
@@ -519,6 +521,12 @@ export default function Home() {
             setSelectedCategory(null);
             setCalendarSelectedDate(date);
             setCurrentView('tasks');
+          }}
+          onNewTask={(date) => {
+            setReturnViewAfterEdit('calendar');
+            setEditingTask(null);
+            setViewingDate(date);
+            setCurrentView('edit-task');
           }}
           onEditTask={(task, date) => {
             setReturnViewAfterEdit('calendar');
@@ -586,8 +594,10 @@ export default function Home() {
 
   return (
     <LocaleProvider>
-      <div className="main-content-pad">
-        {renderCurrentView()}
+      <div className="main-content-pad flex flex-col flex-1 min-h-0">
+        <div className="flex-1 min-h-0 flex flex-col">
+          {renderCurrentView()}
+        </div>
         {showBottomNav && (
           <BottomNav
             currentView={currentView}
@@ -599,6 +609,7 @@ export default function Home() {
         {pomodoroTask && (
           <PomodoroTimer
             task={pomodoroTask}
+            isPro={isPro}
             userId={userId}
             onClose={() => setPomodoroTask(null)}
           />

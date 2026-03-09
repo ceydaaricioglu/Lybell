@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { TimelineTask, Category } from '@cursor-deneme/shared';
 import {
   filterRecurringTasks,
@@ -9,14 +9,16 @@ import {
   fetchTasksFromSupabase,
   getMockCategories,
   getDayAbbreviation,
+  DEFAULT_TAGS,
 } from '@cursor-deneme/shared';
 import { MONTHS_TR } from '@cursor-deneme/shared';
 import { useLocale } from '@/components/LocaleContext';
 import { t, type Locale } from '@cursor-deneme/shared';
+import EisenhowerView from '@/components/EisenhowerView';
 
-const PRIMARY = '#f59e0b';
-const BG_LIGHT = '#f5f0ea';
-const BG_DARK = '#0f0f0f';
+const PRIMARY = '#f97316';
+const BG_LIGHT = '#f8fafc';
+const BG_DARK = '#221610';
 
 interface TasksViewProps {
   userId: string;
@@ -28,6 +30,7 @@ interface TasksViewProps {
   onAddTask: () => void;
   onStartPomodoro?: (task: TimelineTask) => void;
   onDeleteTask?: (taskId: string) => void | Promise<void>;
+  onViewCalendar?: () => void;
   tasks?: TimelineTask[];
   setTasks?: React.Dispatch<React.SetStateAction<TimelineTask[]>>;
   categories?: Category[];
@@ -89,6 +92,7 @@ export default function TasksView({
   onAddTask,
   onStartPomodoro,
   onDeleteTask,
+  onViewCalendar,
   tasks: tasksFromParent,
   setTasks: setTasksFromParent,
   categories: categoriesFromParent,
@@ -100,9 +104,12 @@ export default function TasksView({
   const tasks = tasksFromParent ?? localTasks;
   const setTasks = setTasksFromParent ?? setLocalTasks;
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'completed'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'completed' | 'eisenhower'>('today');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [recurrenceFilter, setRecurrenceFilter] = useState<'all' | 'recurring' | 'one-time'>('all');
+  const [tagFilter, setTagFilter] = useState<string>('all');
+  const [openFilterMenu, setOpenFilterMenu] = useState<'priority' | 'recurrence' | 'tag' | null>(null);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
 
   const categories = categoriesFromParent ?? (userId ? getMockCategories(userId) : []);
 
@@ -116,6 +123,9 @@ export default function TasksView({
       out = out.filter((t) => !!t.recurrence);
     } else if (recurrenceFilter === 'one-time') {
       out = out.filter((t) => !t.recurrence);
+    }
+    if (tagFilter !== 'all') {
+      out = out.filter((t) => Array.isArray(t.tags) && t.tags.includes(tagFilter));
     }
     return out;
   };
@@ -137,6 +147,16 @@ export default function TasksView({
     return () => { cancelled = true; };
   }, [userId, tasksFromParent]);
 
+  useEffect(() => {
+    if (!openFilterMenu) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (filterMenuRef.current?.contains(e.target as Node)) return;
+      setOpenFilterMenu(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [openFilterMenu]);
+
   const today = new Date();
   const currentDay = today.getDate();
   const currentMonth = today.getMonth();
@@ -152,13 +172,13 @@ export default function TasksView({
   const overdueTasks = useMemo(() => {
     const base = tasks.filter((t) => !t.completed && parseInt(t.date) < currentDay && !t.recurrence && matchesSearch(t, searchQuery));
     return applyProFilters(base);
-  }, [tasks, currentDay, searchQuery, isPro, priorityFilter, recurrenceFilter]);
+  }, [tasks, currentDay, searchQuery, isPro, priorityFilter, recurrenceFilter, tagFilter]);
 
   const todayTasks = useMemo(() => {
     const list = filterRecurringTasks(tasks, todayStr).filter((t) => !t.completed && matchesSearch(t, searchQuery));
     const filtered = applyProFilters(list);
     return filtered.sort((a, b) => (a.orderIndex ?? 9999) - (b.orderIndex ?? 9999) || (a.time || '').localeCompare(b.time || ''));
-  }, [tasks, todayStr, searchQuery, isPro, priorityFilter, recurrenceFilter]);
+  }, [tasks, todayStr, searchQuery, isPro, priorityFilter, recurrenceFilter, tagFilter]);
 
   const upcomingTasks = useMemo(() => {
     const result: TimelineTask[] = [];
@@ -173,12 +193,12 @@ export default function TasksView({
       });
     }
     return applyProFilters(result).sort((a, b) => parseInt(a.date) - parseInt(b.date) || (a.time || '').localeCompare(b.time || ''));
-  }, [tasks, currentDay, searchQuery, isPro, priorityFilter, recurrenceFilter]);
+  }, [tasks, currentDay, searchQuery, isPro, priorityFilter, recurrenceFilter, tagFilter]);
 
   const completedTasks = useMemo(() => {
     const base = tasks.filter((t) => t.completed && matchesSearch(t, searchQuery));
     return applyProFilters(base);
-  }, [tasks, searchQuery, isPro, priorityFilter, recurrenceFilter]);
+  }, [tasks, searchQuery, isPro, priorityFilter, recurrenceFilter, tagFilter]);
 
   const handleToggleTask = async (task: TimelineTask) => {
     if (!task.id) return;
@@ -218,112 +238,226 @@ export default function TasksView({
   }
 
   return (
-    <div className={`min-h-screen pb-24 ${dark ? 'bg-[#0f0f0f] text-zinc-100' : 'bg-[#f5f0ea] text-stone-800'}`}>
-      <div className="max-w-md mx-auto px-4 sm:px-5 pt-6 pb-4">
-        {/* Header - eski sade tasarım */}
-        <header className="mb-6">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={onBack}
-              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`}
-              aria-label={t('common.back', locale)}
-            >
-              <svg className={`w-6 h-6 ${dark ? 'text-zinc-300' : 'text-stone-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
+    <div className="flex flex-col flex-1 min-h-0 relative bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100" style={{ backgroundColor: dark ? BG_DARK : BG_LIGHT }}>
+      <div className="flex flex-col flex-1 min-h-0 max-w-md mx-auto w-full overflow-hidden">
+        {/* Header - Görevler tasarımı */}
+        <header className="flex items-center justify-between px-6 pt-6 pb-2 bg-white flex-shrink-0" style={dark ? { backgroundColor: '#221610' } : undefined}>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={onBack} className="p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label={t('common.back', locale)}>
+              <span className="material-symbols-outlined text-slate-600 dark:text-slate-400 text-2xl">menu</span>
             </button>
-            <h1 className={`text-xl font-semibold ${dark ? 'text-white' : 'text-stone-800'}`}>
-              {MONTHS_TR[currentMonth]} {currentYear}
-            </h1>
-            <div className="w-10" />
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: dark ? '#f5f0ea' : '#1a1a1a' }}>{t('tasks.title', locale)}</h1>
           </div>
-          <div className="mt-3">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('tasks.searchTasks', locale)}
-              className={`w-full px-4 py-2.5 rounded-xl text-sm border transition-all placeholder:opacity-70 ${
-                dark ? 'bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500' : 'bg-white border-stone-200 text-stone-800 placeholder:text-stone-400'
-              }`}
-            />
+          <div className="flex items-center">
+            <button type="button" onClick={onViewCalendar} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label={t('calendar.title', locale)}>
+              <span className="material-symbols-outlined text-slate-600 dark:text-slate-400">calendar_month</span>
+            </button>
           </div>
         </header>
 
-        {/* Tabs + Yeni görev - kart içinde */}
-        <div className={`rounded-2xl p-4 mb-4 ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex gap-2">
-              {(['today', 'upcoming', 'completed'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                    activeTab === tab
-                      ? dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'
-                      : dark ? 'bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                  }`}
-                >
-                  {tab === 'today' ? t('tasks.today', locale) : tab === 'upcoming' ? t('tasks.upcoming', locale) : t('tasks.completed', locale)}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={onAddTask}
-              className="flex items-center gap-1.5 text-white px-3 py-2 rounded-xl text-sm font-bold shadow-sm hover:opacity-95"
-              style={{ backgroundColor: PRIMARY }}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              {t('tasks.newTask', locale)}
-            </button>
+        {/* Tabs - segment (pill) kontrolü */}
+        <div className="px-4 sm:px-6 pt-3 pb-2 flex-shrink-0">
+          <div
+            className={`inline-flex rounded-xl p-1 w-full max-w-md ${dark ? '' : 'bg-slate-100'}`}
+            style={dark ? { backgroundColor: '#2a1f1a' } : undefined}
+          >
+            {(['today', 'upcoming', 'completed'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 min-w-0 py-2.5 px-3 rounded-lg text-sm font-semibold transition-all ${
+                  activeTab === tab ? 'shadow-sm' : 'opacity-80 hover:opacity-100'
+                }`}
+                style={
+                  activeTab === tab
+                    ? dark
+                      ? { backgroundColor: '#3d2a1f', color: '#f5f0ea' }
+                      : { backgroundColor: 'white', color: '#1a1a1a', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }
+                    : dark
+                      ? { color: '#b8a99e' }
+                      : { color: '#64748b' }
+                }
+              >
+                {tab === 'today' ? t('tasks.today', locale) : tab === 'upcoming' ? t('tasks.upcoming', locale) : t('tasks.completed', locale)}
+              </button>
+            ))}
+            {isPro && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('eisenhower')}
+                className={`flex-1 min-w-0 py-2.5 px-2 rounded-lg text-sm font-semibold transition-all ${
+                  activeTab === 'eisenhower' ? 'shadow-sm' : 'opacity-80 hover:opacity-100'
+                }`}
+                style={
+                  activeTab === 'eisenhower'
+                    ? dark
+                      ? { backgroundColor: '#3d2a1f', color: '#f5f0ea' }
+                      : { backgroundColor: 'white', color: '#1a1a1a', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }
+                    : dark
+                      ? { color: '#b8a99e' }
+                      : { color: '#64748b' }
+                }
+              >
+                Eisenhower
+              </button>
+            )}
           </div>
-          <p className={`text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{dateLabel}</p>
-          {isPro && (
-            <>
-              <div className="flex flex-wrap gap-2 mt-3">
-                <span className={`text-xs font-medium ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{t('tasks.priority', locale)}:</span>
-                {(['all', 'high', 'medium', 'low'] as const).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setPriorityFilter(key)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                      priorityFilter === key
-                        ? dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'
-                        : dark ? 'bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                    }`}
-                  >
-                    {key === 'all' ? (locale === 'tr' ? 'Tümü' : 'All') : t(`tasks.${key}` as 'tasks.high', locale)}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                <span className={`text-xs font-medium ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{locale === 'tr' ? 'Tekrar' : 'Repeat'}:</span>
-                {(['all', 'recurring', 'one-time'] as const).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setRecurrenceFilter(key)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                      recurrenceFilter === key
-                        ? dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-800'
-                        : dark ? 'bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                    }`}
-                  >
-                    {key === 'all' ? (locale === 'tr' ? 'Tümü' : 'All') : key === 'recurring' ? (locale === 'tr' ? 'Tekrarlayan' : 'Recurring') : (locale === 'tr' ? 'Tekrarsız' : 'One-time')}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
         </div>
 
+        {/* Pro filtreler - 3 açılır menü */}
+        {isPro && (
+          <div className="px-4 sm:px-6 py-2 flex-shrink-0 flex flex-wrap items-center gap-2" ref={filterMenuRef}>
+            <span className={`text-xs font-medium w-full sm:w-auto ${dark ? 'text-zinc-400' : 'text-slate-500'}`}>
+              {locale === 'tr' ? 'Filtreler' : 'Filters'}:
+            </span>
+            {/* Öncelik */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setOpenFilterMenu((v) => (v === 'priority' ? null : 'priority'))}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  dark ? 'border-zinc-600 bg-[#2a1f1a]' : 'border-slate-200 bg-white'
+                } ${openFilterMenu === 'priority' ? 'ring-2 ring-offset-1' : ''}`}
+                style={
+                  openFilterMenu === 'priority'
+                    ? { borderColor: PRIMARY, color: dark ? '#f5f0ea' : '#1a1a1a', boxShadow: `0 0 0 2px ${PRIMARY}40` }
+                    : dark
+                      ? { color: '#b8a99e' }
+                      : { color: '#475569' }
+                }
+              >
+                {priorityFilter === 'all' ? (locale === 'tr' ? 'Öncelik' : 'Priority') : t(`tasks.${priorityFilter}` as 'tasks.high', locale)}
+                <span className="material-symbols-outlined text-base opacity-70">expand_more</span>
+              </button>
+              {openFilterMenu === 'priority' && (
+                <div
+                  className={`absolute top-full left-0 mt-1 py-1 rounded-lg shadow-lg border min-w-[140px] z-50 ${
+                    dark ? 'bg-[#2a1f1a] border-zinc-600' : 'bg-white border-slate-200'
+                  }`}
+                >
+                  {(['all', 'high', 'medium', 'low'] as const).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setPriorityFilter(key);
+                        setOpenFilterMenu(null);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm ${dark ? 'hover:bg-[#3d2a1f]' : 'hover:bg-slate-50'} ${priorityFilter === key ? 'font-semibold' : ''}`}
+                      style={priorityFilter === key ? { color: PRIMARY } : dark ? { color: '#e8e0d8' } : { color: '#334155' }}
+                    >
+                      {key === 'all' ? (locale === 'tr' ? 'Tümü' : 'All') : t(`tasks.${key}` as 'tasks.high', locale)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Tekrar */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setOpenFilterMenu((v) => (v === 'recurrence' ? null : 'recurrence'))}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  dark ? 'border-zinc-600 bg-[#2a1f1a]' : 'border-slate-200 bg-white'
+                } ${openFilterMenu === 'recurrence' ? 'ring-2 ring-offset-1' : ''}`}
+                style={{
+                  ...(openFilterMenu === 'recurrence' ? { borderColor: PRIMARY, color: dark ? '#f5f0ea' : '#1a1a1a', boxShadow: `0 0 0 2px ${PRIMARY}40` } : {}),
+                  ...(openFilterMenu !== 'recurrence' && dark ? { color: '#b8a99e' } : openFilterMenu !== 'recurrence' ? { color: '#475569' } : {}),
+                }}
+              >
+                {recurrenceFilter === 'all'
+                  ? (locale === 'tr' ? 'Tekrar' : 'Recurrence')
+                  : recurrenceFilter === 'recurring'
+                    ? locale === 'tr'
+                      ? 'Tekrarlayan'
+                      : 'Recurring'
+                    : locale === 'tr'
+                      ? 'Tekrarsız'
+                      : 'One-time'}
+                <span className="material-symbols-outlined text-base opacity-70">expand_more</span>
+              </button>
+              {openFilterMenu === 'recurrence' && (
+                <div
+                  className={`absolute top-full left-0 mt-1 py-1 rounded-lg shadow-lg border min-w-[160px] z-50 ${
+                    dark ? 'bg-[#2a1f1a] border-zinc-600' : 'bg-white border-slate-200'
+                  }`}
+                >
+                  {(['all', 'recurring', 'one-time'] as const).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setRecurrenceFilter(key);
+                        setOpenFilterMenu(null);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm ${dark ? 'hover:bg-[#3d2a1f]' : 'hover:bg-slate-50'} ${recurrenceFilter === key ? 'font-semibold' : ''}`}
+                      style={recurrenceFilter === key ? { color: PRIMARY } : dark ? { color: '#e8e0d8' } : { color: '#334155' }}
+                    >
+                      {key === 'all' ? (locale === 'tr' ? 'Tümü' : 'All') : key === 'recurring' ? (locale === 'tr' ? 'Tekrarlayan' : 'Recurring') : locale === 'tr' ? 'Tekrarsız' : 'One-time'}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Etiket */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setOpenFilterMenu((v) => (v === 'tag' ? null : 'tag'))}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  dark ? 'border-zinc-600 bg-[#2a1f1a]' : 'border-slate-200 bg-white'
+                } ${openFilterMenu === 'tag' ? 'ring-2 ring-offset-1' : ''}`}
+                style={
+                  openFilterMenu === 'tag'
+                    ? { borderColor: PRIMARY, color: dark ? '#f5f0ea' : '#1a1a1a', boxShadow: `0 0 0 2px ${PRIMARY}40` }
+                    : dark
+                      ? { color: '#b8a99e' }
+                      : { color: '#475569' }
+                }
+              >
+                {tagFilter === 'all' ? (locale === 'tr' ? 'Etiket' : 'Tag') : DEFAULT_TAGS.find((x) => x.id === tagFilter)?.name ?? tagFilter}
+                <span className="material-symbols-outlined text-base opacity-70">expand_more</span>
+              </button>
+              {openFilterMenu === 'tag' && (
+                <div
+                  className={`absolute top-full left-0 mt-1 py-1 rounded-lg shadow-lg border min-w-[160px] max-h-56 overflow-y-auto z-50 ${
+                    dark ? 'bg-[#2a1f1a] border-zinc-600' : 'bg-white border-slate-200'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTagFilter('all');
+                      setOpenFilterMenu(null);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm ${dark ? 'hover:bg-[#3d2a1f]' : 'hover:bg-slate-50'} ${tagFilter === 'all' ? 'font-semibold' : ''}`}
+                    style={tagFilter === 'all' ? { color: PRIMARY } : dark ? { color: '#e8e0d8' } : { color: '#334155' }}
+                  >
+                    {locale === 'tr' ? 'Tümü' : 'All'}
+                  </button>
+                  {DEFAULT_TAGS.map((tag) => (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => {
+                        setTagFilter(tagFilter === tag.id ? 'all' : tag.id);
+                        setOpenFilterMenu(null);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm ${dark ? 'hover:bg-[#3d2a1f]' : 'hover:bg-slate-50'} ${tagFilter === tag.id ? 'font-semibold' : ''}`}
+                      style={tagFilter === tag.id ? { color: PRIMARY } : dark ? { color: '#e8e0d8' } : { color: '#334155' }}
+                    >
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Task list */}
-        <div className="space-y-6">
+        <div className="flex-1 overflow-auto px-6 py-4 pb-28 space-y-6">
           {activeTab === 'today' && (
                 <>
                   {overdueTasks.length > 0 && (
@@ -353,13 +487,14 @@ export default function TasksView({
                       </div>
                     </section>
                   )}
-                  <section>
-                    <h3 className={`text-xs font-bold uppercase tracking-widest mb-4 ${dark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                      {activeTab === 'today' ? t('tasks.todayTasks', locale) : t('nav.tasks', locale)}
-                    </h3>
+                  <section className={todayTasks.length === 0 && overdueTasks.length === 0 ? 'flex-1 flex flex-col min-h-0' : ''}>
                     {todayTasks.length === 0 && overdueTasks.length === 0 ? (
                       <EmptyState dark={dark} onAddTask={onAddTask} searchQuery={searchQuery} locale={locale} tFn={t} />
                     ) : (
+                      <>
+                    <h3 className={`text-xs font-bold uppercase tracking-widest mb-4 ${dark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                      {activeTab === 'today' ? t('tasks.todayTasks', locale) : t('nav.tasks', locale)}
+                    </h3>
                       <div className="space-y-3">
                         {todayTasks.map((task, idx) => (
                           <TaskCard
@@ -381,6 +516,7 @@ export default function TasksView({
                           />
                         ))}
                       </div>
+                    </>
                     )}
                   </section>
                 </>
@@ -444,6 +580,32 @@ export default function TasksView({
                   )}
                 </section>
               )}
+
+          {isPro && activeTab === 'eisenhower' && (
+                <section>
+                  <EisenhowerView
+                    tasks={tasks}
+                    categories={categories}
+                    darkMode={dark}
+                    onEditTask={onEditTask}
+                    onAddTask={onAddTask}
+                    onToggleTask={handleToggleTask}
+                  />
+                </section>
+              )}
+        </div>
+
+        {/* Floating Action Button - nav'ın üstünde görünsün (z-nav < z-fab) */}
+        <div className="absolute bottom-20 right-6 z-40">
+          <button
+            type="button"
+            onClick={onAddTask}
+            className="flex items-center justify-center rounded-xl h-14 px-6 text-white font-bold shadow-lg hover:brightness-110 transition-all gap-3"
+            style={{ backgroundColor: PRIMARY, boxShadow: `0 10px 40px -10px ${PRIMARY}4D` }}
+          >
+            <span className="material-symbols-outlined">add</span>
+            <span>{t('tasks.newTask', locale)}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -612,25 +774,36 @@ function EmptyState({
   locale: Locale;
   tFn: (key: string, l: Locale) => string;
 }) {
+  const isSearch = searchQuery.trim().length > 0;
   return (
-    <div className={'rounded-xl border p-8 text-center ' + (dark ? 'border-slate-700 bg-slate-800/40' : 'border-slate-200 bg-slate-50')}>
-      <p className={'text-sm mb-4 ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
-        {searchQuery.trim()
-          ? tFn('tasks.noMatch', locale)
-          : completed
-            ? tFn('tasks.noCompleted', locale)
-            : tFn('tasks.noTasks', locale)}
-      </p>
-      {!completed && (
-        <button
-          type="button"
-          onClick={onAddTask}
-          className="text-white px-4 py-2 rounded-lg text-sm font-bold"
-          style={{ backgroundColor: PRIMARY }}
-        >
-          {tFn('tasks.newTask', locale)}
-        </button>
-      )}
+    <div className="flex flex-1 flex-col px-6 py-12 items-center justify-center">
+      <div className="flex flex-col items-center gap-8 w-full">
+        <div className={'w-48 h-48 rounded-full flex items-center justify-center relative overflow-hidden ' + (dark ? 'bg-slate-800' : 'bg-slate-50')}>
+          <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent" />
+          <span className="material-symbols-outlined text-6xl text-slate-200 dark:text-slate-700">task_alt</span>
+        </div>
+        <div className="flex flex-col items-center gap-2 text-center">
+          <p className={'text-lg font-bold ' + (dark ? 'text-slate-100' : 'text-slate-900')}>
+            {isSearch ? tFn('tasks.noMatch', locale) : completed ? tFn('tasks.noCompleted', locale) : (locale === 'tr' ? 'Henüz görev yok' : 'No tasks yet')}
+          </p>
+          <p className={'text-sm font-normal max-w-[280px] ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
+            {isSearch
+              ? (locale === 'tr' ? 'Arama kriterlerine uygun görev bulunamadı.' : 'No tasks match your search.')
+              : completed
+                ? (locale === 'tr' ? 'Tamamlanan görevler burada listelenir.' : 'Completed tasks will appear here.')
+                : (locale === 'tr' ? 'Bugün için planlanmış bir göreviniz bulunmuyor. Yeni bir başlangıç yapın.' : "You don't have any tasks planned for today. Start fresh.")}
+          </p>
+        </div>
+        {!completed && (
+          <button
+            type="button"
+            onClick={onAddTask}
+            className={'flex min-w-[120px] items-center justify-center rounded-lg h-11 px-6 text-sm font-bold transition-colors ' + (dark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200')}
+          >
+            {tFn('tasks.newTask', locale)}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

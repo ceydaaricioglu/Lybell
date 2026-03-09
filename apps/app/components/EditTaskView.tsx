@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TimelineTask, Category, SubTask, TaskTemplate } from '@cursor-deneme/shared';
 import { getMockCategories, deleteTaskFromSupabase, syncTaskToGoogleCalendar, excludeDateFromTask, setRecurrenceEndDate, DEFAULT_TAGS, getTagColorClasses, fetchTemplates, saveTemplateToSupabase } from '@cursor-deneme/shared';
 import { canAddSubtask } from '@cursor-deneme/shared';
 import Modal from '@/components/Modal';
 import { useLocale } from '@/components/LocaleContext';
+import { useToast } from '@/components/Toast';
 import { t } from '@cursor-deneme/shared';
 
 interface EditTaskViewProps {
@@ -31,8 +32,11 @@ interface EditTaskViewProps {
 export default function EditTaskView({ task, darkMode = false, isPro = false, onOpenPro, onBack, onSave, onDelete, onDeleteStart, onDeleteDone, onDeleteFailed, userId, defaultDate, defaultCategory, viewingDate, categories: categoriesFromParent }: EditTaskViewProps) {
   const dark = darkMode;
   const { locale } = useLocale();
+  const { showToast } = useToast();
   const isNewTask = !task || !task.id;
   const [title, setTitle] = useState(task?.title || '');
+  const [isListeningForTitle, setIsListeningForTitle] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [time, setTime] = useState(task?.time ?? '08:00');
   const [date, setDate] = useState(task?.date || defaultDate || new Date().getDate().toString());
   const [category, setCategory] = useState<'routines' | 'reading' | string | null>(task?.category ?? defaultCategory ?? null);
@@ -267,6 +271,8 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
     })();
   };
 
+  const PRIMARY = '#2463eb';
+  const ACCENT_ORANGE = '#f97316';
   const inputBase = dark
     ? 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500'
     : 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 bg-white border border-stone-200 text-stone-900 placeholder:text-stone-400';
@@ -276,122 +282,162 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
     : 'w-full px-4 py-4 rounded-xl text-left flex items-center justify-between border border-stone-200 bg-white hover:border-amber-300 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] transition-all';
   const dropdownPanel = dark ? 'mt-2 border border-zinc-700 rounded-xl overflow-hidden bg-zinc-900' : 'mt-2 border border-stone-200 rounded-xl overflow-hidden bg-white shadow-[0_4px_16px_-4px_rgba(0,0,0,0.08)]';
 
+  const sectionLabel = 'text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500';
+  const underlineInput = `w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:ring-0 focus:border-b-2 px-0 py-2 placeholder:text-slate-300 dark:placeholder:text-slate-600 transition-colors`;
+  const dateValue = (() => { const now = new Date(); const y = now.getFullYear(); const m = String(now.getMonth() + 1).padStart(2, '0'); const d = (date ?? now.getDate().toString()).padStart(2, '0'); return `${y}-${m}-${d}`; })();
+
   return (
-    <div className={`min-h-screen flex flex-col ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
-      <header className="px-5 pt-6 pb-4">
-        <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 flex items-center gap-4">
-          <button onClick={onBack} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`} aria-label="Geri">
-            <svg className={`w-6 h-6 ${dark ? 'text-zinc-300' : 'text-stone-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+    <div className={`flex flex-col flex-1 min-h-0 overflow-auto ${dark ? 'bg-[#221610]' : 'bg-[#f6f6f8]'}`}>
+      <div className="relative flex flex-col flex-1 w-full max-w-md mx-auto bg-white shadow-xl min-h-0" style={dark ? { backgroundColor: '#221610' } : undefined}>
+        <header className="flex items-center justify-between px-4 py-6 flex-shrink-0">
+          <button type="button" onClick={onBack} className="flex items-center justify-center size-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Geri">
+            <span className="material-symbols-outlined text-slate-700 dark:text-slate-300">arrow_back</span>
           </button>
-          <h1 className={`text-xl font-semibold flex-1 ${dark ? 'text-white' : 'text-stone-800'}`}>{isNewTask ? 'Yeni Görev' : 'Görevi Düzenle'}</h1>
-        </div>
-      </header>
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: dark ? '#f5f0ea' : '#1a1a1a' }}>{isNewTask ? 'Yeni Görev' : 'Görevi Düzenle'}</h2>
+          <div className="size-10" aria-hidden />
+        </header>
 
-      <div className="flex-1 w-full max-w-md md:max-w-none mx-auto md:mx-0 px-4 md:px-0 pb-24">
-        <div className="space-y-6">
-          <p className={`text-xs font-semibold uppercase tracking-wider ${dark ? 'text-zinc-500' : 'text-stone-500'} mb-1`}>{t('edit.basic', locale)}</p>
-          <div>
-            <label className={labelClass}>Görev Başlığı</label>
-            <input
-              type="text"
-              value={title ?? ''}
-              onChange={(e) => setTitle(e.target.value)}
-              className={`${inputBase} py-4 text-lg`}
-              placeholder="Ne yapman gerekiyor?"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Açıklama / Not</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className={`${inputBase} resize-none`}
-              placeholder="Detay veya not ekle (isteğe bağlı)"
-            />
-          </div>
-
-          {!defaultCategory && (
-            <div>
-              <label className={labelClass}>Liste</label>
-              <button onClick={() => setShowCategoryOptions(!showCategoryOptions)} className={selectBtn}>
-                <span className={category ? (dark ? 'text-zinc-100 font-medium' : 'text-stone-900 font-medium') : (dark ? 'text-zinc-500' : 'text-stone-400')}>
-                  {category ? categories.find(c => c.id === category)?.name || category : 'Liste seç'}
-                </span>
-                <svg className={`w-5 h-5 transition-transform ${dark ? 'text-zinc-500' : 'text-stone-400'} ${showCategoryOptions ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showCategoryOptions && (
-                <div className={dropdownPanel}>
-                  {categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => {
-                        setCategory(cat.id);
-                        if (cat.syncToGoogle) setSyncToGoogle(true);
-                        else setSyncToGoogle(false);
-                        setShowCategoryOptions(false);
-                      }}
-                      className={`w-full px-4 py-4 text-left flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800' : 'border-stone-100 hover:bg-amber-50/50'}`}
-                    >
-                      <span className="text-2xl">{cat.icon}</span>
-                      <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>{cat.name}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {isPro && selectedCategorySyncToGoogle && (
-            <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${dark ? 'bg-zinc-800/80' : 'bg-stone-50'}`}>
-              <div>
-                <p className={`font-medium ${dark ? 'text-zinc-200' : 'text-stone-800'}`}>Google Takvim'de görünsün</p>
-                <p className={`text-xs mt-0.5 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Bu görev Google Takvim'e aktarılır</p>
+        <div className="flex flex-col flex-1 px-6 space-y-8 overflow-auto pb-6">
+          {/* Görev Başlığı & Notlar */}
+          <div className="space-y-6">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className={sectionLabel}>Görev Başlığı</label>
+                {isPro && isNewTask && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const SpeechRecognitionAPI = typeof window !== 'undefined' && ((window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition);
+                      if (!SpeechRecognitionAPI) { showToast(locale === 'tr' ? 'Tarayıcınız ses tanımayı desteklemiyor.' : 'Your browser does not support speech recognition.', 'error'); return; }
+                      if (isListeningForTitle) { try { recognitionRef.current?.stop(); } catch { /* noop */ } setIsListeningForTitle(false); return; }
+                      const recognition = new SpeechRecognitionAPI() as SpeechRecognition;
+                      recognition.continuous = false; recognition.interimResults = false; recognition.lang = locale === 'tr' ? 'tr-TR' : 'en-US';
+                      recognition.onresult = (e: SpeechRecognitionEvent) => { const transcript = Array.from(e.results).map((r) => r[0].transcript).join(' ').trim(); if (transcript) setTitle((prev) => (prev ? `${prev} ${transcript}` : transcript)); };
+                      recognition.onend = () => setIsListeningForTitle(false);
+                      recognition.onerror = () => { setIsListeningForTitle(false); showToast(locale === 'tr' ? 'Ses algılanamadı.' : 'Speech not detected.', 'error'); };
+                      recognitionRef.current = recognition; recognition.start(); setIsListeningForTitle(true);
+                      showToast(locale === 'tr' ? 'Dinliyorum...' : 'Listening...', 'info');
+                    }}
+                    disabled={isListeningForTitle}
+                    className={`shrink-0 flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium ${dark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600'} ${isListeningForTitle ? 'opacity-70' : ''}`}
+                  >
+                    {isListeningForTitle ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <span className="material-symbols-outlined text-sm">mic</span>}
+                    {locale === 'tr' ? (isListeningForTitle ? 'Dinleniyor...' : 'Sesle') : (isListeningForTitle ? 'Listening' : 'Voice')}
+                  </button>
+                )}
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={syncToGoogle}
-                onClick={() => setSyncToGoogle((v) => !v)}
-                className={`relative w-12 h-7 rounded-full transition-colors ${syncToGoogle ? (dark ? 'bg-amber-500' : 'bg-amber-500') : dark ? 'bg-zinc-600' : 'bg-stone-300'}`}
-              >
-                <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${syncToGoogle ? 'translate-x-5' : 'translate-x-0'}`} />
-              </button>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Tarih</label>
               <input
-                type="date"
-                value={(() => { const now = new Date(); const y = now.getFullYear(); const m = String(now.getMonth() + 1).padStart(2, '0'); const d = (date ?? now.getDate().toString()).padStart(2, '0'); return `${y}-${m}-${d}`; })()}
-                onChange={(e) => { const dateStr = e.target.value; const day = dateStr.split('-')[2]; setDate(parseInt(day, 10).toString()); }}
-                className={inputBase}
+                type="text"
+                value={title ?? ''}
+                onChange={(e) => setTitle(e.target.value)}
+                className={`${underlineInput} text-xl font-medium text-slate-900 dark:text-slate-100 focus:border-[#2463eb] dark:focus:border-[#2463eb]`}
+                placeholder="Örn: Haftalık toplantı"
+                autoFocus
               />
             </div>
-            <div>
-              <label className={labelClass}>Saat</label>
-              <input type="time" value={time ?? ''} onChange={(e) => setTime(e.target.value || '08:00')} className={inputBase} />
+            <div className="flex flex-col gap-2">
+              <label className={sectionLabel}>Notlar</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className={`${underlineInput} text-base resize-none min-h-[100px] text-slate-900 dark:text-slate-100 focus:border-[#2463eb] dark:focus:border-[#2463eb]`}
+                placeholder="Detaylı bilgi ekleyin..."
+              />
             </div>
+          </div>
+
+          {/* Tarih Seçimi - takvim (mevcut date input) */}
+          <div className="space-y-4">
+            <label className={sectionLabel}>Tarih Seçimi</label>
+            <input
+              type="date"
+              value={dateValue}
+              onChange={(e) => { const dateStr = e.target.value; const day = dateStr.split('-')[2]; setDate(parseInt(day, 10).toString()); }}
+              className={`w-full px-4 py-3 rounded-2xl border bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-0 dark:focus:ring-offset-slate-900`}
+              style={{ ['--tw-ring-color' as string]: PRIMARY }}
+            />
+          </div>
+
+          {/* Saat */}
+          <div className="space-y-4">
+            <label className={sectionLabel}>Saat</label>
+            <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+              <span className="material-symbols-outlined shrink-0" style={{ color: PRIMARY }}>schedule</span>
+              <input
+                type="time"
+                value={time ?? ''}
+                onChange={(e) => setTime(e.target.value || '08:00')}
+                className="flex-1 min-w-0 bg-transparent border-0 text-xl font-bold text-slate-900 dark:text-slate-100 focus:ring-0 focus:outline-none [color-scheme:light] dark:[color-scheme:dark]"
+              />
+            </div>
+          </div>
+
+          {/* Kategori - pill veya dropdown */}
+          <div className="space-y-3">
+            <label className={sectionLabel}>Kategori</label>
+            {!defaultCategory ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((cat) => {
+                    const isSelected = category === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => { setCategory(cat.id); if (cat.syncToGoogle) setSyncToGoogle(true); else setSyncToGoogle(false); }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+                          isSelected
+                            ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                        style={isSelected ? { borderColor: `${PRIMARY}40`, backgroundColor: `${PRIMARY}15`, color: PRIMARY } : undefined}
+                      >
+                        {cat.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {showCategoryOptions && (
+                  <div className={dropdownPanel}>
+                    {categories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => { setCategory(cat.id); if (cat.syncToGoogle) setSyncToGoogle(true); else setSyncToGoogle(false); setShowCategoryOptions(false); }}
+                        className={`w-full px-4 py-4 text-left flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800' : 'border-stone-100 hover:bg-amber-50/50'}`}
+                      >
+                        <span className="text-2xl">{cat.icon}</span>
+                        <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>{cat.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className={`text-sm font-medium ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{categories.find(c => c.id === defaultCategory)?.name ?? defaultCategory}</p>
+            )}
+            {isPro && selectedCategorySyncToGoogle && (
+              <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${dark ? 'bg-slate-800/80' : 'bg-slate-50'}`}>
+                <div>
+                  <p className={`font-medium text-sm ${dark ? 'text-slate-200' : 'text-slate-800'}`}>Google Takvim'de görünsün</p>
+                </div>
+                <button type="button" role="switch" aria-checked={syncToGoogle} onClick={() => setSyncToGoogle((v) => !v)} className={`relative w-12 h-7 rounded-full transition-colors ${syncToGoogle ? '' : dark ? 'bg-slate-600' : 'bg-slate-300'}`} style={syncToGoogle ? { backgroundColor: PRIMARY } : undefined}>
+                  <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${syncToGoogle ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Detay bölümü (accordion) */}
-          <button
-            type="button"
-            onClick={() => setShowDetaySection((v) => !v)}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${dark ? 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
-          >
-            <span className="font-medium">{t('edit.detail', locale)}</span>
-            <svg className={`w-5 h-5 transition-transform ${showDetaySection ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => setShowDetaySection((v) => !v)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${dark ? 'bg-slate-800/80 hover:bg-slate-800 text-slate-200' : 'bg-slate-50 hover:bg-slate-100 text-slate-700'} border border-slate-100 dark:border-slate-700`}
+            >
+              <span className={`text-xs font-bold uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{t('edit.detail', locale)}</span>
+              <span className={`material-symbols-outlined text-xl transition-transform ${showDetaySection ? 'rotate-180' : ''}`}>expand_more</span>
+            </button>
+          </div>
 
           {showDetaySection && (
           <>
@@ -938,17 +984,19 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
           </>
           )}
 
-          <button
-            onClick={handleSave}
-            disabled={!(title ?? '').trim() || (!effectiveCategory && !task)}
-            className={`w-full py-4 font-semibold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white shadow-lg hover:shadow-xl hover:bg-amber-700'}`}
-            aria-label={isNewTask ? 'Görevi oluştur' : 'Değişiklikleri kaydet'}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span>{isNewTask ? 'Görevi Oluştur' : 'Değişiklikleri Kaydet'}</span>
-          </button>
+          <div className="p-0 mt-auto pt-4">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!(title ?? '').trim() || (!effectiveCategory && !task)}
+              className="w-full font-bold py-4 px-6 rounded-2xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-white hover:opacity-95"
+              style={{ backgroundColor: ACCENT_ORANGE, boxShadow: `0 10px 24px rgba(249,115,22,0.3)` }}
+              aria-label={isNewTask ? 'Görevi oluştur' : 'Değişiklikleri kaydet'}
+            >
+              <span className="material-symbols-outlined">add_task</span>
+              <span>{isNewTask ? 'Görevi Oluştur' : 'Değişiklikleri Kaydet'}</span>
+            </button>
+          </div>
 
           {!isNewTask && task?.id && (
             <button

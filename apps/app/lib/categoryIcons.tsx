@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { getIconSetEntry } from '@cursor-deneme/shared';
 
 /** İkon ID'leri – proje/liste eklerken seçilebilir. Eski emoji değerleri geriye dönük uyumluluk için string olarak kalır. */
 export const CATEGORY_ICON_IDS = [
@@ -126,9 +127,17 @@ interface CategoryIconProps {
 }
 
 /**
- * Kategori ikonunu gösterir. Yeni ikon setinden bir id ise SVG çizer, değilse (eski emoji) metin olarak gösterir.
+ * Kategori ikonunu gösterir. Önce Material Symbol seti (iconSet), sonra SVG seti (folder, book…), sonra emoji.
  */
 export function CategoryIcon({ icon, className = '', size = 24 }: CategoryIconProps) {
+  const materialEntry = getIconSetEntry(icon);
+  if (materialEntry) {
+    return (
+      <span className={`material-symbols-outlined ${className}`} style={{ fontSize: size }} aria-hidden>
+        {icon}
+      </span>
+    );
+  }
   if (isIconId(icon)) {
     return <CategoryIconSvg iconId={icon} className={className} size={size} />;
   }

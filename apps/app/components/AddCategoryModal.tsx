@@ -10,6 +10,42 @@ import {
   type CategoryIconId,
 } from '@/lib/categoryIcons';
 
+const PRIMARY = '#fb923c';
+
+/** İkon id → pastel arka plan + metin rengi (referans tasarım) */
+const PASTEL_STYLES: { bg: string; text: string }[] = [
+  { bg: '#fef2f2', text: '#ef4444' },
+  { bg: '#fff7ed', text: '#f97316' },
+  { bg: '#f0fdf4', text: '#22c55e' },
+  { bg: '#eff6ff', text: '#3b82f6' },
+  { bg: '#f5f3ff', text: '#8b5cf6' },
+  { bg: '#fdf2f8', text: '#ec4899' },
+  { bg: '#fffbeb', text: '#f59e0b' },
+  { bg: '#f0f9ff', text: '#0ea5e9' },
+];
+
+/** İkon id → kısa etiket (grid altında) */
+const ICON_LABELS: Record<string, string> = {
+  folder: 'Klasör',
+  briefcase: 'İş',
+  book: 'Kitap',
+  target: 'Hedef',
+  heart: 'Kalp',
+  home: 'Ev',
+  laptop: 'Bilgisayar',
+  palette: 'Sanat',
+  music: 'Müzik',
+  coffee: 'Kahve',
+  lightbulb: 'Fikir',
+  star: 'Yıldız',
+  phone: 'Telefon',
+  code: 'Kod',
+  plane: 'Uçak',
+  wrench: 'Araç',
+  leaf: 'Doğa',
+  clipboard: 'Liste',
+};
+
 interface AddCategoryModalProps {
   onClose: () => void;
   onSave: (category: Category) => void;
@@ -22,30 +58,18 @@ interface AddCategoryModalProps {
 const isIconIdType = (s: string): s is CategoryIconId => (CATEGORY_ICON_IDS as readonly string[]).includes(s);
 
 export default function AddCategoryModal({ onClose, onSave, userId, category, darkMode = false, isPro = false }: AddCategoryModalProps) {
-  const dark = darkMode;
   const isEditMode = !!category;
   const [categoryName, setCategoryName] = useState(category?.name || '');
   const [selectedIcon, setSelectedIcon] = useState<string>(category?.icon && isIconIdType(category.icon) ? category.icon : getDefaultCategoryIconId());
-  const [selectedColor, setSelectedColor] = useState(category?.color || 'emerald');
   const [syncToGoogle, setSyncToGoogle] = useState(!!category?.syncToGoogle);
-  const [showIconPicker, setShowIconPicker] = useState(false);
 
   useEffect(() => {
     if (category) {
       setCategoryName(category.name);
       setSelectedIcon(category.icon && isIconIdType(category.icon) ? category.icon : getDefaultCategoryIconId());
-      setSelectedColor(category.color);
       setSyncToGoogle(!!category.syncToGoogle);
     }
   }, [category]);
-  const colors = [
-    { name: 'emerald', lightBg: 'bg-emerald-100', lightBorder: 'border-emerald-300', darkBg: 'bg-emerald-900/40', darkBorder: 'border-emerald-600' },
-    { name: 'blue', lightBg: 'bg-blue-100', lightBorder: 'border-blue-300', darkBg: 'bg-blue-900/40', darkBorder: 'border-blue-600' },
-    { name: 'purple', lightBg: 'bg-purple-100', lightBorder: 'border-purple-300', darkBg: 'bg-purple-900/40', darkBorder: 'border-purple-600' },
-    { name: 'pink', lightBg: 'bg-pink-100', lightBorder: 'border-pink-300', darkBg: 'bg-pink-900/40', darkBorder: 'border-pink-600' },
-    { name: 'orange', lightBg: 'bg-orange-100', lightBorder: 'border-orange-300', darkBg: 'bg-orange-900/40', darkBorder: 'border-orange-600' },
-    { name: 'yellow', lightBg: 'bg-yellow-100', lightBorder: 'border-yellow-300', darkBg: 'bg-yellow-900/40', darkBorder: 'border-yellow-600' },
-  ];
 
   const handleSave = () => {
     if (categoryName.trim()) {
@@ -53,7 +77,7 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
         id: category?.id || `category-${Date.now()}`,
         name: categoryName.trim(),
         icon: selectedIcon,
-        color: selectedColor,
+        color: category?.color || 'orange',
         userId,
         syncToGoogle: isPro ? syncToGoogle : undefined,
       };
@@ -66,124 +90,131 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
     <Modal
       open
       onClose={onClose}
-      title={isEditMode ? 'Liste Düzenle' : 'Yeni Liste'}
-      dark={dark}
+      title=""
+      dark={false}
       maxWidth="md"
       contentClassName="max-h-[90vh] overflow-y-auto"
+      contentNoPadding
     >
-      <div className="space-y-6">
-          <div>
-            <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-zinc-300' : 'text-stone-700'}`}>Liste adı</label>
-            <input
-              type="text"
-              value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 text-lg transition-all ${
-                dark
-                  ? 'bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus:ring-amber-500/50 focus:border-amber-500/50'
-                  : 'bg-white border-2 border-stone-200 text-stone-900 placeholder:text-stone-400 focus:ring-amber-500 focus:border-amber-500'
-              }`}
-              placeholder="Liste adını gir"
-              autoFocus
-            />
+      <div className="relative flex flex-col bg-white overflow-hidden">
+        {/* Handle bar (referans) */}
+        <div className="flex h-6 w-full items-center justify-center flex-shrink-0">
+          <div className="h-1.5 w-12 rounded-full bg-slate-200 mt-2" />
+        </div>
+
+        <div className="p-6 pt-2">
+          <header className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">{isEditMode ? 'Liste Düzenle' : 'Yeni Liste'}</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Listene bir kişilik ver</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex size-10 items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              aria-label="Kapat"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </header>
+
+          {/* Liste adı */}
+          <div className="space-y-4 mb-6">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-slate-700 ml-1">Liste adı</label>
+              <input
+                type="text"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                className="w-full px-4 py-3.5 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-[#fb923c] text-slate-900 placeholder:text-slate-400 outline-none transition-all"
+                placeholder="Örn. Sabah Rutini"
+                autoFocus
+              />
+            </div>
           </div>
 
-          <div>
-            <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-zinc-300' : 'text-stone-700'}`}>Simge</label>
-            <button
-              onClick={() => setShowIconPicker(!showIconPicker)}
-              className={`w-full px-4 py-4 rounded-xl text-left flex items-center justify-between transition-all border-2 ${
-                dark
-                  ? 'bg-zinc-800 border-zinc-700 hover:border-amber-500/40'
-                  : 'bg-white border-stone-200 hover:border-amber-300'
-              }`}
-            >
-              {isIconIdType(selectedIcon) ? (
-                <CategoryIconSvg iconId={selectedIcon as CategoryIconId} className={`w-8 h-8 ${dark ? 'text-amber-400' : 'text-amber-600'}`} size={32} />
-              ) : (
-                <span className="text-2xl">{selectedIcon}</span>
-              )}
-              <svg className={`w-5 h-5 transition-transform ${dark ? 'text-zinc-400' : 'text-stone-400'} ${showIconPicker ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            {showIconPicker && (
-              <div className={`mt-2 rounded-xl p-4 grid grid-cols-6 gap-2 border-2 ${
-                dark ? 'bg-zinc-800/80 border-zinc-700' : 'bg-stone-50 border-stone-200'
-              }`}>
-                {CATEGORY_ICON_IDS.map((iconId) => (
+          {/* Simge grid (referans: 4 sütun, pastel daireler) */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4 ml-1 text-center">Simge seç</h3>
+            <div className="grid grid-cols-4 gap-4">
+              {CATEGORY_ICON_IDS.map((iconId, index) => {
+                const style = PASTEL_STYLES[index % PASTEL_STYLES.length];
+                const isSelected = selectedIcon === iconId;
+                return (
                   <button
                     key={iconId}
                     type="button"
-                    onClick={() => { setSelectedIcon(iconId); setShowIconPicker(false); }}
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
-                      selectedIcon === iconId
-                        ? dark ? 'bg-amber-500/30 scale-110 text-amber-400' : 'bg-amber-100 scale-110 text-amber-600'
-                        : dark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-white hover:bg-amber-50 border border-stone-100 text-stone-600'
-                    }`}
+                    onClick={() => setSelectedIcon(iconId)}
+                    className="flex flex-col items-center gap-2 group"
                   >
-                    <CategoryIconSvg iconId={iconId} size={24} className="w-6 h-6" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-zinc-300' : 'text-stone-700'}`}>Renk</label>
-            <div className="grid grid-cols-6 gap-2">
-              {colors.map((color) => {
-                const isSelected = selectedColor === color.name;
-                const bg = dark ? (isSelected ? color.darkBg : 'bg-zinc-800') : (isSelected ? color.lightBg : color.lightBg);
-                const border = dark ? (isSelected ? color.darkBorder : 'border-transparent') : (isSelected ? color.lightBorder : color.lightBorder);
-                return (
-                  <button
-                    key={color.name}
-                    onClick={() => setSelectedColor(color.name)}
-                    className={`h-12 rounded-xl border-2 transition-all ${bg} ${border} ${isSelected ? 'scale-110' : 'hover:scale-105'}`}
-                  >
-                    {isSelected && (
-                      <svg className={`w-6 h-6 mx-auto ${dark ? 'text-amber-400' : 'text-stone-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
+                    <div
+                      className="w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-sm flex-shrink-0"
+                      style={{
+                        backgroundColor: style.bg,
+                        color: style.text,
+                        outline: isSelected ? `2px solid ${PRIMARY}` : '2px solid transparent',
+                        outlineOffset: 2,
+                      }}
+                    >
+                      <CategoryIconSvg iconId={iconId as CategoryIconId} size={28} className="w-7 h-7" />
+                    </div>
+                    <span className={`text-xs font-medium ${isSelected ? 'text-[#fb923c] font-semibold' : 'text-slate-500'}`}>
+                      {ICON_LABELS[iconId] ?? iconId}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {isPro && (
-            <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${dark ? 'bg-zinc-800/80' : 'bg-stone-50'}`}>
-              <div>
-                <p className={`font-medium ${dark ? 'text-zinc-200' : 'text-stone-800'}`}>Google Takvim'e aktar</p>
-                <p className={`text-xs mt-0.5 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Bu listedeki görevler (işaretlenenler) Google Takvim'de görünebilir</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={syncToGoogle}
-                onClick={() => setSyncToGoogle((v) => !v)}
-                className={`relative w-12 h-7 rounded-full transition-colors ${syncToGoogle ? (dark ? 'bg-amber-500' : 'bg-amber-500') : dark ? 'bg-zinc-600' : 'bg-stone-300'}`}
-              >
-                <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${syncToGoogle ? 'translate-x-5' : 'translate-x-0'}`} />
-              </button>
+          {/* Google Takvim'e aktar — her zaman göster (referans) */}
+          <div className="mb-6 px-4 py-3 rounded-xl bg-slate-100 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-semibold text-slate-900">Google Takvim&apos;e aktar</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Bu listedeki görevler (işaretlenenler) Google Takvim&apos;de görünebilir
+              </p>
             </div>
-          )}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={syncToGoogle}
+              onClick={() => isPro && setSyncToGoogle((v) => !v)}
+              className={`relative w-12 h-7 rounded-full transition-colors flex-shrink-0 ${!isPro ? 'opacity-60 cursor-not-allowed' : ''}`}
+              style={{ backgroundColor: syncToGoogle ? PRIMARY : '#cbd5e1' }}
+            >
+              <span
+                className="absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform"
+                style={{ transform: syncToGoogle ? 'translateX(22px)' : 'translateX(2px)' }}
+              />
+            </button>
+          </div>
 
-          <button
-            onClick={handleSave}
-            disabled={!categoryName.trim()}
-            className={`w-full py-4 font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-              dark
-                ? 'bg-amber-500 text-black hover:bg-amber-400'
-                : 'bg-amber-500 text-black hover:bg-amber-600 hover:shadow-lg'
-            }`}
-          >
-            {isEditMode ? 'Değişiklikleri Kaydet' : 'Liste Oluştur'}
-          </button>
+          {/* Footer: İptal + Liste Oluştur */}
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3.5 px-4 text-slate-600 font-semibold bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+            >
+              İptal
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!categoryName.trim()}
+              className="flex-1 py-3.5 px-4 text-white font-semibold rounded-xl hover:opacity-90 transition-opacity shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ backgroundColor: PRIMARY, boxShadow: `0 10px 24px ${PRIMARY}4D` }}
+            >
+              {isEditMode ? 'Kaydet' : 'Liste Oluştur'}
+            </button>
+          </div>
         </div>
+
+        {/* Dekoratif blur (referans) */}
+        <div className="absolute -bottom-24 -left-24 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-50" style={{ backgroundColor: PRIMARY }} />
+        <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-50" style={{ backgroundColor: PRIMARY }} />
+      </div>
     </Modal>
   );
 }

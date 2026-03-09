@@ -28,15 +28,27 @@ body {
   font-family: var(--font-public-sans), ui-sans-serif, sans-serif;
 }
 
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-family: "Material Symbols Outlined", sans-serif;
+}
+
+/* Z-index katmanları (üst üste binmeyi önlemek için):
+   z-10: Sayfa içi overlay (menü kapatma), dropdown arka plan
+   z-20: Dropdown / popover (menü içeriği)
+   z-30: Alt navigasyon (BottomNav, fixed)
+   z-40: FAB ve sayfa içi sabit butonlar (nav üstünde)
+   z-50: Modal, Toast, tam ekran overlay */
+
 /* Safe area: status bar (üst) ve sistem tuşları / gesture bar (alt) - APK / iOS */
 .safe-area-body {
-  padding-top: max(env(safe-area-inset-top, 0px), 24px);
+  padding-top: max(env(safe-area-inset-top, 0px), 48px);
 }
 .nav-safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 32px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 48px);
 }
 .main-content-pad {
-  padding-bottom: calc(4rem + max(env(safe-area-inset-bottom, 0px), 32px));
+  padding-bottom: calc(4.5rem + max(env(safe-area-inset-bottom, 0px), 48px));
 }
 
 @keyframes float {

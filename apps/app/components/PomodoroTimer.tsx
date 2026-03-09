@@ -3,16 +3,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { TimelineTask } from '@cursor-deneme/shared';
 import { useToast } from './Toast';
-import { savePomodoroRecord, getTodayPomodoroCount } from '@cursor-deneme/shared';
+import { savePomodoroRecord, getTodayPomodoroCount, getPomodoroWorkDuration, getPomodoroBreakDuration } from '@cursor-deneme/shared';
 
 interface PomodoroTimerProps {
   task: TimelineTask;
   userId: string;
   onClose: () => void;
+  /** Pro: özel süreler kullanılır */
+  isPro?: boolean;
 }
 
-export default function PomodoroTimer({ task, userId, onClose }: PomodoroTimerProps) {
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 dakika (saniye cinsinden)
+export default function PomodoroTimer({ task, userId, onClose, isPro = false }: PomodoroTimerProps) {
+  const workMinutes = isPro ? getPomodoroWorkDuration(userId) : 25;
+  const breakMinutes = isPro ? getPomodoroBreakDuration(userId) : 5;
+  const [timeLeft, setTimeLeft] = useState(workMinutes * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
@@ -52,7 +56,7 @@ export default function PomodoroTimer({ task, userId, onClose }: PomodoroTimerPr
         taskTitle: task.title,
         category: task.category || undefined,
         date: new Date().toISOString().split('T')[0],
-        duration: 25,
+        duration: workMinutes,
         type: 'work',
       });
       
@@ -61,14 +65,14 @@ export default function PomodoroTimer({ task, userId, onClose }: PomodoroTimerPr
       
       showToast('🎉 Pomodoro tamamlandı! Mola zamanı.', 'success');
       
-      // Mola moduna geç (5 dakika)
+      // Mola moduna geç
       setIsBreak(true);
-      setTimeLeft(5 * 60);
+      setTimeLeft(breakMinutes * 60);
     } else {
       // Mola tamamlandı
       showToast('Mola bitti! Yeni pomodoro başlat.', 'info');
       setIsBreak(false);
-      setTimeLeft(25 * 60);
+      setTimeLeft(workMinutes * 60);
     }
 
     // Ses çal (opsiyonel)
@@ -87,12 +91,12 @@ export default function PomodoroTimer({ task, userId, onClose }: PomodoroTimerPr
 
   const resetTimer = () => {
     setIsRunning(false);
-    setTimeLeft(isBreak ? 5 * 60 : 25 * 60);
+    setTimeLeft(isBreak ? breakMinutes * 60 : workMinutes * 60);
   };
 
   const skipBreak = () => {
     setIsBreak(false);
-    setTimeLeft(25 * 60);
+    setTimeLeft(workMinutes * 60);
     setIsRunning(false);
   };
 
@@ -103,8 +107,8 @@ export default function PomodoroTimer({ task, userId, onClose }: PomodoroTimerPr
   };
 
   const progress = isBreak 
-    ? ((5 * 60 - timeLeft) / (5 * 60)) * 100
-    : ((25 * 60 - timeLeft) / (25 * 60)) * 100;
+    ? ((breakMinutes * 60 - timeLeft) / (breakMinutes * 60)) * 100
+    : ((workMinutes * 60 - timeLeft) / (workMinutes * 60)) * 100;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
@@ -230,8 +234,8 @@ export default function PomodoroTimer({ task, userId, onClose }: PomodoroTimerPr
           {/* Info */}
           <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
             <p className="text-xs text-blue-900 leading-relaxed">
-              💡 <strong>Pomodoro Tekniği:</strong> 25 dakika odaklanma + 5 dakika mola. 
-              4 pomodoro sonrası 15-30 dakika uzun mola önerilir.
+              💡 <strong>Pomodoro:</strong> {workMinutes} dk odaklanma + {breakMinutes} dk mola.
+              Ayarlar’dan (Pro) süreleri değiştirebilirsiniz.
             </p>
           </div>
         </div>

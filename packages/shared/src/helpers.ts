@@ -52,16 +52,29 @@ export const saveMockTasks = (userId: string, tasks: TimelineTask[]): void => {
   }
 };
 
+const LEGACY_ICON_MAP: Record<string, string> = {
+  '🏃': 'cached',
+  '📚': 'auto_stories',
+};
+
 export const getMockCategories = (userId: string): Category[] => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem(`mock_categories_${userId}`);
     if (stored) {
-      return JSON.parse(stored);
+      const list: Category[] = JSON.parse(stored);
+      const migrated = list.map((c) => ({
+        ...c,
+        icon: LEGACY_ICON_MAP[c.icon] ?? c.icon,
+      }));
+      if (migrated.some((c, i) => migrated[i].icon !== list[i].icon)) {
+        localStorage.setItem(`mock_categories_${userId}`, JSON.stringify(migrated));
+      }
+      return migrated;
     }
   }
   return [
-    { id: 'routines', name: 'Rutinler', icon: '🏃', color: 'blue', userId },
-    { id: 'reading', name: 'Okuma Listesi', icon: '📚', color: 'purple', userId },
+    { id: 'routines', name: 'Rutinler', icon: 'cached', color: 'blue', userId },
+    { id: 'reading', name: 'Okuma Listesi', icon: 'auto_stories', color: 'purple', userId },
   ];
 };
 
@@ -627,6 +640,34 @@ export function getMonthPomodoroCount(userId: string): number {
   const monthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   
   return records.filter(r => r.date.startsWith(monthStr) && r.type === 'work').length;
+}
+
+// Pro: Özelleştirilebilir çalışma ve mola süreleri (dakika)
+const POMODORO_WORK_KEY = (userId: string) => `pomodoro_work_minutes_${userId}`;
+const POMODORO_BREAK_KEY = (userId: string) => `pomodoro_break_minutes_${userId}`;
+
+export function getPomodoroWorkDuration(userId: string): number {
+  if (typeof window === 'undefined') return 25;
+  const v = localStorage.getItem(POMODORO_WORK_KEY(userId));
+  const n = v ? parseInt(v, 10) : NaN;
+  return [15, 25, 45].includes(n) ? n : 25;
+}
+
+export function setPomodoroWorkDuration(userId: string, minutes: number): void {
+  if (typeof window === 'undefined') return;
+  if ([15, 25, 45].includes(minutes)) localStorage.setItem(POMODORO_WORK_KEY(userId), String(minutes));
+}
+
+export function getPomodoroBreakDuration(userId: string): number {
+  if (typeof window === 'undefined') return 5;
+  const v = localStorage.getItem(POMODORO_BREAK_KEY(userId));
+  const n = v ? parseInt(v, 10) : NaN;
+  return [5, 10].includes(n) ? n : 5;
+}
+
+export function setPomodoroBreakDuration(userId: string, minutes: number): void {
+  if (typeof window === 'undefined') return;
+  if ([5, 10].includes(minutes)) localStorage.setItem(POMODORO_BREAK_KEY(userId), String(minutes));
 }
 
 // Streak hesapla (kaç gün üst üste)

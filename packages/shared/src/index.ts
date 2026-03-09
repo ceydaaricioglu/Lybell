@@ -6,4 +6,5 @@ export * from './googleCalendar';
 export * from './notifications';
 export { supabase } from './supabaseClient';
 export * from './helpers';
+export * from './iconSet';
 export * from './i18n';
