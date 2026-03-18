@@ -138,63 +138,58 @@ export default function CategoryTaskView({ category, onBack, userId, isPro = fal
     return `${short} ${day}`;
   };
 
-  const PRIMARY = '#2463eb';
-  const BG_LIGHT = '#f6f6f8';
-  const ACCENT_ORANGE = '#f97316';
-  const ACCENT_YELLOW = '#eab308';
+  const BRAND = '#1A2332';
 
-  const renderTaskCard = (task: TimelineTask, isInProgressColumn: boolean) => {
-    const isOverdue = parseInt(task.date, 10) < currentDay && !task.completed;
-    const priority = task.priority ?? 'medium';
-    const priorityClass =
+  const TaskRow = ({ task }: { task: TimelineTask }) => {
+    const overdue = parseInt(task.date, 10) < currentDay && !task.completed;
+    const priority = (task.priority ?? 'medium') as 'high' | 'medium' | 'low';
+    const priorityPill =
       priority === 'high'
-        ? 'bg-red-100 text-red-600'
+        ? 'bg-red-50 text-red-600'
         : priority === 'low'
-          ? 'bg-blue-100 text-blue-600'
-          : 'bg-amber-100 text-amber-600';
+          ? 'bg-blue-50 text-blue-600'
+          : 'bg-slate-100 text-slate-600';
     return (
-      <div
-        key={task.id}
-        role="button"
-        tabIndex={0}
+      <button
+        type="button"
         onClick={() => onEditTask(task, task.date)}
-        onKeyDown={(e) => e.key === 'Enter' && onEditTask(task, task.date)}
-        className={
-          'bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-grab ' +
-          (task.completed
-            ? 'bg-white/80 opacity-80 line-through'
-            : isInProgressColumn
-              ? 'border-l-4 border-l-[#2463eb]'
-              : '')
-        }
+        className="w-full text-left flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
       >
-        <div className="flex justify-between mb-2">
-          <span className={'px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ' + (task.completed ? 'bg-slate-100 text-slate-500' : priorityClass)}>
-            {task.completed ? t('tasks.low', locale) : priority === 'high' ? t('tasks.high', locale) : priority === 'low' ? t('tasks.low', locale) : t('tasks.medium', locale)}
-          </span>
-          {!task.completed && (
-            <span className="text-slate-300" aria-hidden>
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h2v12H8V6zm6 0h2v12h-2V6z" /></svg>
-            </span>
+        <button
+          type="button"
+          onClick={(e) => handleToggleTask(task.id!, e)}
+          className="w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+          style={{
+            borderColor: task.completed ? BRAND : '#cbd5e1',
+            backgroundColor: task.completed ? BRAND : 'transparent',
+          }}
+          aria-label={task.completed ? 'Tamamlandı' : 'Tamamla'}
+        >
+          {task.completed && (
+            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
           )}
-        </div>
-        <h4 className={'font-semibold text-sm mb-4 ' + (task.completed ? 'text-slate-500' : 'text-slate-900')}>{task.title}</h4>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 text-slate-400 text-xs">
-            {task.completed ? (
-              <>
-                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <span>{t('tasks.done', locale)}</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                <span>{formatTaskDate(task)}</span>
-              </>
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`font-semibold text-sm truncate ${task.completed ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+              {task.title}
+            </span>
+            {!task.completed && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${priorityPill}`}>
+                {priority === 'high' ? t('tasks.high', locale) : priority === 'low' ? t('tasks.low', locale) : t('tasks.medium', locale)}
+              </span>
             )}
           </div>
+          <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+            <span className={overdue ? 'text-red-600 font-semibold' : ''}>{formatTaskDate(task)} · {task.time}</span>
+          </div>
         </div>
-      </div>
+
+        <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+      </button>
     );
   };
 
@@ -203,176 +198,156 @@ export default function CategoryTaskView({ category, onBack, userId, isPro = fal
   const progressOffset = circumference - (progressPercent / 100) * circumference;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f6f6f8] min-w-0">
-      <main className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[#f6f6f8]">
-        {/* Top Header - beyaz, sol sidebar çizgisiyle birleşik */}
-        <header className="bg-white px-3 sm:px-4 md:px-6 py-3 border-b border-slate-200 flex items-center justify-between gap-2 sm:gap-3 flex-shrink-0 min-w-0">
-          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-            <button
-              type="button"
-              onClick={onBack}
-              className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 flex-shrink-0"
-              aria-label="Geri"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <h2 className="text-lg md:text-xl font-bold text-slate-900 line-clamp-2 min-w-0 break-words">{categoryData?.name || category}</h2>
-            <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
-              {t('project.private', locale)}
-            </span>
+    <div className="flex flex-col flex-1 min-h-screen bg-[#F8FAFC]">
+      {/* Header */}
+      <header className="px-6 pt-10 pb-6 bg-white/95 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between border-b border-slate-100">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={onBack}
+            className="p-2 -ml-2 rounded-xl hover:bg-slate-100 text-slate-600"
+            aria-label="Geri"
+          >
+            <span className="material-symbols-outlined text-[22px]">arrow_back</span>
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 truncate">
+              {categoryData?.name || category}
+            </h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">
+              {totalTasks} {locale === 'tr' ? 'görev' : 'tasks'}
+            </p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="relative hidden sm:block">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-              </span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t('project.searchTasks', locale)}
-                className="pl-8 pr-3 py-1.5 bg-slate-100 border-none rounded-lg focus:ring-2 focus:ring-[#2463eb] w-28 md:w-44 text-sm text-slate-900 placeholder:text-slate-400"
-              />
-            </div>
-            {isPro && (
-              <button
-                type="button"
-                onClick={handleShare}
-                disabled={sharing}
-                className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all flex-shrink-0 disabled:opacity-50"
-                aria-label={locale === 'tr' ? 'Listeyi paylaş' : 'Share list'}
-              >
-                {sharing ? (
-                  <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-                )}
-                {locale === 'tr' ? 'Paylaş' : 'Share'}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => { onAddTask ? onAddTask(category) : onEditTask({} as TimelineTask); }}
-              className="bg-[#2463eb] text-white px-3 md:px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 hover:opacity-90 transition-all flex-shrink-0"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              {t('project.newTask', locale)}
-            </button>
-          </div>
-        </header>
-
-        {/* Board View - açık gri alan */}
-        <div className="flex-1 overflow-x-auto p-4 md:p-6 flex gap-6 min-h-0 bg-[#f6f6f8]">
-          {loading ? (
-            <div className="flex-1 flex items-center justify-center">
-                  <div className="w-12 h-12 border-4 border-slate-200 border-t-[#2463eb] rounded-full animate-spin" />
-            </div>
-          ) : (
-            <>
-              {/* To Do */}
-              <div className="w-80 flex-shrink-0 flex flex-col min-h-0">
-                <div className="flex items-center justify-between mb-4 px-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-700">{t('project.toDo', locale)}</h3>
-                    <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs font-bold">{toDoTasks.length}</span>
-                  </div>
-                </div>
-                <div className="space-y-4 overflow-y-auto pr-2 flex-1 min-h-0">
-                  {toDoTasks.map((t) => renderTaskCard(t, false))}
-                </div>
-              </div>
-              {/* In Progress */}
-              <div className="w-80 flex-shrink-0 flex flex-col min-h-0">
-                <div className="flex items-center justify-between mb-4 px-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-700">{t('project.inProgress', locale)}</h3>
-                    <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs font-bold">{inProgressTasks.length}</span>
-                  </div>
-                </div>
-                <div className="space-y-4 overflow-y-auto pr-2 flex-1 min-h-0">
-                  {inProgressTasks.map((t) => renderTaskCard(t, true))}
-                </div>
-              </div>
-              {/* Completed */}
-              <div className="w-80 flex-shrink-0 flex flex-col min-h-0">
-                <div className="flex items-center justify-between mb-4 px-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-700">{t('project.completed', locale)}</h3>
-                    <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs font-bold">{completedTasks.length}</span>
-                  </div>
-                </div>
-                <div className="space-y-4 overflow-y-auto pr-2 flex-1 min-h-0">
-                  {completedTasks.map((t) => renderTaskCard(t, false))}
-                </div>
-              </div>
-            </>
-          )}
         </div>
-      </main>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isPro && (
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={sharing}
+              className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-slate-400 border border-slate-200 shadow-sm hover:text-slate-900 transition-colors disabled:opacity-60"
+              aria-label={locale === 'tr' ? 'Listeyi paylaş' : 'Share list'}
+            >
+              {sharing ? (
+                <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <span className="material-symbols-outlined text-[20px]">ios_share</span>
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => (onAddTask ? onAddTask(category) : undefined)}
+            className="bg-slate-900 text-white px-4 py-2.5 rounded-2xl font-bold text-sm shadow-lg shadow-slate-200 active:scale-[0.98] transition-all"
+          >
+            {locale === 'tr' ? 'Ekle' : 'Add'}
+          </button>
+        </div>
+      </header>
 
-      {/* Right Sidebar - Project Overview (xl) */}
-      <aside className="w-64 bg-white border-l border-slate-200 overflow-y-auto hidden xl:flex flex-col flex-shrink-0">
-        <div className="p-5">
-          <h3 className="text-base font-bold mb-4 text-slate-900">{t('project.overview', locale)}</h3>
-          <div className="relative flex flex-col items-center mb-6">
-            <div className="relative w-32 h-32">
+      <main className="flex-1 px-6 space-y-6 pb-32 pt-6">
+        {/* Search */}
+        <div className="relative">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+            <span className="material-symbols-outlined text-[20px]">search</span>
+          </span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={locale === 'tr' ? 'Görevlerde ara...' : 'Search tasks...'}
+            className="w-full h-12 pl-12 pr-4 rounded-2xl border border-slate-200 bg-white focus:ring-2 focus:ring-slate-900 focus:border-slate-900 text-sm shadow-sm transition-all placeholder:text-slate-400"
+          />
+        </div>
+
+        {/* Progress summary */}
+        <section className="bg-slate-900 p-6 rounded-[2rem] shadow-xl shadow-slate-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-white">{locale === 'tr' ? 'Proje Özeti' : 'Overview'}</h2>
+              <p className="text-sm text-slate-400 font-medium">
+                {completedCount}/{totalTasks} {locale === 'tr' ? 'tamamlandı' : 'completed'}
+              </p>
+            </div>
+            <div className="relative w-16 h-16">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                <circle className="text-slate-100 stroke-current" cx="50" cy="50" fill="transparent" r={circleRadius} strokeWidth="8" />
+                <circle className="text-slate-700 stroke-current" cx="50" cy="50" fill="transparent" r={circleRadius} strokeWidth="10" />
                 <circle
-                  className="text-[#2463eb] stroke-current"
+                  className="text-white stroke-current"
                   cx="50"
                   cy="50"
                   fill="transparent"
                   r={circleRadius}
-                  strokeWidth="8"
+                  strokeWidth="10"
                   strokeLinecap="round"
                   strokeDasharray={circumference}
                   strokeDashoffset={progressOffset}
                 />
               </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold text-slate-900">{progressPercent}%</span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase">{t('project.complete', locale)}</span>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-bold text-white">{progressPercent}%</span>
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 mb-5">
-            <div className="p-3 bg-slate-50 rounded-xl">
-              <p className="text-[10px] text-slate-400 font-medium mb-0.5">{t('project.activeTasks', locale)}</p>
-              <p className="text-lg font-bold text-slate-900">{toDoTasks.length + inProgressTasks.length}</p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl">
-              <p className="text-[10px] text-slate-400 font-medium mb-0.5">{t('project.completed', locale)}</p>
-              <p className="text-lg font-bold text-slate-900">{completedTasks.length}</p>
-            </div>
+        </section>
+
+        {/* Sections */}
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
           </div>
-          <div className="mb-5">
-            <h4 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{t('project.description', locale)}</h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              {categoryData?.name ? `${categoryData.name} listesindeki görevler.` : 'Bu projedeki görevler.'}
-            </p>
+        ) : (
+          <div className="space-y-8">
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                  {locale === 'tr' ? 'Yapılacaklar' : 'To do'}
+                </h3>
+                <span className="text-xs font-bold text-slate-400">{toDoTasks.length}</span>
+              </div>
+              {toDoTasks.length === 0 ? (
+                <p className="text-sm text-slate-400">{locale === 'tr' ? 'Görev yok' : 'No tasks'}</p>
+              ) : (
+                <div className="space-y-3">
+                  {toDoTasks.map((task) => task.id ? <TaskRow key={task.id} task={task} /> : null)}
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                  {locale === 'tr' ? 'Devam Eden' : 'In progress'}
+                </h3>
+                <span className="text-xs font-bold text-slate-400">{inProgressTasks.length}</span>
+              </div>
+              {inProgressTasks.length === 0 ? (
+                <p className="text-sm text-slate-400">{locale === 'tr' ? 'Görev yok' : 'No tasks'}</p>
+              ) : (
+                <div className="space-y-3">
+                  {inProgressTasks.map((task) => task.id ? <TaskRow key={task.id} task={task} /> : null)}
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                  {locale === 'tr' ? 'Tamamlanan' : 'Completed'}
+                </h3>
+                <span className="text-xs font-bold text-slate-400">{completedTasks.length}</span>
+              </div>
+              {completedTasks.length === 0 ? (
+                <p className="text-sm text-slate-400">{locale === 'tr' ? 'Henüz yok' : 'None yet'}</p>
+              ) : (
+                <div className="space-y-3">
+                  {completedTasks.map((task) => task.id ? <TaskRow key={task.id} task={task} /> : null)}
+                </div>
+              )}
+            </section>
           </div>
-        </div>
-        <div className="mt-auto p-5 border-t border-slate-200">
-          <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase mb-3">
-            <span>{t('project.summary', locale)}</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex gap-3">
-              <div className="mt-1 w-1.5 h-1.5 rounded-full bg-[#f97316]" />
-              <p className="text-xs text-slate-600">
-                <span className="font-bold text-slate-900">{toDoTasks.length}</span> {t('project.tasksRemaining', locale)}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <div className="mt-1 w-1.5 h-1.5 rounded-full bg-[#2463eb]" />
-              <p className="text-xs text-slate-600">
-                <span className="font-bold text-slate-900">{completedTasks.length}</span> {t('project.tasksCompleted', locale)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </aside>
+        )}
+      </main>
     </div>
   );
 }

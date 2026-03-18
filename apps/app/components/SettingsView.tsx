@@ -43,9 +43,10 @@ interface SettingsViewProps {
   onBack?: () => void;
 }
 
-const PRIMARY = '#FF8C00';
-const BG_LIGHT = '#FDFBF7';
-const BG_DARK = '#221610';
+// Lybell marka renkleri
+const PRIMARY = '#1A2332';
+const BG_LIGHT = '#f8f6f6';
+const BG_DARK = '#1A2332';
 const CARD_DARK = '#2a1f1a';
 const BORDER_DARK = '#3d2a1f';
 const TEXT_DARK = '#f5f0ea';
@@ -70,6 +71,8 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
   const [exporting, setExporting] = useState(false);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [visibleNavTabs, setVisibleNavTabsState] = useState<string[]>(() => getVisibleNavTabs(true));
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   useEffect(() => {
     if (isPro) setVisibleNavTabsState(getVisibleNavTabs(true));
   }, [isPro]);
@@ -229,6 +232,68 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
   const weekFocusMinutes = getWeeklyPomodoroDistribution(userId).reduce((sum, d) => sum + d.count * (getPomodoroWorkDuration(userId) || 25), 0);
   const focusHoursLabel = `${(weekFocusMinutes / 60).toFixed(1)} sa`;
 
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      if (isMock) {
+        localStorage.removeItem('mock_user_id');
+        localStorage.removeItem(`onboarding_${userId}`);
+        localStorage.removeItem(`mock_tasks_${userId}`);
+        localStorage.removeItem(`mock_categories_${userId}`);
+        showToast(locale === 'tr' ? 'Misafir hesabın temizlendi.' : 'Guest account cleared.', 'success');
+        onLogout();
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        showToast(locale === 'tr' ? 'Oturum bulunamadı. Lütfen tekrar giriş yap.' : 'No active session. Please sign in again.', 'error');
+        return;
+      }
+
+      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://gtwugoklzczszvueacxm.supabase.co';
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+
+      const res = await fetch(`${baseUrl}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(anonKey ? { apikey: anonKey, Authorization: `Bearer ${anonKey}` } : {}),
+        },
+        body: JSON.stringify({ accessToken }),
+      });
+
+      if (!res.ok) {
+        let extra = '';
+        try {
+          const body = await res.json();
+          if (body?.error || body?.reason) {
+            extra = ` (${body.error || body.reason})`;
+          }
+        } catch {
+          // ignore
+        }
+        showToast(
+          locale === 'tr'
+            ? `Hesap silme işlemi başarısız oldu.${extra}`
+            : `Account deletion failed.${extra}`,
+          'error',
+        );
+        return;
+      }
+
+      await supabase.auth.signOut();
+      showToast(locale === 'tr' ? 'Hesabın kalıcı olarak silindi.' : 'Your account has been deleted.', 'success');
+      onLogout();
+    } catch {
+      showToast(locale === 'tr' ? 'Hesap silme sırasında bir hata oluştu.' : 'Error deleting account.', 'error');
+    } finally {
+      setDeletingAccount(false);
+      setShowDeleteAccountConfirm(false);
+    }
+  };
+
   return (
     <div className={`flex flex-col flex-1 min-h-0 overflow-auto ${dark ? '' : ''}`} style={{ backgroundColor: dark ? BG_DARK : BG_LIGHT }}>
       <div className="max-w-md mx-auto w-full relative pb-[100px]">
@@ -269,8 +334,7 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
           <div className="px-4 mt-6">
             <div className="rounded-xl p-5 flex items-center justify-between border" style={{ backgroundColor: `${PRIMARY}0D`, borderColor: `${PRIMARY}1A` }}>
               <div className="flex flex-col gap-1 pr-4 min-w-0">
-                <p className="font-bold text-sm uppercase tracking-wider" style={{ color: PRIMARY }}>Nudge Pro</p>
-                <p className="text-slate-600 text-sm" style={dark ? { color: TEXT_MUTED } : undefined}>{locale === 'tr' ? 'Odak istatistikleri ve özel temalar.' : 'Get deeper focus insights & custom themes.'}</p>
+                <p className="font-bold text-sm uppercase tracking-wider" style={{ color: PRIMARY }}>Lybell Pro</p>
               </div>
               <button type="button" onClick={onOpenPro} className="text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md shrink-0" style={{ backgroundColor: PRIMARY, boxShadow: `${PRIMARY}33 0 4px 14px` }}>
                 {locale === 'tr' ? 'Yükselt' : 'Upgrade'}
@@ -427,27 +491,7 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
           </div>
         </div>
 
-        {/* Templates Section - horizontal scroll */}
-        <div className="mt-8">
-          <h3 className="px-6 text-xs font-bold uppercase tracking-widest mb-3" style={{ color: dark ? TEXT_MUTED : '#64748b' }}>{locale === 'tr' ? 'Şablonlar' : 'Templates'}</h3>
-          <div className="px-4 flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {templates.length === 0 ? (
-              <div className="flex-shrink-0 bg-white p-4 rounded-xl shadow-sm border border-slate-100 w-36 flex flex-col items-center justify-center text-slate-400 text-sm" style={dark ? { backgroundColor: CARD_DARK, borderColor: BORDER_DARK, color: TEXT_MUTED } : undefined}>
-                <span className="material-symbols-outlined mb-2">add_circle</span>
-                <p className="text-xs">{locale === 'tr' ? 'Şablon yok' : 'No templates'}</p>
-              </div>
-            ) : (
-              templates.slice(0, 5).map((t, i) => (
-                <div key={t.id} className={`flex-shrink-0 bg-white p-4 rounded-xl shadow-sm border-l-4 w-36 ${i === 0 ? '' : 'border-slate-200'}`} style={i === 0 ? { borderLeftColor: PRIMARY } : dark ? { backgroundColor: CARD_DARK, borderColor: BORDER_DARK } : undefined}>
-                  <span className={`material-symbols-outlined mb-2 block ${i === 0 ? '' : 'text-slate-400'}`} style={i === 0 ? { color: PRIMARY } : undefined}>work_outline</span>
-                  <p className="text-sm font-bold truncate" style={{ color: dark ? TEXT_DARK : '#1a1a1a' }}>{t.name}</p>
-                  <p className="text-xs text-slate-500 truncate" style={dark ? { color: TEXT_MUTED } : undefined}>{t.title}</p>
-                  <button type="button" onClick={async () => { await deleteTemplateFromSupabase(userId, t.id); setTemplates((prev) => prev.filter((x) => x.id !== t.id)); showToast(locale === 'tr' ? 'Şablon silindi' : 'Deleted', 'info'); }} className="mt-2 text-xs text-red-500 hover:underline">{locale === 'tr' ? 'Sil' : 'Delete'}</button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        {/* Şablonlar bölümü ileri faz için kaldırıldı */}
 
         {/* Data Management */}
         <div className="mt-8">
@@ -482,6 +526,19 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined">delete_forever</span>
                 <span className="text-sm font-medium">{t('settings.deleteAll', locale)}</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDeleteAccountConfirm(true)}
+              className="w-full flex items-center justify-between px-5 py-4 text-red-500 hover:bg-red-50 transition-colors text-left border-t border-slate-100"
+              style={dark ? { borderColor: BORDER_DARK } : undefined}
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined">person_cancel</span>
+                <span className="text-sm font-medium">
+                  {locale === 'tr' ? 'Hesabı kalıcı olarak sil' : 'Permanently delete account'}
+                </span>
               </div>
             </button>
           </div>
@@ -541,6 +598,47 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
             </button>
             <button onClick={handleDeleteAllData} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all">
               {locale === 'tr' ? 'Tümünü Sil' : 'Delete All'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {showDeleteAccountConfirm && (
+        <Modal open dark={dark} onClose={() => setShowDeleteAccountConfirm(false)} maxWidth="sm">
+          <div className="text-center mb-6">
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4 ${dark ? 'bg-red-900/40' : 'bg-red-100'}`}>
+              <svg className={`w-8 h-8 ${dark ? 'text-red-400' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 11-12.728 12.728A9 9 0 0118.364 5.636zM9.88 9.88l4.24 4.24m0-4.24l-4.24 4.24" />
+              </svg>
+            </div>
+            <h3 className={`text-base font-bold mb-2 ${dark ? 'text-white' : 'text-stone-900'}`}>
+              {locale === 'tr' ? 'Hesabı kalıcı olarak sil' : 'Delete account permanently'}
+            </h3>
+            <p className={`text-sm ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>
+              {locale === 'tr'
+                ? 'Hesabın ve tüm verilerin (görevler, listeler, ayarlar) kalıcı olarak silinecek. Bu işlem geri alınamaz.'
+                : 'Your account and all data (tasks, lists, settings) will be permanently deleted. This action cannot be undone.'}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowDeleteAccountConfirm(false)}
+              className={`flex-1 py-3 rounded-xl font-semibold transition-all ${dark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}
+            >
+              {locale === 'tr' ? 'Vazgeç' : 'Cancel'}
+            </button>
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deletingAccount}
+              className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all disabled:opacity-60"
+            >
+              {deletingAccount
+                ? locale === 'tr'
+                  ? 'Siliniyor...'
+                  : 'Deleting...'
+                : locale === 'tr'
+                  ? 'Hesabımı Sil'
+                  : 'Delete Account'}
             </button>
           </div>
         </Modal>

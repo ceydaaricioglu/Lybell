@@ -8,10 +8,11 @@ import { supabase } from '@cursor-deneme/shared';
 import { getGoogleCalendarAuthUrl, getMonthRange, type GoogleCalendarEvent } from '@cursor-deneme/shared';
 import { useLocale } from '@/components/LocaleContext';
 
-const PRIMARY = '#2463eb';
-const ACCENT_ORANGE = '#f97316';
-const BG_LIGHT = '#fbfbf9';
-const BG_DARK = '#221610';
+// Lybell takvim paleti
+const PRIMARY = '#1e293b'; // deep navy
+const ACCENT_ORANGE = '#ec5b13';
+const BG_LIGHT = '#f8fafc';
+const BG_DARK = '#0f172a';
 const DAY_NAMES = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const WEEKDAY_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
@@ -211,40 +212,86 @@ export default function CalendarView({
   }
 
   return (
-    <div className={`flex flex-col flex-1 min-h-0 overflow-auto pb-24 ${dark ? 'bg-background-dark' : 'bg-background-light'}`} style={{ backgroundColor: dark ? BG_DARK : BG_LIGHT }}>
-      <header className={`flex items-center justify-between px-6 pt-8 pb-4 flex-shrink-0 ${dark ? 'bg-background-dark' : 'bg-background-light'}`} style={{ backgroundColor: dark ? BG_DARK : BG_LIGHT }}>
+    <div
+      className={`relative flex flex-col flex-1 min-h-0 overflow-auto pb-24 max-w-md mx-auto ${
+        dark ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'
+      }`}
+      style={{ backgroundColor: dark ? BG_DARK : BG_LIGHT }}
+    >
+      <header
+        className={`flex items-center justify-between px-6 pt-8 pb-2 flex-shrink-0 ${
+          dark ? 'bg-background-dark' : 'bg-background-light'
+        }`}
+        style={{ backgroundColor: dark ? BG_DARK : BG_LIGHT }}
+      >
         <div className="flex flex-col">
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: dark ? '#f5f0ea' : '#1a1a1a' }}>
+          <h1
+            className="text-2xl font-bold tracking-tight"
+            style={{ color: dark ? '#e5e7eb' : PRIMARY }}
+          >
             {MONTHS_TR[currentMonth]} {currentYear}
           </h1>
-          <p className="text-sm text-slate-500 font-medium">Bugün {todayStr}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+            Bugün {todayStr}
+          </p>
         </div>
-        <button
-          type="button"
-          className="flex items-center justify-center size-10 rounded-full"
-          style={{ backgroundColor: `${ACCENT_ORANGE}20`, color: ACCENT_ORANGE }}
-          aria-label="Ara"
-        >
-          <span className="material-symbols-outlined">search</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+            aria-label="Geri"
+          >
+            <span className="material-symbols-outlined">chevron_left</span>
+          </button>
+          <button
+            type="button"
+            className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+            aria-label="Ara"
+          >
+            <span className="material-symbols-outlined">search</span>
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 px-4 space-y-6 min-h-0">
-        <div className="rounded-xl p-4 shadow-sm border bg-white border-slate-100" style={dark ? { backgroundColor: '#221610', borderColor: '#3d2a1f' } : undefined}>
+        {/* Takvim kartı */}
+        <div
+          className={`rounded-3xl p-4 border bg-slate-50 dark:bg-slate-900/50 ${
+            dark ? 'border-slate-800' : 'border-slate-100'
+          }`}
+        >
           <div className="flex items-center justify-between mb-4 px-2">
-            <button type="button" onClick={goToPreviousMonth} className="p-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
-              <span className="material-symbols-outlined text-slate-400">chevron_left</span>
+            <button
+              type="button"
+              onClick={goToPreviousMonth}
+              className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
+            >
+              <span className="material-symbols-outlined text-slate-600 dark:text-slate-400">
+                chevron_left
+              </span>
             </button>
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+            <span className="font-semibold text-primary dark:text-slate-200">
               {MONTHS_TR[currentMonth]}
             </span>
-            <button type="button" onClick={goToNextMonth} className="p-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
-              <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+            <button
+              type="button"
+              onClick={goToNextMonth}
+              className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
+            >
+              <span className="material-symbols-outlined text-slate-600 dark:text-slate-400">
+                chevron_right
+              </span>
             </button>
           </div>
-          <div className="grid grid-cols-7 gap-y-1 text-center">
+          <div className="grid grid-cols-7 gap-y-1 text-center mb-1">
             {DAY_NAMES.map((d) => (
-              <div key={d} className="text-[11px] font-bold text-slate-400 py-2">{d}</div>
+              <div
+                key={d}
+                className="text-xs font-bold text-slate-400 uppercase tracking-wider py-2"
+              >
+                {d}
+              </div>
             ))}
             {Array.from({ length: firstDayMonday }, (_, i) => (
               <div key={`e-${i}`} className="h-10" />
@@ -260,13 +307,23 @@ export default function CalendarView({
                 >
                   {isToday ? (
                     <div
-                      className="size-8 flex items-center justify-center rounded-full font-bold text-sm border"
-                      style={{ backgroundColor: `${PRIMARY}1A`, color: PRIMARY, borderColor: `${PRIMARY}33` }}
+                      className="size-9 flex items-center justify-center rounded-full font-bold text-sm shadow-lg"
+                      style={{
+                        backgroundColor: PRIMARY,
+                        color: '#ffffff',
+                        boxShadow: `0 10px 20px ${PRIMARY}40`,
+                      }}
                     >
                       {day}
                     </div>
                   ) : (
-                    <span className={`text-sm font-medium ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{day}</span>
+                    <span
+                      className={`text-sm font-medium ${
+                        dark ? 'text-slate-300' : 'text-slate-700'
+                      }`}
+                    >
+                      {day}
+                    </span>
                   )}
                 </button>
               );
@@ -277,8 +334,8 @@ export default function CalendarView({
           </div>
         </div>
 
-        {/* Google Takvim bağlantısı - takvim kartının hemen altında, görünür konumda */}
-        {!isMock && !googleConnected && !googleLoading && (
+        {/* Google Takvim bağlantısı - takvim kartının hemen altında, her zaman hızlı görünür */}
+        {!isMock && !googleConnected && (
           <div
             className={`rounded-xl px-4 py-3 flex items-center justify-between gap-3 border ${dark ? 'border-[#3d2a1f]' : 'border-slate-200'}`}
             style={dark ? { backgroundColor: '#2a1f1a' } : { backgroundColor: '#f8fafc' }}
@@ -292,17 +349,24 @@ export default function CalendarView({
             {isPro ? (
               <a
                 href={getGoogleCalendarAuthUrl(userId) || '#'}
-                className="flex-shrink-0 py-2 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: PRIMARY }}
+                className="flex-shrink-0 py-2 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-70"
+                style={{ backgroundColor: PRIMARY, pointerEvents: googleLoading ? 'none' : undefined, opacity: googleLoading ? 0.7 : 1 }}
               >
-                {locale === 'tr' ? 'Bağla' : 'Connect'}
+                {googleLoading
+                  ? locale === 'tr'
+                    ? 'Kontrol ediliyor...'
+                    : 'Checking...'
+                  : locale === 'tr'
+                    ? 'Bağla'
+                    : 'Connect'}
               </a>
             ) : onOpenPro ? (
               <button
                 type="button"
                 onClick={onOpenPro}
-                className="flex-shrink-0 py-2 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: ACCENT_ORANGE }}
+                className="flex-shrink-0 py-2 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-70"
+                style={{ backgroundColor: ACCENT_ORANGE, opacity: googleLoading ? 0.7 : 1 }}
+                disabled={googleLoading}
               >
                 {locale === 'tr' ? 'Pro ile Bağla' : 'Connect with Pro'}
               </button>

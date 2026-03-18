@@ -271,15 +271,16 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
     })();
   };
 
-  const PRIMARY = '#2463eb';
-  const ACCENT_ORANGE = '#f97316';
+  // Lybell renk paleti
+  const PRIMARY = '#1A2332';
+  const ACCENT_ORANGE = '#1A2332';
   const inputBase = dark
-    ? 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500'
-    : 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 bg-white border border-stone-200 text-stone-900 placeholder:text-stone-400';
+    ? 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500/40 focus:border-slate-500/40 bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500'
+    : 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-900/30 bg-white border border-stone-200 text-stone-900 placeholder:text-stone-400';
   const labelClass = dark ? 'block text-sm font-semibold text-zinc-400 mb-2' : 'block text-sm font-semibold text-stone-600 mb-2';
   const selectBtn = dark
     ? 'w-full px-4 py-4 rounded-xl text-left flex items-center justify-between border border-zinc-700 bg-zinc-900 hover:border-zinc-600 transition-all'
-    : 'w-full px-4 py-4 rounded-xl text-left flex items-center justify-between border border-stone-200 bg-white hover:border-amber-300 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] transition-all';
+    : 'w-full px-4 py-4 rounded-xl text-left flex items-center justify-between border border-stone-200 bg-white hover:border-slate-300 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] transition-all';
   const dropdownPanel = dark ? 'mt-2 border border-zinc-700 rounded-xl overflow-hidden bg-zinc-900' : 'mt-2 border border-stone-200 rounded-xl overflow-hidden bg-white shadow-[0_4px_16px_-4px_rgba(0,0,0,0.08)]';
 
   const sectionLabel = 'text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500';
@@ -287,94 +288,113 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
   const dateValue = (() => { const now = new Date(); const y = now.getFullYear(); const m = String(now.getMonth() + 1).padStart(2, '0'); const d = (date ?? now.getDate().toString()).padStart(2, '0'); return `${y}-${m}-${d}`; })();
 
   return (
-    <div className={`flex flex-col flex-1 min-h-0 overflow-auto ${dark ? 'bg-[#221610]' : 'bg-[#f6f6f8]'}`}>
-      <div className="relative flex flex-col flex-1 w-full max-w-md mx-auto bg-white shadow-xl min-h-0" style={dark ? { backgroundColor: '#221610' } : undefined}>
-        <header className="flex items-center justify-between px-4 py-6 flex-shrink-0">
-          <button type="button" onClick={onBack} className="flex items-center justify-center size-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Geri">
-            <span className="material-symbols-outlined text-slate-700 dark:text-slate-300">arrow_back</span>
+    <div className={`min-h-screen flex flex-col ${dark ? 'bg-[#0f172a]' : 'bg-[#f8f6f6]'} text-slate-900 dark:text-slate-100`}>
+      <div className="relative flex flex-col flex-1 w-full max-w-md mx-auto bg-white dark:bg-slate-900 min-h-screen">
+        {/* Header */}
+        <header className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
+          <button
+            type="button"
+            onClick={onBack}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+            aria-label="Geri"
+          >
+            <span className="material-symbols-outlined text-slate-600 dark:text-slate-400">arrow_back</span>
           </button>
-          <h2 className="text-xl font-bold tracking-tight" style={{ color: dark ? '#f5f0ea' : '#1a1a1a' }}>{isNewTask ? 'Yeni Görev' : 'Görevi Düzenle'}</h2>
-          <div className="size-10" aria-hidden />
+          <h1 className="text-lg font-bold text-slate-900 dark:text-white">
+            {isNewTask ? 'Yeni Görev' : 'Görevi Düzenle'}
+          </h1>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!(title ?? '').trim() || (!effectiveCategory && !task)}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors disabled:opacity-50"
+            aria-label="Kaydet"
+          >
+            <span className="material-symbols-outlined" style={{ color: dark ? '#ffffff' : PRIMARY }}>done</span>
+          </button>
         </header>
 
-        <div className="flex flex-col flex-1 px-6 space-y-8 overflow-auto pb-6">
-          {/* Görev Başlığı & Notlar */}
-          <div className="space-y-6">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <label className={sectionLabel}>Görev Başlığı</label>
-                {isPro && isNewTask && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const SpeechRecognitionAPI = typeof window !== 'undefined' && ((window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition);
-                      if (!SpeechRecognitionAPI) { showToast(locale === 'tr' ? 'Tarayıcınız ses tanımayı desteklemiyor.' : 'Your browser does not support speech recognition.', 'error'); return; }
-                      if (isListeningForTitle) { try { recognitionRef.current?.stop(); } catch { /* noop */ } setIsListeningForTitle(false); return; }
-                      const recognition = new SpeechRecognitionAPI() as SpeechRecognition;
-                      recognition.continuous = false; recognition.interimResults = false; recognition.lang = locale === 'tr' ? 'tr-TR' : 'en-US';
-                      recognition.onresult = (e: SpeechRecognitionEvent) => { const transcript = Array.from(e.results).map((r) => r[0].transcript).join(' ').trim(); if (transcript) setTitle((prev) => (prev ? `${prev} ${transcript}` : transcript)); };
-                      recognition.onend = () => setIsListeningForTitle(false);
-                      recognition.onerror = () => { setIsListeningForTitle(false); showToast(locale === 'tr' ? 'Ses algılanamadı.' : 'Speech not detected.', 'error'); };
-                      recognitionRef.current = recognition; recognition.start(); setIsListeningForTitle(true);
-                      showToast(locale === 'tr' ? 'Dinliyorum...' : 'Listening...', 'info');
-                    }}
-                    disabled={isListeningForTitle}
-                    className={`shrink-0 flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium ${dark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600'} ${isListeningForTitle ? 'opacity-70' : ''}`}
-                  >
-                    {isListeningForTitle ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <span className="material-symbols-outlined text-sm">mic</span>}
-                    {locale === 'tr' ? (isListeningForTitle ? 'Dinleniyor...' : 'Sesle') : (isListeningForTitle ? 'Listening' : 'Voice')}
-                  </button>
-                )}
-              </div>
+        <main className="flex-1 overflow-y-auto pb-24">
+          <div className="p-4 space-y-4">
+          {/* Task Title Section */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-slate-600 dark:text-slate-400 ml-1">Görev Başlığı</label>
+            <div className="relative flex items-center">
               <input
+                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-4 pl-4 pr-12 text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 transition-all outline-none"
+                placeholder="Görev adını girin..."
                 type="text"
                 value={title ?? ''}
                 onChange={(e) => setTitle(e.target.value)}
-                className={`${underlineInput} text-xl font-medium text-slate-900 dark:text-slate-100 focus:border-[#2463eb] dark:focus:border-[#2463eb]`}
-                placeholder="Örn: Haftalık toplantı"
                 autoFocus
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className={sectionLabel}>Notlar</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className={`${underlineInput} text-base resize-none min-h-[100px] text-slate-900 dark:text-slate-100 focus:border-[#2463eb] dark:focus:border-[#2463eb]`}
-                placeholder="Detaylı bilgi ekleyin..."
-              />
+              {isPro && (
+                <button
+                  type="button"
+                  className="absolute right-3 p-2 text-slate-400 hover:text-slate-900 transition-colors disabled:opacity-60"
+                  onClick={() => {
+                    const SpeechRecognitionAPI = typeof window !== 'undefined' && ((window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition);
+                    if (!SpeechRecognitionAPI) { showToast(locale === 'tr' ? 'Tarayıcınız ses tanımayı desteklemiyor.' : 'Your browser does not support speech recognition.', 'error'); return; }
+                    if (isListeningForTitle) { try { recognitionRef.current?.stop(); } catch { /* noop */ } setIsListeningForTitle(false); return; }
+                    const recognition = new SpeechRecognitionAPI() as SpeechRecognition;
+                    recognition.continuous = false; recognition.interimResults = false; recognition.lang = locale === 'tr' ? 'tr-TR' : 'en-US';
+                    recognition.onresult = (e: SpeechRecognitionEvent) => { const transcript = Array.from(e.results).map((r) => r[0].transcript).join(' ').trim(); if (transcript) setTitle((prev) => (prev ? `${prev} ${transcript}` : transcript)); };
+                    recognition.onend = () => setIsListeningForTitle(false);
+                    recognition.onerror = () => { setIsListeningForTitle(false); showToast(locale === 'tr' ? 'Ses algılanamadı.' : 'Speech not detected.', 'error'); };
+                    recognitionRef.current = recognition; recognition.start(); setIsListeningForTitle(true);
+                  }}
+                  disabled={isListeningForTitle}
+                  aria-label="Sesle ekle"
+                >
+                  <span className="material-symbols-outlined">mic</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Tarih Seçimi - takvim (mevcut date input) */}
-          <div className="space-y-4">
-            <label className={sectionLabel}>Tarih Seçimi</label>
-            <input
-              type="date"
-              value={dateValue}
-              onChange={(e) => { const dateStr = e.target.value; const day = dateStr.split('-')[2]; setDate(parseInt(day, 10).toString()); }}
-              className={`w-full px-4 py-3 rounded-2xl border bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-0 dark:focus:ring-offset-slate-900`}
-              style={{ ['--tw-ring-color' as string]: PRIMARY }}
+          {/* Notes Section */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-slate-600 dark:text-slate-400 ml-1">Notlar</label>
+            <textarea
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 transition-all outline-none resize-none"
+              placeholder="Görev detaylarını buraya yazın..."
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
 
-          {/* Saat */}
-          <div className="space-y-4">
-            <label className={sectionLabel}>Saat</label>
-            <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
-              <span className="material-symbols-outlined shrink-0" style={{ color: PRIMARY }}>schedule</span>
-              <input
-                type="time"
-                value={time ?? ''}
-                onChange={(e) => setTime(e.target.value || '08:00')}
-                className="flex-1 min-w-0 bg-transparent border-0 text-xl font-bold text-slate-900 dark:text-slate-100 focus:ring-0 focus:outline-none [color-scheme:light] dark:[color-scheme:dark]"
-              />
+          {/* Date and Time Grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-slate-600 dark:text-slate-400 ml-1">Tarih Seçimi</label>
+              <div className="relative flex items-center">
+                <span className="material-symbols-outlined absolute left-3 text-slate-400">calendar_today</span>
+                <input
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white cursor-pointer"
+                  type="date"
+                  value={dateValue}
+                  onChange={(e) => { const day = e.target.value.split('-')[2]; setDate(parseInt(day, 10).toString()); }}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-slate-600 dark:text-slate-400 ml-1">Saat</label>
+              <div className="relative flex items-center">
+                <span className="material-symbols-outlined absolute left-3 text-slate-400">schedule</span>
+                <input
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white cursor-pointer"
+                  type="time"
+                  value={time ?? ''}
+                  onChange={(e) => setTime(e.target.value || '08:00')}
+                />
+              </div>
             </div>
           </div>
 
           {/* Kategori - pill veya dropdown */}
           <div className="space-y-3">
-            <label className={sectionLabel}>Kategori</label>
+            <label className="text-sm font-semibold text-slate-600 dark:text-slate-400 ml-1">Kategori</label>
             {!defaultCategory ? (
               <>
                 <div className="flex flex-wrap gap-2">
@@ -396,6 +416,14 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                       </button>
                     );
                   })}
+                  <button
+                    type="button"
+                    onClick={onOpenPro}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full border border-slate-200 dark:border-slate-700 text-sm font-medium hover:bg-slate-200 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">add</span>
+                    Yeni
+                  </button>
                 </div>
                 {showCategoryOptions && (
                   <div className={dropdownPanel}>
@@ -972,7 +1000,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                   setNewSubtaskTitle('');
                 }}
                 disabled={!newSubtaskTitle.trim()}
-                className={`px-4 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white hover:bg-amber-700'}`}
+                className={`px-4 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dark ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -989,12 +1017,11 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
               type="button"
               onClick={handleSave}
               disabled={!(title ?? '').trim() || (!effectiveCategory && !task)}
-              className="w-full font-bold py-4 px-6 rounded-2xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-white hover:opacity-95"
-              style={{ backgroundColor: ACCENT_ORANGE, boxShadow: `0 10px 24px rgba(249,115,22,0.3)` }}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg shadow-slate-200 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               aria-label={isNewTask ? 'Görevi oluştur' : 'Değişiklikleri kaydet'}
             >
+              <span>{isNewTask ? 'Görev Oluştur' : 'Kaydet'}</span>
               <span className="material-symbols-outlined">add_task</span>
-              <span>{isNewTask ? 'Görevi Oluştur' : 'Değişiklikleri Kaydet'}</span>
             </button>
           </div>
 
@@ -1009,7 +1036,8 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
               <span>Görevi Sil</span>
             </button>
           )}
-        </div>
+          </div>
+        </main>
       </div>
 
       {/* Şablondan oluştur listesi */}
@@ -1049,7 +1077,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
           />
           <div className="flex gap-2">
             <button onClick={() => { setShowSaveAsTemplate(false); setTemplateName(''); }} className={`flex-1 py-3 rounded-xl font-medium ${dark ? 'bg-zinc-800 text-zinc-300' : 'bg-stone-100 text-stone-700'}`}>İptal</button>
-            <button onClick={handleSaveAsTemplate} className="flex-1 py-3 rounded-xl font-medium bg-amber-500 text-black hover:bg-amber-400">Kaydet</button>
+            <button onClick={handleSaveAsTemplate} className="flex-1 py-3 rounded-xl font-medium bg-slate-900 text-white hover:bg-slate-800">Kaydet</button>
           </div>
         </Modal>
       )}

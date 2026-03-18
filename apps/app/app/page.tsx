@@ -594,7 +594,7 @@ export default function Home() {
 
   return (
     <LocaleProvider>
-      <div className="main-content-pad flex flex-col flex-1 min-h-0">
+      <div className="main-content-pad flex flex-col flex-1 min-h-screen bg-white">
         <div className="flex-1 min-h-0 flex flex-col">
           {renderCurrentView()}
         </div>

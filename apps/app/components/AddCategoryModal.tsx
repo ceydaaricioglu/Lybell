@@ -10,7 +10,7 @@ import {
   type CategoryIconId,
 } from '@/lib/categoryIcons';
 
-const PRIMARY = '#fb923c';
+const PRIMARY = '#1A2332';
 
 /** İkon id → pastel arka plan + metin rengi (referans tasarım) */
 const PASTEL_STYLES: { bg: string; text: string }[] = [
@@ -126,7 +126,7 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
                 type="text"
                 value={categoryName}
                 onChange={(e) => setCategoryName(e.target.value)}
-                className="w-full px-4 py-3.5 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-[#fb923c] text-slate-900 placeholder:text-slate-400 outline-none transition-all"
+                className="w-full px-4 py-3.5 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 text-slate-900 placeholder:text-slate-400 outline-none transition-all"
                 placeholder="Örn. Sabah Rutini"
                 autoFocus
               />
@@ -158,7 +158,7 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
                     >
                       <CategoryIconSvg iconId={iconId as CategoryIconId} size={28} className="w-7 h-7" />
                     </div>
-                    <span className={`text-xs font-medium ${isSelected ? 'text-[#fb923c] font-semibold' : 'text-slate-500'}`}>
+                    <span className={`text-xs font-medium ${isSelected ? 'text-[#1A2332] font-semibold' : 'text-slate-500'}`}>
                       {ICON_LABELS[iconId] ?? iconId}
                     </span>
                   </button>

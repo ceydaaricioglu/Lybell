@@ -16,9 +16,9 @@ import { useLocale } from '@/components/LocaleContext';
 import { t, type Locale } from '@cursor-deneme/shared';
 import EisenhowerView from '@/components/EisenhowerView';
 
-const PRIMARY = '#f97316';
-const BG_LIGHT = '#f8fafc';
-const BG_DARK = '#221610';
+const PRIMARY = '#1A2332';
+const BG_LIGHT = '#F8FAFC';
+const BG_DARK = '#0f172a';
 
 interface TasksViewProps {
   userId: string;
@@ -238,79 +238,117 @@ export default function TasksView({
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 relative bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100" style={{ backgroundColor: dark ? BG_DARK : BG_LIGHT }}>
-      <div className="flex flex-col flex-1 min-h-0 max-w-md mx-auto w-full overflow-hidden">
-        {/* Header - Görevler tasarımı */}
-        <header className="flex items-center justify-between px-6 pt-6 pb-2 bg-white flex-shrink-0" style={dark ? { backgroundColor: '#221610' } : undefined}>
+    <div
+      className="flex flex-col flex-1 min-h-screen relative text-slate-900 dark:text-slate-100"
+      style={{ backgroundColor: dark ? BG_DARK : '#FFFFFF' }}
+    >
+      <div className="flex flex-col flex-1 min-h-screen max-w-md mx-auto w-full overflow-hidden bg-white">
+        {/* Header - yeni Görevler tasarımı */}
+        <header className="px-6 pt-10 pb-6 bg-white/95 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <button type="button" onClick={onBack} className="p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label={t('common.back', locale)}>
-              <span className="material-symbols-outlined text-slate-600 dark:text-slate-400 text-2xl">menu</span>
+            <button
+              type="button"
+              onClick={onBack}
+              className="p-2 -ml-2 rounded-xl hover:bg-slate-100 text-slate-500"
+              aria-label={t('common.back', locale)}
+            >
+              <span className="material-symbols-outlined text-[22px]">arrow_back</span>
             </button>
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: dark ? '#f5f0ea' : '#1a1a1a' }}>{t('tasks.title', locale)}</h1>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                {locale === 'tr' ? 'Görevler' : t('tasks.title', locale)}
+              </h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">
+                {locale === 'tr' ? 'Tüm planlarınız' : 'All plans'}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center">
-            <button type="button" onClick={onViewCalendar} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label={t('calendar.title', locale)}>
-              <span className="material-symbols-outlined text-slate-600 dark:text-slate-400">calendar_month</span>
-            </button>
+          <div className="flex items-center gap-2">
+            {onViewCalendar && (
+              <button
+                type="button"
+                onClick={onViewCalendar}
+                className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-slate-400 border border-slate-200 shadow-sm hover:text-slate-900 transition-colors"
+                aria-label={t('calendar.title', locale)}
+              >
+                <span className="material-symbols-outlined text-[20px]">calendar_month</span>
+              </button>
+            )}
           </div>
         </header>
 
-        {/* Tabs - segment (pill) kontrolü */}
-        <div className="px-4 sm:px-6 pt-3 pb-2 flex-shrink-0">
-          <div
-            className={`inline-flex rounded-xl p-1 w-full max-w-md ${dark ? '' : 'bg-slate-100'}`}
-            style={dark ? { backgroundColor: '#2a1f1a' } : undefined}
-          >
+        {/* Search + hızlı ekle */}
+        <section className="px-6 mt-6">
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-14 pl-5 pr-4 rounded-2xl border border-slate-200 bg-white focus:ring-2 focus:ring-slate-900 focus:border-slate-900 text-sm shadow-sm transition-all placeholder:text-slate-400"
+                placeholder={
+                  locale === 'tr'
+                    ? 'Yarın 14:00 toplantı #acil veya pazartesi 9'
+                    : 'Tomorrow 2pm meeting #urgent or Monday 9'
+                }
+              />
+            </div>
+            <button
+              type="button"
+              onClick={onAddTask}
+              className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-slate-200 active:scale-[0.98] transition-all"
+            >
+              {locale === 'tr' ? 'Ekle' : t('tasks.newTaskShort', locale as Locale) ?? 'Add'}
+            </button>
+          </div>
+        </section>
+
+        {/* Sekmeler - alt borderlı nav */}
+        <nav className="px-6 mt-6">
+          <div className="flex gap-6 border-b border-slate-100 overflow-x-auto no-scrollbar whitespace-nowrap">
             {(['today', 'upcoming', 'completed'] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 min-w-0 py-2.5 px-3 rounded-lg text-sm font-semibold transition-all ${
-                  activeTab === tab ? 'shadow-sm' : 'opacity-80 hover:opacity-100'
-                }`}
-                style={
+                className={`pb-3 border-b-2 font-bold text-[11px] uppercase tracking-wider ${
                   activeTab === tab
-                    ? dark
-                      ? { backgroundColor: '#3d2a1f', color: '#f5f0ea' }
-                      : { backgroundColor: 'white', color: '#1a1a1a', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }
-                    : dark
-                      ? { color: '#b8a99e' }
-                      : { color: '#64748b' }
-                }
+                    ? 'border-slate-900 text-slate-900'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
               >
-                {tab === 'today' ? t('tasks.today', locale) : tab === 'upcoming' ? t('tasks.upcoming', locale) : t('tasks.completed', locale)}
+                {tab === 'today'
+                  ? locale === 'tr'
+                    ? 'Bugün'
+                    : t('tasks.today', locale)
+                  : tab === 'upcoming'
+                    ? locale === 'tr'
+                      ? 'Yaklaşan'
+                      : t('tasks.upcoming', locale)
+                    : locale === 'tr'
+                      ? 'Tamamlanan'
+                      : t('tasks.completed', locale)}
               </button>
             ))}
             {isPro && (
               <button
                 type="button"
                 onClick={() => setActiveTab('eisenhower')}
-                className={`flex-1 min-w-0 py-2.5 px-2 rounded-lg text-sm font-semibold transition-all ${
-                  activeTab === 'eisenhower' ? 'shadow-sm' : 'opacity-80 hover:opacity-100'
-                }`}
-                style={
+                className={`pb-3 border-b-2 font-bold text-[11px] uppercase tracking-wider ${
                   activeTab === 'eisenhower'
-                    ? dark
-                      ? { backgroundColor: '#3d2a1f', color: '#f5f0ea' }
-                      : { backgroundColor: 'white', color: '#1a1a1a', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }
-                    : dark
-                      ? { color: '#b8a99e' }
-                      : { color: '#64748b' }
-                }
+                    ? 'border-slate-900 text-slate-900'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
               >
-                Eisenhower
+                {locale === 'tr' ? 'Haftalık' : 'Weekly'}
               </button>
             )}
           </div>
-        </div>
+        </nav>
 
-        {/* Pro filtreler - 3 açılır menü */}
+        {/* Pro filtreler - üstte chip gibi */}
         {isPro && (
-          <div className="px-4 sm:px-6 py-2 flex-shrink-0 flex flex-wrap items-center gap-2" ref={filterMenuRef}>
-            <span className={`text-xs font-medium w-full sm:w-auto ${dark ? 'text-zinc-400' : 'text-slate-500'}`}>
-              {locale === 'tr' ? 'Filtreler' : 'Filters'}:
-            </span>
+          <div className="px-6 py-4 flex-shrink-0 flex flex-wrap items-center gap-2" ref={filterMenuRef}>
             {/* Öncelik */}
             <div className="relative">
               <button
@@ -457,7 +495,7 @@ export default function TasksView({
         )}
 
         {/* Task list */}
-        <div className="flex-1 overflow-auto px-6 py-4 pb-28 space-y-6">
+        <div className="flex-1 overflow-auto px-6 py-4 pb-32 space-y-6">
           {activeTab === 'today' && (
                 <>
                   {overdueTasks.length > 0 && (
@@ -595,16 +633,14 @@ export default function TasksView({
               )}
         </div>
 
-        {/* Floating Action Button - nav'ın üstünde görünsün (z-nav < z-fab) */}
-        <div className="absolute bottom-20 right-6 z-40">
+        {/* Floating Action Button - tasarımdaki yuvarlak FAB */}
+        <div className="absolute bottom-28 right-6 z-40">
           <button
             type="button"
             onClick={onAddTask}
-            className="flex items-center justify-center rounded-xl h-14 px-6 text-white font-bold shadow-lg hover:brightness-110 transition-all gap-3"
-            style={{ backgroundColor: PRIMARY, boxShadow: `0 10px 40px -10px ${PRIMARY}4D` }}
+            className="flex items-center justify-center rounded-full h-14 w-14 text-white shadow-xl shadow-slate-300 hover:scale-105 active:scale-95 transition-transform bg-slate-900"
           >
-            <span className="material-symbols-outlined">add</span>
-            <span>{t('tasks.newTask', locale)}</span>
+            <span className="material-symbols-outlined text-3xl">add</span>
           </button>
         </div>
       </div>
@@ -776,34 +812,48 @@ function EmptyState({
 }) {
   const isSearch = searchQuery.trim().length > 0;
   return (
-    <div className="flex flex-1 flex-col px-6 py-12 items-center justify-center">
-      <div className="flex flex-col items-center gap-8 w-full">
-        <div className={'w-48 h-48 rounded-full flex items-center justify-center relative overflow-hidden ' + (dark ? 'bg-slate-800' : 'bg-slate-50')}>
-          <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent" />
-          <span className="material-symbols-outlined text-6xl text-slate-200 dark:text-slate-700">task_alt</span>
+    <div className="flex flex-1 flex-col px-8 py-12 items-center justify-center text-center">
+      <div className="w-40 h-40 bg-white rounded-full flex items-center justify-center mb-8 border border-slate-100 shadow-sm">
+        <div className="w-14 h-18 border-2 border-slate-200 rounded-lg relative flex items-center justify-center">
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-7 h-3 bg-slate-200 rounded-t-md" />
+          <span className="material-symbols-outlined text-slate-300 text-4xl">check_circle</span>
         </div>
-        <div className="flex flex-col items-center gap-2 text-center">
-          <p className={'text-lg font-bold ' + (dark ? 'text-slate-100' : 'text-slate-900')}>
-            {isSearch ? tFn('tasks.noMatch', locale) : completed ? tFn('tasks.noCompleted', locale) : (locale === 'tr' ? 'Henüz görev yok' : 'No tasks yet')}
-          </p>
-          <p className={'text-sm font-normal max-w-[280px] ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
-            {isSearch
-              ? (locale === 'tr' ? 'Arama kriterlerine uygun görev bulunamadı.' : 'No tasks match your search.')
-              : completed
-                ? (locale === 'tr' ? 'Tamamlanan görevler burada listelenir.' : 'Completed tasks will appear here.')
-                : (locale === 'tr' ? 'Bugün için planlanmış bir göreviniz bulunmuyor. Yeni bir başlangıç yapın.' : "You don't have any tasks planned for today. Start fresh.")}
-          </p>
-        </div>
-        {!completed && (
-          <button
-            type="button"
-            onClick={onAddTask}
-            className={'flex min-w-[120px] items-center justify-center rounded-lg h-11 px-6 text-sm font-bold transition-colors ' + (dark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200')}
-          >
-            {tFn('tasks.newTask', locale)}
-          </button>
-        )}
       </div>
+      <p className="text-lg font-bold text-slate-900 mb-2">
+        {isSearch
+          ? locale === 'tr'
+            ? 'Eşleşen görev yok'
+            : tFn('tasks.noMatch', locale)
+          : completed
+            ? locale === 'tr'
+              ? 'Tamamlanan görev yok'
+              : tFn('tasks.noCompleted', locale)
+            : locale === 'tr'
+              ? 'Henüz görev yok'
+              : 'No tasks yet'}
+      </p>
+      <p className="text-slate-400 font-medium text-sm leading-relaxed mb-8 max-w-[260px]">
+        {isSearch
+          ? locale === 'tr'
+            ? 'Arama kriterlerine uygun görev bulunamadı.'
+            : 'No tasks match your search.'
+          : completed
+            ? locale === 'tr'
+              ? 'Tamamlanan görevler burada listelenir.'
+              : 'Completed tasks will appear here.'
+            : locale === 'tr'
+              ? 'Bugün için planlanmış bir göreviniz bulunmuyor. Yeni bir başlangıç yapın.'
+              : "You don't have any tasks planned for today. Start fresh."}
+      </p>
+      {!completed && (
+        <button
+          type="button"
+          onClick={onAddTask}
+          className="px-8 py-3 bg-slate-100 text-slate-900 font-bold rounded-2xl hover:bg-slate-200 transition-all text-sm"
+        >
+          {locale === 'tr' ? 'Yeni Görev' : tFn('tasks.newTask', locale)}
+        </button>
+      )}
     </div>
   );
 }

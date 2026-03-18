@@ -6,74 +6,91 @@ interface OnboardingStep1Props {
   darkMode?: boolean;
 }
 
-const ONBOARDING_PRIMARY = '#F5871F';
-const ONBOARDING_BG_LIGHT = '#FDFBF7';
-const ONBOARDING_BG_DARK = '#221610';
-
-/** Hoş geldin – Nudge tanıtımı, Devam ile 2. ekrana */
-export function OnboardingStep1({ onNext, onSkip, darkMode = false }: OnboardingStep1Props) {
-  const dark = darkMode;
+/** 1. ekran – Odak/Enerji/Gelişim/Denge kartları (sadece açık tema) */
+export function OnboardingStep1({ onNext, onSkip }: OnboardingStep1Props) {
   return (
     <div
-      className="relative flex min-h-screen w-full flex-col justify-between overflow-hidden font-display"
-      style={{ backgroundColor: dark ? ONBOARDING_BG_DARK : ONBOARDING_BG_LIGHT }}
+      className="onboarding-reset relative flex min-h-screen w-full flex-col max-w-md mx-auto px-6 pt-4 pb-4 font-display antialiased"
+      style={{ backgroundColor: '#F8FAFC', color: '#020617' }}
     >
-      <div className="flex flex-1 flex-col px-8 pt-20 pb-12">
-        {/* Top App Bar / Brand Header */}
-        <div className="flex items-center justify-center">
-          <h2 className="text-sm font-bold uppercase tracking-[0.2em]" style={{ color: ONBOARDING_PRIMARY }}>
-            Nudge
-          </h2>
-        </div>
+      {/* Üst: Atla */}
+      <div className="w-full flex justify-end mb-3">
+        <button
+          type="button"
+          onClick={onSkip}
+          className="text-slate-500 font-medium text-sm hover:text-primary transition-colors"
+        >
+          Atla
+        </button>
+      </div>
 
-        {/* Main Visual Content */}
-        <div className="flex flex-grow flex-col items-center justify-center space-y-12">
-          {/* Illustration Container */}
-          <div className="relative flex h-64 w-64 items-center justify-center rounded-full" style={{ backgroundColor: `${ONBOARDING_PRIMARY}0D` }}>
-            <div className="absolute inset-0 rounded-full opacity-30 blur-3xl" style={{ backgroundColor: `${ONBOARDING_PRIMARY}1A` }} />
-            <span
-              className="material-symbols-outlined font-light"
-              style={{ fontSize: '120px', color: ONBOARDING_PRIMARY, fontVariationSettings: "'wght' 200, 'opsz' 48" }}
-              aria-hidden
-            >
-              wb_sunny
+      {/* Orta: kartlar + metin (ekrana göre ortalanır) */}
+      <div className="flex-1 flex flex-col items-center justify-center w-full">
+        <div className="grid grid-cols-2 gap-4 p-3 mb-4 mt-3">
+          {/* Odak */}
+          <div className="flex flex-col items-center justify-center aspect-square w-28 h-28 bg-white rounded-2xl shadow-sm border border-slate-100">
+            <span className="material-symbols-outlined text-4xl" style={{ color: '#020617' }}>
+              local_cafe
             </span>
+            <span className="mt-2 text-xs font-medium text-slate-400 uppercase tracking-widest">ODAK</span>
           </div>
-          {/* Typography */}
-          <div className="max-w-xs space-y-4 text-center">
-            <h1 className="text-3xl font-semibold leading-tight tracking-tight" style={{ color: dark ? '#f5f0ea' : '#1a1a1a' }}>
-              Küçük bir dokunuş, büyük bir fark.
-            </h1>
-            <p className={`text-base font-normal leading-relaxed opacity-80 ${dark ? 'text-slate-400' : 'text-slate-600'}`}>
-              Karmaşadan kurtulun, odağınızı geri kazanın. Nudge ile gününüzü nazikçe planlayın.
-            </p>
+          {/* Enerji */}
+          <div
+            className="flex flex-col items-center justify-center aspect-square w-28 h-28 rounded-2xl shadow-lg"
+            style={{ backgroundColor: '#020617' }}
+          >
+            <span className="material-symbols-outlined text-4xl text-white">
+              fitness_center
+            </span>
+            <span className="mt-2 text-xs font-medium text-slate-200 uppercase tracking-widest">ENERJİ</span>
+          </div>
+          {/* Gelişim */}
+          <div className="flex flex-col items-center justify-center aspect-square w-28 h-28 bg-white rounded-2xl shadow-sm border border-slate-100">
+            <span className="material-symbols-outlined text-4xl" style={{ color: '#020617' }}>
+              menu_book
+            </span>
+            <span className="mt-2 text-xs font-medium text-slate-400 uppercase tracking-widest">GELİŞİM</span>
+          </div>
+          {/* Denge */}
+          <div className="flex flex-col items-center justify-center aspect-square w-28 h-28 bg-white rounded-2xl shadow-sm border border-slate-100">
+            <span className="material-symbols-outlined text-4xl" style={{ color: '#020617' }}>
+              pets
+            </span>
+            <span className="mt-2 text-xs font-medium text-slate-400 uppercase tracking-widest">DENGE</span>
           </div>
         </div>
 
-        {/* Footer: indicators + CTA */}
-        <div className="flex flex-col items-center gap-8">
-          <div className="flex flex-row items-center justify-center gap-2">
-            <div className="h-1.5 w-6 rounded-full" style={{ backgroundColor: ONBOARDING_PRIMARY }} />
-            <div className="h-1.5 w-1.5 rounded-full opacity-20" style={{ backgroundColor: ONBOARDING_PRIMARY }} />
-            <div className="h-1.5 w-1.5 rounded-full opacity-20" style={{ backgroundColor: ONBOARDING_PRIMARY }} />
-          </div>
-          <button
-            type="button"
-            onClick={onNext}
-            className="w-full rounded-xl py-4 font-semibold text-white shadow-lg transition-all hover:opacity-90 active:scale-[0.98]"
-            style={{ backgroundColor: ONBOARDING_PRIMARY, boxShadow: `0 10px 24px ${ONBOARDING_PRIMARY}33` }}
+        <div className="text-center px-4 mt-1">
+          <h3
+            className="tracking-tight text-2xl font-bold leading-tight pb-3"
+            style={{ color: '#020617' }}
           >
-            Devam
-          </button>
-          <button type="button" onClick={onSkip} className={`text-sm font-medium ${dark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-500 hover:text-slate-700'}`}>
-            Atla
-          </button>
+            Sizin temponuz, sizin kurallarınız.
+          </h3>
+          <p className="text-sm font-normal leading-relaxed" style={{ color: '#4b5563' }}>
+            Rutinlerinizi oluşturun, hedeflerinizi belirleyin ve her adımda başarınızı kutlayın.
+          </p>
         </div>
       </div>
 
-      {/* Decorative blur circles */}
-      <div className="pointer-events-none absolute top-0 right-0 -z-10 h-64 w-64 rounded-full blur-[100px]" style={{ backgroundColor: `${ONBOARDING_PRIMARY}0D` }} />
-      <div className="pointer-events-none absolute bottom-0 left-0 -z-10 h-80 w-80 rounded-full blur-[120px]" style={{ backgroundColor: `${ONBOARDING_PRIMARY}0D` }} />
+      {/* Alt: İndikatör + buton */}
+      <div className="w-full flex flex-col gap-2.5 mt-6 pb-4">
+        <div className="flex justify-center gap-2">
+          <div className="h-1.5 w-8 rounded-full" style={{ backgroundColor: '#020617' }} />
+          <div className="h-1.5 w-2 rounded-full bg-slate-300" />
+          <div className="h-1.5 w-2 rounded-full bg-slate-300" />
+        </div>
+        <div className="flex w-full">
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl h-14 px-5 text-lg font-bold leading-normal tracking-wide transition-all active:scale-95 shadow-lg"
+            style={{ backgroundColor: '#020617', color: '#ffffff', boxShadow: '0 10px 24px rgba(15,23,42,0.25)' }}
+          >
+            <span className="truncate">Başla</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -85,94 +102,187 @@ interface OnboardingStep2Props {
   darkMode?: boolean;
 }
 
-const ONBOARDING2_PRIMARY = '#2463eb';
-
-/** Sizin temponuz – floating ikonlar + Başla */
-export function OnboardingStep2({ onComplete, onBack, onSkip, darkMode = false }: OnboardingStep2Props) {
-  const dark = darkMode;
-  const floatingClass = 'flex items-center justify-center rounded-2xl shadow-lg drop-shadow-[0_10px_15px_rgba(0,0,0,0.05)]';
+/** 2. ekran – planlama illüstrasyonu + Devam (sadece açık tema) */
+export function OnboardingStep2({ onComplete, onBack, onSkip }: OnboardingStep2Props) {
   return (
     <div
-      className="relative flex min-h-screen w-full max-w-md mx-auto flex-col overflow-hidden antialiased font-display"
-      style={{ backgroundColor: dark ? ONBOARDING_BG_DARK : ONBOARDING_BG_LIGHT }}
+      className="onboarding-reset relative flex min-h-screen w-full flex-col items-center justify-start overflow-x-hidden font-display antialiased max-w-md mx-auto pb-8"
+      style={{ backgroundColor: '#F8FAFC', color: '#020617' }}
     >
-      {/* Top Safe Area / Header */}
-      <div className="flex items-center justify-between px-6 pt-20">
+      {/* Top Navigation */}
+      <div className="flex w-full items-center justify-between p-6">
+        <div className="w-10" />
         <button
           type="button"
-          onClick={onBack}
-          className="flex items-center justify-center rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-          aria-label="Geri"
+          onClick={onSkip}
+          className="text-slate-500 hover:text-primary transition-colors font-medium"
         >
-          <span className="material-symbols-outlined text-[24px]">arrow_back</span>
-        </button>
-        <div className="text-sm font-semibold uppercase tracking-widest opacity-40 text-slate-600 dark:text-slate-400">Nudge</div>
-        <div className="w-10" aria-hidden />
-      </div>
-
-      {/* Visual + Text */}
-      <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 relative">
-        <div className="relative w-full aspect-square flex items-center justify-center">
-          {/* Center */}
-          <div className={`z-10 flex h-32 w-32 items-center justify-center rounded-3xl shadow-xl ${dark ? 'bg-slate-800' : 'bg-white'} ${floatingClass}`}>
-            <span className="material-symbols-outlined text-5xl" style={{ color: ONBOARDING2_PRIMARY }}>task_alt</span>
-          </div>
-          {/* Floating: Coffee */}
-          <div className={`absolute top-[10%] left-[15%] flex h-16 w-16 items-center justify-center backdrop-blur-sm ${dark ? 'bg-slate-800/80' : 'bg-white/80'} ${floatingClass}`}>
-            <span className="material-symbols-outlined text-3xl text-orange-400">coffee</span>
-          </div>
-          {/* Floating: Pets */}
-          <div className={`absolute bottom-[20%] right-[10%] flex h-20 w-20 items-center justify-center backdrop-blur-sm ${dark ? 'bg-slate-800/80' : 'bg-white/80'} ${floatingClass}`}>
-            <span className="material-symbols-outlined text-4xl text-indigo-400">pets</span>
-          </div>
-          {/* Floating: Fitness */}
-          <div className={`absolute top-[25%] right-[15%] flex h-14 w-14 items-center justify-center backdrop-blur-sm ${dark ? 'bg-slate-800/80' : 'bg-white/80'} ${floatingClass}`}>
-            <span className="material-symbols-outlined text-2xl text-emerald-400">fitness_center</span>
-          </div>
-          {/* Floating: Reading */}
-          <div className={`absolute bottom-[15%] left-[20%] flex h-12 w-12 items-center justify-center backdrop-blur-sm ${dark ? 'bg-slate-800/80' : 'bg-white/80'} ${floatingClass}`}>
-            <span className="material-symbols-outlined text-2xl text-rose-400">auto_stories</span>
-          </div>
-          <div className="absolute inset-0 -z-10 scale-90 rounded-full blur-3xl opacity-80" style={{ backgroundColor: `${ONBOARDING2_PRIMARY}14` }} />
-        </div>
-
-        <div className="mt-12 space-y-4 text-center">
-          <h1 className="text-3xl font-bold leading-tight tracking-tight" style={{ color: dark ? '#f5f0ea' : '#1a1a1a' }}>
-            Sizin temponuz, <br />sizin kurallarınız.
-          </h1>
-          <p className={`mx-auto max-w-[280px] text-base leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Rutinlerinizi oluşturun, hedeflerinizi belirleyin ve her adımda başarınızı kutlayın.
-          </p>
-        </div>
-
-        {/* Pagination */}
-        <div className="mt-8 flex w-full flex-row items-center justify-center gap-2">
-          <div className={`h-1.5 w-4 rounded-full ${dark ? 'bg-slate-700' : 'bg-slate-200'}`} />
-          <div className="h-1.5 w-8 rounded-full" style={{ backgroundColor: ONBOARDING2_PRIMARY }} />
-          <div className={`h-1.5 w-4 rounded-full ${dark ? 'bg-slate-700' : 'bg-slate-200'}`} />
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="flex flex-col gap-3 px-6 pb-12">
-        <button
-          type="button"
-          onClick={onComplete}
-          className="w-full rounded-xl py-4 font-semibold text-white shadow-lg transition-all hover:opacity-90"
-          style={{ backgroundColor: ONBOARDING2_PRIMARY, boxShadow: `0 10px 24px ${ONBOARDING2_PRIMARY}40` }}
-        >
-          Başla
-        </button>
-        <button
-          type="button"
-          onClick={onBack}
-          className={`w-full rounded-xl py-3 font-medium transition-all ${dark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'}`}
-        >
-          Geri
-        </button>
-        <button type="button" onClick={onSkip} className={`text-sm font-medium ${dark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-500 hover:text-slate-600'}`}>
           Atla
         </button>
+      </div>
+
+      {/* Orta içerik: illüstrasyon + metin (ekrana göre ortalanır) */}
+      <div className="flex-1 flex flex-col items-center px-6 w-full max-w-md justify-center">
+        <div className="w-full aspect-square flex items-center justify-center relative mb-8">
+          {/* Background circle */}
+          <div
+            className="absolute inset-0 rounded-full scale-90"
+            style={{ backgroundColor: 'rgba(30,41,59,0.05)' }}
+          />
+
+          <div className="relative w-72 h-72">
+            {/* Main Card */}
+            <div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-60 rounded-2xl shadow-2xl flex flex-col p-4 gap-3 z-10"
+              style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 25px 50px rgba(15,23,42,0.12)',
+              }}
+            >
+              <div
+                className="w-full h-8 rounded-lg flex items-center px-2"
+                style={{ backgroundColor: '#f8fafc' }}
+              >
+                <div
+                  className="w-3 h-3 rounded-full mr-2"
+                  style={{ backgroundColor: 'rgba(30,41,59,0.2)' }}
+                />
+                <div
+                  className="w-16 h-2 rounded-full"
+                  style={{ backgroundColor: '#e5e7eb' }}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-4 h-4 rounded border"
+                    style={{ borderColor: 'rgba(30,41,59,0.3)' }}
+                  />
+                  <div
+                    className="w-24 h-2 rounded-full"
+                    style={{ backgroundColor: '#f1f5f9' }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-4 h-4 rounded flex items-center justify-center"
+                    style={{ backgroundColor: '#1e293b' }}
+                  >
+                    <span className="material-symbols-outlined text-[10px] text-white font-bold">
+                      check
+                    </span>
+                  </div>
+                  <div
+                    className="w-20 h-2 rounded-full"
+                    style={{ backgroundColor: '#f1f5f9' }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-4 h-4 rounded border"
+                    style={{ borderColor: 'rgba(30,41,59,0.3)' }}
+                  />
+                  <div
+                    className="w-28 h-2 rounded-full"
+                    style={{ backgroundColor: '#f1f5f9' }}
+                  />
+                </div>
+              </div>
+              <div
+                className="mt-auto pt-2 flex justify-between items-center"
+                style={{ borderTop: '1px solid #f9fafb' }}
+              >
+                <div
+                  className="w-8 h-8 rounded-full"
+                  style={{ backgroundColor: '#f1f5f9' }}
+                />
+                <div
+                  className="w-12 h-6 rounded-lg"
+                  style={{ backgroundColor: 'rgba(30,41,59,0.08)' }}
+                />
+              </div>
+            </div>
+
+            {/* Target icon */}
+            <div
+              className="absolute -top-4 -right-4 w-20 h-20 rounded-2xl shadow-xl flex items-center justify-center z-20 transform rotate-6"
+              style={{
+                backgroundColor: '#1e293b',
+                color: '#ffffff',
+                boxShadow: '0 20px 40px rgba(15,23,42,0.4)',
+              }}
+            >
+              <span className="material-symbols-outlined text-4xl">target</span>
+            </div>
+
+            {/* Calendar icon */}
+            <div
+              className="absolute -bottom-2 -left-6 w-24 h-24 rounded-full shadow-lg border flex items-center justify-center z-20"
+              style={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb' }}
+            >
+              <span
+                className="material-symbols-outlined text-4xl"
+                style={{ color: '#1e293b' }}
+              >
+                calendar_today
+              </span>
+            </div>
+
+            {/* Decorative dots */}
+            <div
+              className="absolute top-10 -left-4 w-3 h-3 rounded-full"
+              style={{ backgroundColor: 'rgba(30,41,59,0.3)' }}
+            />
+            <div
+              className="absolute bottom-10 -right-2 w-4 h-4 rounded-full"
+              style={{ backgroundColor: 'rgba(30,41,59,0.15)' }}
+            />
+          </div>
+        </div>
+
+        {/* Text */}
+        <div className="text-center space-y-3">
+          <h1
+            className="text-3xl font-bold leading-tight tracking-tight"
+            style={{ color: '#020617' }}
+          >
+            Küçük bir dokunuş,
+            <br />
+            büyük bir fark.
+          </h1>
+          <p
+            className="text-lg font-normal leading-relaxed"
+            style={{ color: '#4b5563' }}
+          >
+            Karmaşadan kurtulun, odağınızı geri kazanın. Lybell ile gününüzü nazikçe planlayın.
+          </p>
+        </div>
+      </div>
+
+      {/* Alt: indicators + button */}
+      <div className="w-full max-w-md px-6 pt-6 pb-2 flex flex-col items-center gap-6">
+        <div className="flex flex-row items-center justify-center gap-3">
+          <div className="h-2 w-2 rounded-full bg-slate-200" />
+          <div
+            className="h-2 w-6 rounded-full"
+            style={{ backgroundColor: '#1e293b' }}
+          />
+          <div className="h-2 w-2 rounded-full bg-slate-200" />
+        </div>
+        <div className="w-full">
+          <button
+            type="button"
+            onClick={onComplete}
+            className="w-full font-semibold py-4 px-8 rounded-xl transition-all flex items-center justify-center gap-2"
+            style={{ backgroundColor: '#1e293b', color: '#ffffff', boxShadow: '0 20px 40px rgba(15,23,42,0.35)' }}
+          >
+            <span style={{ color: '#ffffff' }}>Devam</span>
+            <span className="material-symbols-outlined text-xl" style={{ color: '#ffffff' }}>
+              arrow_forward
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import { canAddCategory } from '@cursor-deneme/shared';
 import AddCategoryModal from './AddCategoryModal';
 import Modal from './Modal';
 
-const PRIMARY = '#fb923c';
+const PRIMARY = '#1A2332';
 
 const COLOR_BOX_CLASS: Record<string, { box: string; icon: string }> = {
   blue: { box: 'bg-blue-50', icon: 'text-blue-500' },
@@ -44,8 +44,7 @@ export default function CategoriesView({
   categories: categoriesFromParent,
   onRefreshCategories,
 }: CategoriesViewProps) {
-  // Referans tasarım: bu sayfa her zaman açık tema (beyaz kart, koyu metin)
-  const dark = false;
+  const dark = darkMode;
   const [localCategories, setLocalCategories] = useState<Category[]>([]);
   const [localTasks, setLocalTasks] = useState<TimelineTask[]>([]);
   const categories = categoriesFromParent ?? localCategories;
@@ -129,6 +128,12 @@ export default function CategoriesView({
       left,
       progress: total > 0 ? Math.round((completed / total) * 100) : 0,
     };
+  }).sort((a, b) => {
+    const pinned = ['routines', 'reading'];
+    const ai = pinned.indexOf(a.id);
+    const bi = pinned.indexOf(b.id);
+    if (ai !== -1 || bi !== -1) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    return a.name.localeCompare(b.name, 'tr');
   });
 
   const filtered = categoryStats.filter((cat) => {
@@ -140,14 +145,14 @@ export default function CategoriesView({
     return true;
   });
 
-  const pageBg = '#fdfdfd';
+  const pageBg = '#F8FAFC';
 
   if (loading) {
     return (
-      <div className="flex flex-col flex-1 min-h-0 overflow-auto" style={{ backgroundColor: pageBg }}>
+      <div className="flex flex-col flex-1 min-h-screen overflow-auto" style={{ backgroundColor: pageBg }}>
         <div className="flex items-center justify-center flex-1">
           <div className="text-center">
-            <div className="w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4 border-slate-200 border-t-orange-500" />
+            <div className="w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4 border-slate-200" style={{ borderTopColor: PRIMARY }} />
             <p className="text-slate-500">Yükleniyor...</p>
           </div>
         </div>
@@ -158,56 +163,55 @@ export default function CategoriesView({
   const colorBox = (color: string) => COLOR_BOX_CLASS[color] ?? COLOR_BOX_CLASS.orange;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-auto pb-24" style={{ backgroundColor: pageBg }}>
-      {/* Kart container — referans: beyaz kart */}
-      <div className="relative mx-auto w-full max-w-md flex-1 flex flex-col min-h-screen bg-white shadow-xl">
-        {/* Header — referans: pt-20 (safe area / 80px) */}
-        <header className="pt-20 px-6 pb-4">
-          <div className="flex items-center justify-between">
+    <div className="flex flex-col flex-1 min-h-screen overflow-auto" style={{ backgroundColor: pageBg }}>
+      <div className="relative mx-auto w-full max-w-md flex-1 flex flex-col min-h-0 bg-white shadow-2xl overflow-hidden">
+        {/* Header */}
+        <header className="flex items-center justify-between p-4 sticky top-0 bg-[rgba(248,250,252,0.8)] backdrop-blur-md z-10 border-b border-slate-100">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onBack}
-              className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 transition-colors"
+              className="p-2 rounded-full hover:bg-slate-200 transition-colors text-slate-600"
               aria-label="Geri"
             >
-              <span className="material-symbols-outlined text-slate-700">arrow_back</span>
+              <span className="material-symbols-outlined">menu</span>
             </button>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">Kategoriler</h1>
-            <button
-              type="button"
-              onClick={openAddCategory}
-              className="flex items-center justify-center w-10 h-10 rounded-full transition-colors"
-              style={{ backgroundColor: `${PRIMARY}20`, color: PRIMARY }}
-              aria-label="Kategori ekle"
-            >
-              <span className="material-symbols-outlined font-bold">add</span>
-            </button>
           </div>
+          <button
+            type="button"
+            onClick={openAddCategory}
+            className="p-2 rounded-full hover:bg-slate-200 transition-colors text-slate-700"
+            aria-label="Yeni liste"
+          >
+            <span className="material-symbols-outlined">notifications</span>
+          </button>
         </header>
 
-        {/* Search — referans: icon sol, focus ring primary */}
-        <div className="px-6 py-4">
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <span className="material-symbols-outlined text-slate-400 group-focus-within:text-[#fb923c] transition-colors text-xl">search</span>
-            </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Listelerinde ara..."
-              className="block w-full pl-11 pr-4 py-3 border-none rounded-xl focus:ring-2 focus:ring-[#fb923c]/30 transition-all placeholder:text-slate-400 text-sm bg-slate-100 text-slate-900"
-            />
+        <main className="flex-1 overflow-y-auto px-4">
+          {/* Search Bar */}
+          <div className="my-4">
+            <label className="relative block group">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400 transition-colors group-focus-within:text-slate-900">
+                <span className="material-symbols-outlined">search</span>
+              </span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-100 border-none rounded-xl py-3 pl-12 pr-4 focus:ring-2 text-slate-900 placeholder-slate-500"
+                style={{ outline: 'none' }}
+                placeholder="Listelerde ara..."
+              />
+            </label>
           </div>
-        </div>
 
-        {/* Filter Tabs */}
-        <div className="px-6 py-2">
-          <div className="flex gap-2 p-1 bg-slate-100/50 rounded-xl">
+          {/* Filter Toggle */}
+          <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
             {[
               { key: 'all' as const, label: 'Tümü' },
               { key: 'progress' as const, label: 'Devam Eden' },
-              { key: 'archived' as const, label: 'Arşiv' },
+              { key: 'archived' as const, label: 'Arşivlendi' },
             ].map(({ key, label }) => (
               <button
                 key={key}
@@ -215,117 +219,105 @@ export default function CategoriesView({
                 onClick={() => setTab(key)}
                 className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
                   tab === key
-                    ? 'bg-white shadow-sm font-semibold'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white shadow-sm text-slate-900'
+                    : 'text-slate-500'
                 }`}
-                style={tab === key ? { color: PRIMARY } : undefined}
               >
                 {label}
               </button>
             ))}
           </div>
-        </div>
 
-        {/* List content */}
-        <div className="flex-1 px-6 py-6 space-y-4">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 bg-white border border-slate-100">
-                <span className="material-symbols-outlined text-4xl text-slate-400">folder</span>
+          {/* Lists Container */}
+          <div className="space-y-4 pb-6">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 px-1">Listelerim</h2>
+
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 bg-white border border-slate-100">
+                  <span className="material-symbols-outlined text-4xl text-slate-400">folder</span>
+                </div>
+                <h2 className="text-lg font-bold mb-2 text-slate-900">
+                  {tab === 'all' ? 'Henüz liste yok' : tab === 'progress' ? 'Devam eden yok' : 'Arşivlenmiş yok'}
+                </h2>
+                <p className="text-sm mb-6 text-center text-slate-400 max-w-[260px]">
+                  {tab === 'all' ? 'Yeni bir liste oluşturarak başlayabilirsin.' : 'Bu filtrede liste görünmüyor.'}
+                </p>
+                {tab === 'all' && (
+                  <button
+                    type="button"
+                    onClick={openAddCategory}
+                    className="px-8 py-3 bg-slate-100 text-slate-900 font-bold rounded-2xl hover:bg-slate-200 transition-all text-sm"
+                  >
+                    Yeni liste oluştur
+                  </button>
+                )}
               </div>
-              <h2 className="text-xl font-bold mb-2 text-slate-900">
-                {tab === 'all' ? 'Henüz kategori yok' : tab === 'progress' ? 'Devam eden yok' : 'Arşivlenmiş yok'}
-              </h2>
-              <p className="text-sm mb-6 text-center text-slate-500">
-                {tab === 'all' ? 'İlk kategorini oluşturarak başla' : 'Bu filtrede liste görünmüyor.'}
-              </p>
-              {tab === 'all' && (
+            ) : (
+              <>
+                {filtered.map((cat) => {
+                  // Rutinler ve Okuma Listesi için renkleri tasarımla eşleştir
+                  const forced =
+                    cat.id === 'routines'
+                      ? { box: 'bg-blue-100', icon: 'text-blue-600' }
+                      : cat.id === 'reading'
+                        ? { box: 'bg-purple-100', icon: 'text-purple-600' }
+                        : null;
+                  const { box, icon } = forced ?? colorBox(cat.color);
+
+                  return (
+                    <div
+                      key={cat.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onCategorySelect(cat.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onCategorySelect(cat.id);
+                        }
+                      }}
+                      className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className={`size-12 rounded-xl ${box} flex items-center justify-center ${icon}`}>
+                          <CategoryIcon icon={cat.icon} size={24} className="w-6 h-6 shrink-0" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-slate-900 truncate">{cat.name}</h3>
+                          <p className="text-xs text-slate-500">
+                            {cat.total === 0 ? 'Görev yok' : `${cat.total} Görev`}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => onCategorySelect(cat.id)}
+                          className="text-slate-400 hover:text-slate-600 transition-colors"
+                          aria-label="Aç"
+                        >
+                          <span className="material-symbols-outlined">chevron_right</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Add New List Button */}
                 <button
                   type="button"
                   onClick={openAddCategory}
-                  className="px-6 py-3 rounded-xl font-semibold text-white transition-all hover:opacity-90"
-                  style={{ backgroundColor: PRIMARY }}
+                  className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 transition-all group hover:border-slate-900 hover:text-slate-900"
                 >
-                  + Kategori Oluştur
+                  <span className="material-symbols-outlined group-hover:scale-110 transition-transform">add_circle</span>
+                  <span className="font-medium">Yeni liste oluştur</span>
                 </button>
-              )}
-            </div>
-          ) : (
-            <>
-              {filtered.map((cat) => {
-                const { box, icon } = colorBox(cat.color);
-                return (
-                  <div
-                    key={cat.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onCategorySelect(cat.id)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCategorySelect(cat.id); } }}
-                    className="group flex items-center justify-between p-4 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
-                  >
-                    <div className="flex-1 flex items-center gap-4 min-w-0">
-                      <div className={`flex items-center justify-center w-12 h-12 rounded-xl flex-shrink-0 ${box} ${icon}`}>
-                        <CategoryIcon icon={cat.icon} size={24} className="w-6 h-6 shrink-0" />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-slate-900">{cat.name}</h3>
-                        <p className="text-xs text-slate-500">
-                          {cat.total === 0 ? 'Görev yok' : `${cat.completed} tamamlandı`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <span className="text-sm font-medium text-slate-400">{cat.total} görev</span>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === cat.id ? null : cat.id); }}
-                          className="p-1.5 rounded-lg transition-colors text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                          aria-label="Menü"
-                        >
-                          <span className="material-symbols-outlined text-xl">more_vert</span>
-                        </button>
-                        {menuOpenId === cat.id && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} aria-hidden />
-                            <div className="absolute right-0 top-full mt-1 py-1 rounded-lg shadow-lg z-20 min-w-[120px] bg-white border border-slate-200">
-                              <button
-                                type="button"
-                                onClick={() => { setEditingCategory(cat); setShowAddCategoryModal(true); setMenuOpenId(null); }}
-                                className="w-full text-left px-4 py-2 text-sm font-medium flex items-center gap-2 text-slate-800 hover:bg-slate-50"
-                              >
-                                <span className="material-symbols-outlined text-lg">edit</span>
-                                Düzenle
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { setShowDeleteConfirm(cat.id); setMenuOpenId(null); }}
-                                className="w-full text-left px-4 py-2 text-sm font-medium flex items-center gap-2 text-red-500 hover:bg-red-500/10"
-                              >
-                                <span className="material-symbols-outlined text-lg">delete</span>
-                                Sil
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Add new list — referans: border-dashed, hover primary */}
-              <button
-                type="button"
-                onClick={openAddCategory}
-                className="w-full flex items-center justify-center gap-2 p-6 border-2 border-dashed rounded-xl transition-all text-slate-400 border-slate-200 hover:border-[#fb923c]/50 hover:bg-[#fb923c]/5 hover:text-[#fb923c] group"
-              >
-                <span className="material-symbols-outlined">add_circle</span>
-                <span className="font-semibold">Yeni liste ekle</span>
-              </button>
-            </>
-          )}
-        </div>
+              </>
+            )}
+          </div>
+        </main>
       </div>
 
       {showAddCategoryModal && (

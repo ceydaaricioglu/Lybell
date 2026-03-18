@@ -32,6 +32,7 @@ const LABEL_KEYS: Record<string, string> = {
 export default function BottomNav({ currentView, onNavigate, darkMode = false, visibleTabs }: BottomNavProps) {
   const dark = darkMode;
   const { locale } = useLocale();
+  const BRAND = '#1A2332';
   const isActive = (view: string) => {
     if (view === 'profile') return currentView === 'settings' || currentView === 'profile';
     if (view === 'categories') return currentView === 'category' || currentView === 'categories';
@@ -51,8 +52,8 @@ export default function BottomNav({ currentView, onNavigate, darkMode = false, v
             <button
               key={id}
               onClick={() => onNavigate(id === 'profile' ? 'settings' : id)}
-              className={`flex flex-col items-center gap-1 transition-colors ${active ? 'text-primary' : 'text-slate-600 hover:text-primary'}`}
-              style={active ? { color: '#fb923c' } : undefined}
+              className={`flex flex-col items-center gap-1 transition-colors ${active ? 'text-[#1A2332]' : 'text-slate-600 hover:text-[#1A2332]'}`}
+              style={active ? { color: BRAND } : undefined}
               aria-label={label}
               aria-current={active ? 'page' : undefined}
             >

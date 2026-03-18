@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { UserProfile } from '@cursor-deneme/shared';
-import { getProfile, saveProfile } from '@cursor-deneme/shared';
+import { getProfile, saveProfile, supabase } from '@cursor-deneme/shared';
 import { useToast } from '@/components/Toast';
 
 interface ProfileViewProps {
@@ -25,11 +25,42 @@ export default function ProfileView({ userId, darkMode = false, onBack }: Profil
     (async () => {
       const p = await getProfile(userId);
       if (!cancelled) {
-        setDisplayName(p.displayName ?? '');
-        setDateOfBirth(p.dateOfBirth ?? '');
-        setGender(p.gender ?? null);
+        // Profilden gelen değerler
+        let name = p.displayName ?? '';
+        const dob = p.dateOfBirth ?? '';
+        const g = p.gender ?? null;
+
+        // Eğer profile.displayName boşsa, Supabase kullanıcı meta bilgisinden ad/soyad çek
+        if (!name) {
+          try {
+            const { data } = await supabase.auth.getUser();
+            const user = data?.user;
+            const meta = (user?.user_metadata ?? {}) as Record<string, any>;
+            name =
+              (meta.full_name as string | undefined) ||
+              (meta.name as string | undefined) ||
+              (meta.first_name && meta.last_name ? `${meta.first_name} ${meta.last_name}` : '') ||
+              name;
+
+            // Eğer metadata'dan anlamlı bir isim bulduysak ve profilde yoksa, profili de güncelle
+            if (name && !p.displayName) {
+              const updatedProfile: UserProfile = {
+                displayName: name,
+                dateOfBirth: dob || null,
+                gender: g || null,
+              };
+              await saveProfile(userId, updatedProfile);
+            }
+          } catch {
+            // sessizlik
+          }
+        }
+
+        setDisplayName(name);
+        setDateOfBirth(dob);
+        setGender(g);
+        setLoading(false);
       }
-      setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [userId]);
@@ -46,106 +77,137 @@ export default function ProfileView({ userId, darkMode = false, onBack }: Profil
     setSaving(false);
   };
 
-  const pageBg = dark ? '#221610' : '#f5f0ea';
-  const cardBg = dark ? '#2a1f1a' : undefined;
-  const cardBorder = dark ? '#3d2a1f' : undefined;
-  const inputBg = dark ? '#2a1f1a' : undefined;
-  const inputBorder = dark ? '#3d2a1f' : undefined;
+  const PRIMARY = '#1A2332';
+  const pageBg = dark ? '#0f172a' : '#F8FAFC';
 
   if (loading) {
     return (
-      <div className="flex flex-col flex-1 min-h-0 overflow-auto" style={{ backgroundColor: pageBg }}>
-        <div className="border-b px-5 py-5 border-stone-200" style={dark ? { borderColor: '#3d2a1f' } : undefined}>
-          <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 flex items-center gap-3">
-            <button type="button" onClick={onBack} className="p-2 -ml-2 rounded-xl hover:bg-white/10">
-              <svg className="w-5 h-5 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={dark ? { color: '#c4b8b0' } : undefined}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <h1 className="text-xl font-semibold text-stone-900" style={dark ? { color: '#f5f0ea' } : undefined}>Profil</h1>
+      <div className="flex flex-col flex-1 min-h-screen overflow-auto" style={{ backgroundColor: pageBg }}>
+        <div className="relative mx-auto w-full max-w-md flex-1 flex flex-col bg-white shadow-2xl overflow-hidden">
+          <header className="flex items-center justify-between p-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onBack}
+                className="p-2 rounded-full hover:bg-slate-100 text-slate-600"
+                aria-label="Geri"
+              >
+                <span className="material-symbols-outlined">arrow_back</span>
+              </button>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">Profil</h1>
+            </div>
+          </header>
+          <div className="flex-1 flex items-center justify-center">
+            <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
           </div>
-        </div>
-        <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 px-5 py-8">
-          <div className="h-24 rounded-2xl animate-pulse bg-stone-200" style={dark ? { backgroundColor: '#2a1f1a' } : undefined} />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-auto pb-24" style={{ backgroundColor: pageBg }}>
-      <div className="border-b px-5 py-5 border-stone-200" style={dark ? { borderColor: '#3d2a1f' } : undefined}>
-        <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onBack}
-            className="p-2 -ml-2 rounded-xl hover:bg-stone-200/80"
-            style={dark ? { color: '#c4b8b0' } : undefined}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={dark ? { color: '#c4b8b0' } : undefined}>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="text-xl font-semibold text-stone-900" style={dark ? { color: '#f5f0ea' } : undefined}>Profil</h1>
+    <div className="flex flex-col flex-1 min-h-screen overflow-auto" style={{ backgroundColor: pageBg }}>
+      <div className="relative mx-auto w-full max-w-md flex-1 flex flex-col bg-white shadow-2xl overflow-hidden">
+        {/* Header */}
+        <header className="flex items-center justify-between px-4 pt-10 pb-4 border-b border-slate-100 bg-white/95 backdrop-blur-md z-10">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onBack}
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-600"
+              aria-label="Geri"
+            >
+              <span className="material-symbols-outlined">arrow_back</span>
+            </button>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">Profil</h1>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.14em]">
+                Kullanıcı bilgileri
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="text-amber-500 font-semibold disabled:opacity-50"
+            className="px-4 py-2 rounded-full text-xs font-bold tracking-wide uppercase disabled:opacity-60"
+            style={{ backgroundColor: PRIMARY, color: '#ffffff' }}
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
-        </div>
-      </div>
+        </header>
 
-      <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 px-5 py-6 space-y-6">
-        <div
-          className="rounded-2xl overflow-hidden bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] border border-stone-100"
-          style={dark ? { backgroundColor: cardBg, borderColor: cardBorder } : undefined}
-        >
-          <div className="px-5 py-4 border-b border-stone-100" style={dark ? { borderColor: cardBorder } : undefined}>
-            <h2 className="text-sm font-medium text-stone-500" style={dark ? { color: '#b8a99e' } : undefined}>Kişisel bilgiler</h2>
-          </div>
-          <div className="p-5 space-y-5">
-            <div>
-              <label className="block text-sm font-medium mb-1.5 text-stone-600" style={dark ? { color: '#b8a99e' } : undefined}>Görünen ad</label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Adın veya takma adın"
-                className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white border-stone-200 text-stone-900 placeholder-stone-400"
-                style={dark ? { backgroundColor: inputBg, borderColor: inputBorder, color: '#f5f0ea' } : undefined}
-              />
+        {/* Content */}
+        <main className="flex-1 px-5 py-6 space-y-6 overflow-y-auto">
+          {/* Avatar + kısa info */}
+          <section className="flex items-center gap-4 mb-2">
+            <div
+              className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl font-semibold shadow-md"
+            >
+              {displayName?.trim()?.[0]?.toUpperCase() ?? 'K'}
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5 text-stone-600" style={dark ? { color: '#b8a99e' } : undefined}>Doğum tarihi</label>
-              <input
-                type="date"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white border-stone-200 text-stone-900"
-                style={dark ? { backgroundColor: inputBg, borderColor: inputBorder, color: '#f5f0ea' } : undefined}
-              />
-              <p className="mt-1 text-xs text-stone-400" style={dark ? { color: '#8a7d72' } : undefined}>İsteğe bağlı</p>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-slate-900">
+                {displayName || 'İsmini ekle'}
+              </span>
+              <span className="text-xs text-slate-400 mt-0.5">
+                Lybell hesabı
+              </span>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5 text-stone-600" style={dark ? { color: '#b8a99e' } : undefined}>Cinsiyet</label>
-              <select
-                value={gender ?? ''}
-                onChange={(e) => setGender((e.target.value || null) as UserProfile['gender'])}
-                className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white border-stone-200 text-stone-900"
-                style={dark ? { backgroundColor: inputBg, borderColor: inputBorder, color: '#f5f0ea' } : undefined}
-              >
-                <option value="">Belirtmek istemiyorum</option>
-                <option value="female">Kadın</option>
-                <option value="male">Erkek</option>
-                <option value="other">Diğer</option>
-              </select>
-              <p className="mt-1 text-xs text-stone-400" style={dark ? { color: '#8a7d72' } : undefined}>İsteğe bağlı</p>
+          </section>
+
+          {/* Kişisel bilgiler kartı */}
+          <section className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-5 space-y-4">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.16em]">
+              Kişisel Bilgiler
+            </h2>
+
+            <div className="space-y-4 pt-2">
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 text-slate-500 uppercase tracking-wide">
+                  Görünen ad
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="İsim Soyisim"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 text-slate-500 uppercase tracking-wide">
+                  Doğum tarihi
+                </label>
+                <input
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:ring-2 focus:ring-slate-900 focus:border-slate-900"
+                />
+                <p className="mt-1 text-[11px] text-slate-400">İsteğe bağlı</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 text-slate-500 uppercase tracking-wide">
+                  Cinsiyet
+                </label>
+                <select
+                  value={gender ?? ''}
+                  onChange={(e) => setGender((e.target.value || null) as UserProfile['gender'])}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:ring-2 focus:ring-slate-900 focus:border-slate-900"
+                >
+                  <option value="">Belirtmek istemiyorum</option>
+                  <option value="female">Kadın</option>
+                  <option value="male">Erkek</option>
+                  <option value="other">Diğer</option>
+                </select>
+                <p className="mt-1 text-[11px] text-slate-400">İsteğe bağlı</p>
+              </div>
             </div>
-          </div>
-        </div>
+          </section>
+        </main>
       </div>
     </div>
   );

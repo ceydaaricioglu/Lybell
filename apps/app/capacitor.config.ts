@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.cursordeneme.app',
-  appName: 'Todo App',
+  appName: 'Lybell',
   webDir: 'out'
 };
 

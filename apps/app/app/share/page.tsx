@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getSharedList, type SharedListResult } from '@cursor-deneme/shared';
+import { getSharedList, type SharedListResult, supabase } from '@cursor-deneme/shared';
 
 function ShareContent() {
   const searchParams = useSearchParams();
@@ -18,10 +18,20 @@ function ShareContent() {
       setLoading(false);
       return;
     }
-    getSharedList(token).then((result) => {
+    (async () => {
+      // Önce oturum var mı kontrol et
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      if (!session?.user) {
+        setData({ error: 'no_session' });
+        setLoading(false);
+        return;
+      }
+      // Oturum varsa paylaşılan listeyi getir
+      const result = await getSharedList(token);
       setData(result);
       setLoading(false);
-    });
+    })();
   }, [token]);
 
   if (loading) {
@@ -36,6 +46,32 @@ function ShareContent() {
   }
 
   if (!data || 'error' in data) {
+    if (data && 'error' in data && data.error === 'no_session') {
+      return (
+        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+          <div className="text-center max-w-sm">
+            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">
+              🔐
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 mb-2">
+              Bu listeyi görmek için Lybell hesabı gerekiyor
+            </h1>
+            <p className="text-slate-500 text-sm mb-6">
+              Liste sahibi bu içeriği sadece kayıtlı kullanıcılarla paylaşmayı tercih etmiş.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Link
+                href="/"
+                className="inline-block px-5 py-3 rounded-xl font-semibold bg-slate-900 text-white hover:bg-slate-800"
+              >
+                Giriş Yap / Kayıt Ol
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
         <div className="text-center max-w-sm">

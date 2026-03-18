@@ -22,16 +22,20 @@ const PRO_FEATURES: { feature: string; free: string; pro: string }[] = [
   { feature: 'Sınırsız görev & not', free: '50 görev', pro: '✓' },
   { feature: 'Tekrarlayan görevler (tam)', free: 'temel (gün/hafta/ay)', pro: '✓ (+ hafta içi)' },
   { feature: 'Hatırlatmalar', free: '1', pro: '2 + özel mesaj + özel zil' },
-  { feature: 'Özel temalar', free: '2 (açık/koyu)', pro: '✓ (ileride 40+)' },
-  { feature: 'Reklamsız', free: '✗', pro: '✓' },
   { feature: 'Görev şablonları', free: '✗', pro: '✓' },
   { feature: 'Geri sayım', free: '✗', pro: '✓' },
   { feature: 'Liste paylaşımı', free: '✗', pro: 'İleride' },
-  { feature: 'Takvim & senkron', free: 'okuma, 1–2 cihaz', pro: 'çift yön, 5+ cihaz' },
+  { feature: 'Takvim & senkron', free: 'okuma', pro: 'çift yön' },
   { feature: 'Sesle not ekleme', free: '✗', pro: '✓' },
   { feature: 'Eisenhower matrisi', free: '✗', pro: '✓' },
   { feature: 'Pomodoro', free: 'temel', pro: 'gelişmiş süreler' },
   { feature: 'Sekme özelleştirme', free: '✗', pro: '✓' },
+];
+
+const LATER_FEATURES: string[] = [
+  'Reklamsız deneyim',
+  'Daha fazla tema seçeneği',
+  'Gelişmiş çoklu cihaz desteği',
 ];
 
 const PLANS: { id: PlanId; labelKey: string; price: string; originalPrice?: string; subKey: string; badgeKey: string | null }[] = [
@@ -40,9 +44,10 @@ const PLANS: { id: PlanId; labelKey: string; price: string; originalPrice?: stri
   { id: 'lifetime', labelKey: 'pro.planLifetime', price: '₺149,99', originalPrice: '₺249,99', subKey: 'pro.planSubLifetime', badgeKey: 'pro.badgeRecommended' },
 ];
 
-const PRIMARY = '#f97316';
-const BG_LIGHT = '#fdfaf7';
-const BG_DARK = '#221610';
+// Lybell renk paleti
+const PRIMARY = '#1A2332';
+const BG_LIGHT = '#F8FAFC';
+const BG_DARK = '#0f172a';
 
 function isCheck(s: string) { return s === '✓'; }
 function isCross(s: string) { return s === '✗'; }
@@ -124,6 +129,26 @@ export default function ProUpgradeView({
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Daha sonra */}
+        <div className={`mt-4 rounded-xl border px-4 py-4 ${dark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className={`text-xs font-bold uppercase tracking-widest ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+              {locale === 'tr' ? 'Daha sonra' : 'Later'}
+            </h3>
+            <span className={`text-[10px] font-bold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+              {locale === 'tr' ? 'Planlandı' : 'Planned'}
+            </span>
+          </div>
+          <ul className="space-y-2">
+            {LATER_FEATURES.map((item) => (
+              <li key={item} className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-[18px]" style={{ color: PRIMARY }}>schedule</span>
+                <span className={`text-sm ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{item}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 

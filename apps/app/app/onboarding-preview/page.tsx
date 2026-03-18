@@ -8,7 +8,7 @@ export default function OnboardingPreviewPage() {
   const [darkMode, setDarkMode] = useState(false);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#F8FAFC]">
       {/* Önizleme çubuğu – sadece bu sayfada */}
       <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 bg-black/80 text-white text-sm">
         <span>Onboarding önizleme</span>
@@ -36,14 +36,14 @@ export default function OnboardingPreviewPage() {
           <OnboardingStep1
             onNext={() => setStep(2)}
             onSkip={() => (window.location.href = '/')}
-            darkMode={darkMode}
+            darkMode={false}
           />
         ) : (
           <OnboardingStep2
             onComplete={() => (window.location.href = '/')}
             onBack={() => setStep(1)}
             onSkip={() => (window.location.href = '/')}
-            darkMode={darkMode}
+            darkMode={false}
           />
         )}
       </div>

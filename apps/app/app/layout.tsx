@@ -39,19 +39,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
+      <head>
+        {/* Material Symbols – onboarding ikonları için */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0"
+        />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} antialiased safe-area-body font-sans min-h-screen bg-stone-300`}
+        className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} antialiased safe-area-body font-sans min-h-screen bg-[#F8FAFC]`}
         suppressHydrationWarning
       >
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
-          rel="stylesheet"
-        />
         <ErrorBoundary>
           <ToastProvider>
             {/* Tarayıcıda app boyutunda, ortada görünsün */}
-            <div className="h-dvh max-h-dvh flex justify-center">
-              <div className="w-full max-w-[412px] h-dvh max-h-dvh flex flex-col bg-[#fdfcfb] shadow-2xl relative overflow-hidden">
+            <div className="min-h-screen flex justify-center">
+              <div className="w-full max-w-[412px] min-h-screen bg-[#F8FAFC] relative overflow-x-hidden">
                 {children}
               </div>
             </div>

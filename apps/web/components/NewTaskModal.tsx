@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Category, TimelineTask } from '@cursor-deneme/shared';
 
-const PRIMARY = '#f97316';
+const PRIMARY = '#1A2332';
 
 interface NewTaskModalProps {
   open: boolean;
@@ -110,7 +110,7 @@ export default function NewTaskModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Örn. Yeni açılış sayfası tasarla"
-                className={`w-full rounded-lg border px-4 py-3 outline-none transition-all placeholder-slate-400 focus:ring-2 focus:ring-[#f97316]/20 focus:border-[#f97316] ${
+                className={`w-full rounded-lg border px-4 py-3 outline-none transition-all placeholder-slate-400 focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 ${
                   dark ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-900'
                 }`}
                 autoFocus
@@ -124,7 +124,7 @@ export default function NewTaskModal({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Bu görev hakkında daha fazla detay..."
                 rows={3}
-                className={`w-full rounded-lg border px-4 py-3 resize-none outline-none transition-all placeholder-slate-400 focus:ring-2 focus:ring-[#f97316]/20 focus:border-[#f97316] ${
+                className={`w-full rounded-lg border px-4 py-3 resize-none outline-none transition-all placeholder-slate-400 focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 ${
                   dark ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-900'
                 }`}
               />
@@ -137,7 +137,7 @@ export default function NewTaskModal({
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className={`w-full appearance-none rounded-lg border px-4 py-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-[#f97316]/20 focus:border-[#f97316] ${
+                    className={`w-full appearance-none rounded-lg border px-4 py-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 ${
                       dark ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-900'
                     }`}
                   >
@@ -165,7 +165,7 @@ export default function NewTaskModal({
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className={`w-full rounded-lg border px-4 py-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-[#f97316]/20 focus:border-[#f97316] ${
+                    className={`w-full rounded-lg border px-4 py-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 ${
                       dark ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-900'
                     }`}
                   />
@@ -200,13 +200,13 @@ export default function NewTaskModal({
                   onClick={() => setPriority('medium')}
                   className={`flex-1 flex items-center justify-center gap-2 rounded-lg border py-2 text-sm font-bold transition-colors ${
                     priority === 'medium'
-                      ? 'border-[#f97316] bg-[#f97316]/10 text-[#f97316]'
+                      ? 'border-slate-900 bg-slate-900/10 text-slate-900'
                       : dark
                         ? 'border-slate-700 hover:bg-slate-800 text-slate-300'
                         : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <span className="h-2 w-2 rounded-full bg-[#f97316]" />
+                  <span className="h-2 w-2 rounded-full bg-slate-900" />
                   Orta
                 </button>
                 <button

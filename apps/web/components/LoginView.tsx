@@ -3,6 +3,8 @@
 import { useState, useMemo } from 'react';
 import { supabase } from '@cursor-deneme/shared';
 import { saveProfile } from '@cursor-deneme/shared';
+import Modal from '@/components/Modal';
+import { PRIVACY_POLICY_TR, PRIVACY_POLICY_EN, TERMS_OF_USE_TR, TERMS_OF_USE_EN } from '@/lib/legalTexts';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -39,6 +41,29 @@ async function isPasswordPwned(password: string): Promise<boolean> {
   }
 }
 
+/** Metin içinde **kalın** ifadeleri <strong> ile render eder; paragraflar \n\n ile ayrılır. */
+function renderLegalText(text: string, dark: boolean) {
+  const textCls = dark ? 'text-zinc-300' : 'text-stone-600';
+  return text.split(/\n\n+/).map((para, i) => {
+    const parts = para.split(/(\*\*[\s\S]+?\*\*)/g);
+    return (
+      <p key={i} className={`text-sm ${textCls} mb-3 leading-relaxed`}>
+        {parts.map((segment, j) => {
+          const boldMatch = segment.match(/^\*\*([\s\S]+?)\*\*$/);
+          if (boldMatch) {
+            return (
+              <strong key={j} className={dark ? 'text-zinc-100' : 'text-stone-800'}>
+                {boldMatch[1]}
+              </strong>
+            );
+          }
+          return <span key={j}>{segment}</span>;
+        })}
+      </p>
+    );
+  });
+}
+
 interface LoginViewProps {
   onLogin: (userId: string) => void;
   onSkip: () => void;
@@ -58,6 +83,11 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const isTr = typeof navigator !== 'undefined' ? navigator.language.toLowerCase().startsWith('tr') : true;
+  const privacyText = isTr ? PRIVACY_POLICY_TR : PRIVACY_POLICY_EN;
+  const termsText = isTr ? TERMS_OF_USE_TR : TERMS_OF_USE_EN;
 
   const passwordStrength = useMemo(() => getPasswordStrength(password), [password]);
 
