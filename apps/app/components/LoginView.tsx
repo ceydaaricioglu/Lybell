@@ -71,6 +71,13 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
 
   const passwordStrength = useMemo(() => getPasswordStrength(password), [password]);
 
+  const getAuthCompleteUrl = (query?: string) => {
+    const base =
+      process.env.NEXT_PUBLIC_APP_BASE_URL ||
+      (typeof window !== 'undefined' ? window.location.origin : '');
+    return `${base}/auth/complete${query ? `?${query}` : ''}`;
+  };
+
   const switchTab = (signUp: boolean) => {
     setIsSignUp(signUp);
     setError(null);
@@ -135,6 +142,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
               first_name: fn || null,
               last_name: ln || null,
             },
+            emailRedirectTo: getAuthCompleteUrl('type=signup'),
           },
         });
         if (err) {
@@ -175,7 +183,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/` : undefined,
+          redirectTo: getAuthCompleteUrl('type=oauth&provider=google'),
         },
       });
       if (error) {
@@ -208,7 +216,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
     setError(null);
     try {
       const { error: err } = await supabase.auth.resetPasswordForEmail(trimmed, {
-        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/` : undefined,
+        redirectTo: getAuthCompleteUrl('type=recovery'),
       });
       if (err) {
         setError(normalizeAuthError(err.message));

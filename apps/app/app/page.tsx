@@ -27,6 +27,7 @@ import TasksView from '@/components/TasksView';
 import SettingsView from '@/components/SettingsView';
 import ProfileView from '@/components/ProfileView';
 import ProUpgradeView from '@/components/ProUpgradeView';
+import FirstTaskPromptView from '@/components/FirstTaskPromptView';
 import type { PlanId } from '@/components/ProUpgradeView';
 import BottomNav from '@/components/BottomNav';
 import PomodoroTimer from '@/components/PomodoroTimer';
@@ -38,7 +39,9 @@ const AUTH_CHECK_TIMEOUT_MS = 6000;
 
 export default function Home() {
   const [userId, setUserId] = useState<string>('');
-  const [currentView, setCurrentView] = useState<'login' | 'onboarding1' | 'onboarding2' | 'home' | 'category' | 'categories' | 'tasks' | 'calendar' | 'edit-task' | 'settings' | 'profile' | 'pro'>('login');
+  const [currentView, setCurrentView] = useState<
+    'login' | 'onboarding1' | 'onboarding2' | 'first-task' | 'home' | 'category' | 'categories' | 'tasks' | 'calendar' | 'edit-task' | 'settings' | 'profile' | 'pro'
+  >('login');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
   const [viewingDate, setViewingDate] = useState<string | undefined>(undefined);
@@ -284,7 +287,7 @@ export default function Home() {
 
   const handleOnboardingComplete = () => {
     localStorage.setItem(`onboarding_${userId}`, 'true');
-    setCurrentView('home');
+    setCurrentView('first-task');
   };
 
   const handleSaveTask = async (task: TimelineTask) => {
@@ -329,6 +332,21 @@ export default function Home() {
         onBack={() => setCurrentView('onboarding1')}
         onSkip={handleOnboardingComplete}
         darkMode={isDarkMode}
+      />
+    );
+  }
+
+  if (currentView === 'first-task') {
+    return (
+      <FirstTaskPromptView
+        onCreateFirstTask={() => {
+          setSelectedCategory('routines');
+          setEditingTask(null);
+          setViewingDate(undefined);
+          setReturnViewAfterEdit('home');
+          setCurrentView('edit-task');
+        }}
+        onLater={() => setCurrentView('home')}
       />
     );
   }
@@ -563,6 +581,7 @@ export default function Home() {
     return (
       <HomeView
         darkMode={isDarkMode}
+        isPro={isPro}
         onCategorySelect={(category) => {
           if (category === 'add-task') {
             setReturnViewAfterEdit('home');

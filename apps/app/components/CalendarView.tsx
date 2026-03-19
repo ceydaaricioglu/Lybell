@@ -213,7 +213,7 @@ export default function CalendarView({
 
   return (
     <div
-      className={`relative flex flex-col flex-1 min-h-0 overflow-auto pb-24 max-w-md mx-auto ${
+      className={`relative flex flex-col flex-1 min-h-0 overflow-auto pb-16 max-w-md mx-auto ${
         dark ? 'bg-background-dark text-slate-100' : 'bg-background-light text-slate-900'
       }`}
       style={{ backgroundColor: dark ? BG_DARK : BG_LIGHT }}
@@ -231,7 +231,7 @@ export default function CalendarView({
           >
             {MONTHS_TR[currentMonth]} {currentYear}
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+          <p className={`text-sm font-medium ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
             Bugün {todayStr}
           </p>
         </div>
@@ -239,14 +239,18 @@ export default function CalendarView({
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+            className={`flex items-center justify-center size-10 rounded-full ${
+              dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
+            }`}
             aria-label="Geri"
           >
             <span className="material-symbols-outlined">chevron_left</span>
           </button>
           <button
             type="button"
-            className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+            className={`flex items-center justify-center size-10 rounded-full ${
+              dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
+            }`}
             aria-label="Ara"
           >
             <span className="material-symbols-outlined">search</span>
@@ -257,29 +261,33 @@ export default function CalendarView({
       <main className="flex-1 px-4 space-y-6 min-h-0">
         {/* Takvim kartı */}
         <div
-          className={`rounded-3xl p-4 border bg-slate-50 dark:bg-slate-900/50 ${
-            dark ? 'border-slate-800' : 'border-slate-100'
+          className={`rounded-3xl p-4 border ${
+            dark ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-100'
           }`}
         >
           <div className="flex items-center justify-between mb-4 px-2">
             <button
               type="button"
               onClick={goToPreviousMonth}
-              className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
+              className={`p-2 rounded-full transition-colors ${
+                dark ? 'hover:bg-slate-800' : 'hover:bg-slate-200'
+              }`}
             >
-              <span className="material-symbols-outlined text-slate-600 dark:text-slate-400">
+              <span className={`material-symbols-outlined ${dark ? 'text-slate-400' : 'text-slate-600'}`}>
                 chevron_left
               </span>
             </button>
-            <span className="font-semibold text-primary dark:text-slate-200">
+            <span className={`font-semibold ${dark ? 'text-slate-200' : 'text-primary'}`}>
               {MONTHS_TR[currentMonth]}
             </span>
             <button
               type="button"
               onClick={goToNextMonth}
-              className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
+              className={`p-2 rounded-full transition-colors ${
+                dark ? 'hover:bg-slate-800' : 'hover:bg-slate-200'
+              }`}
             >
-              <span className="material-symbols-outlined text-slate-600 dark:text-slate-400">
+              <span className={`material-symbols-outlined ${dark ? 'text-slate-400' : 'text-slate-600'}`}>
                 chevron_right
               </span>
             </button>
@@ -346,42 +354,35 @@ export default function CalendarView({
                 {locale === 'tr' ? 'Google Takvim ile senkronize et' : 'Sync with Google Calendar'}
               </span>
             </div>
-            {isPro ? (
-              <a
-                href={getGoogleCalendarAuthUrl(userId) || '#'}
-                className="flex-shrink-0 py-2 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-70"
-                style={{ backgroundColor: PRIMARY, pointerEvents: googleLoading ? 'none' : undefined, opacity: googleLoading ? 0.7 : 1 }}
-              >
-                {googleLoading
-                  ? locale === 'tr'
-                    ? 'Kontrol ediliyor...'
-                    : 'Checking...'
-                  : locale === 'tr'
-                    ? 'Bağla'
-                    : 'Connect'}
-              </a>
-            ) : onOpenPro ? (
-              <button
-                type="button"
-                onClick={onOpenPro}
-                className="flex-shrink-0 py-2 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-70"
-                style={{ backgroundColor: ACCENT_ORANGE, opacity: googleLoading ? 0.7 : 1 }}
-                disabled={googleLoading}
-              >
-                {locale === 'tr' ? 'Pro ile Bağla' : 'Connect with Pro'}
-              </button>
-            ) : null}
+            {/* Free kullanıcı da Google Calendar'dan okumaları alabilsin (görev push'ı Pro'da). */}
+            <a
+              href={getGoogleCalendarAuthUrl(userId) || '#'}
+              className="flex-shrink-0 py-2 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-70"
+              style={{ backgroundColor: PRIMARY, pointerEvents: googleLoading ? 'none' : undefined, opacity: googleLoading ? 0.7 : 1 }}
+            >
+              {googleLoading
+                ? locale === 'tr'
+                  ? 'Kontrol ediliyor...'
+                  : 'Checking...'
+                : locale === 'tr'
+                  ? 'Bağla'
+                  : 'Connect'}
+            </a>
           </div>
         )}
 
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 px-1">{agendaLabel}</h3>
+          <h3 className={`text-lg font-bold ${dark ? 'text-slate-100' : 'text-slate-800'} px-1`}>
+            {agendaLabel}
+          </h3>
           {selectedDayTasks.length === 0 && selectedDayGoogleEvents.length === 0 ? (
             <div className={`rounded-xl p-6 border flex flex-col items-center text-center ${dark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
               <div className={`size-16 rounded-full flex items-center justify-center mb-4 ${dark ? 'bg-slate-800' : 'bg-slate-50'}`}>
                 <span className="material-symbols-outlined text-slate-300 text-3xl">task_alt</span>
               </div>
-              <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Henüz görev yok</h4>
+              <h4 className={`text-base font-semibold ${dark ? 'text-slate-100' : 'text-slate-900'}`}>
+                Henüz görev yok
+              </h4>
               <p className="text-sm text-slate-500 mt-1 mb-6">Bugün için planlanmış bir etkinliğiniz bulunmuyor.</p>
               <button
                 type="button"
@@ -425,7 +426,13 @@ export default function CalendarView({
                     key={event.id}
                     className={`w-full px-5 py-4 flex items-center gap-3 ${dark ? 'bg-blue-500/5' : 'bg-blue-50/50'}`}
                   >
-                    <span className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 font-bold text-[10px] bg-blue-200 dark:bg-blue-500/30 text-blue-700 dark:text-blue-400">g</span>
+                    <span
+                      className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 font-bold text-[10px] ${
+                        dark ? 'bg-blue-500/30 text-blue-400' : 'bg-blue-200 text-blue-700'
+                      }`}
+                    >
+                      g
+                    </span>
                     <div className="flex-1 min-w-0">
                       <div className={`font-medium truncate ${dark ? 'text-slate-100' : 'text-slate-900'}`}>{event.title}</div>
                       <div className={`text-xs mt-1 ${dark ? 'text-slate-500' : 'text-slate-500'}`}>
@@ -435,7 +442,7 @@ export default function CalendarView({
                   </div>
                 ))}
               </div>
-              <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+              <div className={`px-4 py-3 border-t ${dark ? 'border-slate-800' : 'border-slate-100'}`}>
                 <button
                   type="button"
                   onClick={handleAddTask}

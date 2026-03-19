@@ -10,7 +10,7 @@ interface OnboardingStep1Props {
 export function OnboardingStep1({ onNext, onSkip }: OnboardingStep1Props) {
   return (
     <div
-      className="onboarding-reset relative flex min-h-screen w-full flex-col max-w-md mx-auto px-6 pt-4 pb-4 font-display antialiased"
+      className="onboarding-reset relative flex min-h-screen w-full flex-col max-w-md mx-auto px-6 pt-4 pb-2 font-display antialiased"
       style={{ backgroundColor: '#F8FAFC', color: '#020617' }}
     >
       {/* Üst: Atla */}
@@ -74,7 +74,7 @@ export function OnboardingStep1({ onNext, onSkip }: OnboardingStep1Props) {
       </div>
 
       {/* Alt: İndikatör + buton */}
-      <div className="w-full flex flex-col gap-2.5 mt-6 pb-4">
+      <div className="w-full flex flex-col gap-2.5 mt-6 pb-2">
         <div className="flex justify-center gap-2">
           <div className="h-1.5 w-8 rounded-full" style={{ backgroundColor: '#020617' }} />
           <div className="h-1.5 w-2 rounded-full bg-slate-300" />
@@ -106,7 +106,7 @@ interface OnboardingStep2Props {
 export function OnboardingStep2({ onComplete, onBack, onSkip }: OnboardingStep2Props) {
   return (
     <div
-      className="onboarding-reset relative flex min-h-screen w-full flex-col items-center justify-start overflow-x-hidden font-display antialiased max-w-md mx-auto pb-8"
+      className="onboarding-reset relative flex min-h-screen w-full flex-col items-center justify-start overflow-x-hidden font-display antialiased max-w-md mx-auto pb-4"
       style={{ backgroundColor: '#F8FAFC', color: '#020617' }}
     >
       {/* Top Navigation */}

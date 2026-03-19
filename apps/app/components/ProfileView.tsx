@@ -184,7 +184,7 @@ export default function ProfileView({ userId, darkMode = false, onBack }: Profil
                   type="date"
                   value={dateOfBirth}
                   onChange={(e) => setDateOfBirth(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:ring-2 focus:ring-slate-900 focus:border-slate-900"
+                  className="w-full h-12 appearance-none px-4 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:ring-2 focus:ring-slate-900 focus:border-slate-900 leading-none"
                 />
                 <p className="mt-1 text-[11px] text-slate-400">İsteğe bağlı</p>
               </div>

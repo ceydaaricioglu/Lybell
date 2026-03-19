@@ -61,6 +61,23 @@ select:-webkit-autofill:focus {
   box-shadow: 0 0 0px 1000px #1f2937 inset;
 }
 
+/* iOS: native date input bazen Tailwind padding/line-height'i görmezden geliyor.
+   Doğum tarihi alanını diğer inputlarla hizalamak için WebKit edit parçalarına
+   küçük bir override ekliyoruz. */
+input[type='date']{
+  box-sizing: border-box;
+  line-height: 1.1;
+}
+input[type='date']::-webkit-datetime-edit,
+input[type='date']::-webkit-datetime-edit-text,
+input[type='date']::-webkit-datetime-edit-month-field,
+input[type='date']::-webkit-datetime-edit-day-field,
+input[type='date']::-webkit-datetime-edit-year-field{
+  padding-top: 0;
+  padding-bottom: 0;
+  margin: 0;
+}
+
 /* Z-index katmanları (üst üste binmeyi önlemek için):
    z-10: Sayfa içi overlay (menü kapatma), dropdown arka plan
    z-20: Dropdown / popover (menü içeriği)

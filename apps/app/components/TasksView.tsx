@@ -495,7 +495,7 @@ export default function TasksView({
         )}
 
         {/* Task list */}
-        <div className="flex-1 overflow-auto px-6 py-4 pb-32 space-y-6">
+        <div className="flex-1 overflow-auto px-6 py-4 pb-24 space-y-6">
           {activeTab === 'today' && (
                 <>
                   {overdueTasks.length > 0 && (
@@ -634,7 +634,7 @@ export default function TasksView({
         </div>
 
         {/* Floating Action Button - tasarımdaki yuvarlak FAB */}
-        <div className="absolute bottom-28 right-6 z-40">
+        <div className="fixed bottom-20 right-6 z-40 nav-safe-bottom">
           <button
             type="button"
             onClick={onAddTask}

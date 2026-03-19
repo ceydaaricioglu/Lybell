@@ -72,10 +72,8 @@ export const getMockCategories = (userId: string): Category[] => {
       return migrated;
     }
   }
-  return [
-    { id: 'routines', name: 'Rutinler', icon: 'cached', color: 'blue', userId },
-    { id: 'reading', name: 'Okuma Listesi', icon: 'auto_stories', color: 'purple', userId },
-  ];
+  // Yeni kullanıcı: sadece Rutinler ile başlasın (Okuma Listesi kullanıcı aksiyonuyla gelsin).
+  return [{ id: 'routines', name: 'Rutinler', icon: 'cached', color: 'blue', userId }];
 };
 
 export const saveMockCategories = (userId: string, categories: Category[]): void => {

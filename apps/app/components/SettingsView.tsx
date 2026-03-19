@@ -62,7 +62,14 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
   const [overdueReminder, setOverdueReminder] = useState(() => getOverdueReminderEnabled());
   const [overdueReminderTime, setOverdueReminderTime] = useState(() => getOverdueReminderTime());
   const [notificationSound, setNotificationSoundState] = useState<NotificationSound>(() => getNotificationSound());
-  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return localStorage.getItem(`displayName_${userId}`) ?? null;
+    } catch {
+      return null;
+    }
+  });
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
@@ -78,7 +85,52 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
   }, [isPro]);
 
   useEffect(() => {
-    getProfile(userId).then((p) => setDisplayName(p.displayName || null));
+    let cancelled = false;
+    (async () => {
+      if (!userId) return;
+      const cacheKey = `displayName_${userId}`;
+      // 1) Meta'dan (auth.getUser) ismi hızlı al: kullanıcı kartı gecikmesin.
+      if (!isMockUser(userId)) {
+        try {
+          const { data } = await supabase.auth.getUser();
+          const meta = (data?.user?.user_metadata ?? {}) as Record<string, any>;
+          const metaName =
+            (meta.full_name as string | undefined) ||
+            (meta.name as string | undefined) ||
+            (meta.first_name && meta.last_name ? `${meta.first_name} ${meta.last_name}` : '');
+          if (metaName && !cancelled) {
+            setDisplayName(metaName);
+            try {
+              localStorage.setItem(cacheKey, metaName);
+            } catch {
+              // noop
+            }
+          }
+        } catch {
+          // sessiz geç
+        }
+      }
+
+      // 2) Ardından profiles tablosundaki nihai değeri al.
+      try {
+        const p = await getProfile(userId);
+        if (cancelled) return;
+        const next = p.displayName || null;
+        setDisplayName(next);
+        try {
+          if (next) localStorage.setItem(cacheKey, next);
+          else localStorage.removeItem(cacheKey);
+        } catch {
+          // noop
+        }
+      } catch {
+        // sessiz geç
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   useEffect(() => {
@@ -308,7 +360,10 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
         </div>
 
         {/* User Profile Card */}
-        <div className="px-4 mt-4">
+        <div
+          className="px-4 sticky top-0 z-30 pt-4 pb-2"
+          style={{ backgroundColor: dark ? BG_DARK : BG_LIGHT }}
+        >
           <div className={`bg-white rounded-xl p-5 shadow-sm flex items-center justify-between border border-slate-100 ${onOpenProfile ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`} style={dark ? { backgroundColor: CARD_DARK, borderColor: BORDER_DARK } : undefined} onClick={onOpenProfile ? () => onOpenProfile() : undefined} role={onOpenProfile ? 'button' : undefined}>
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold border-2 shrink-0" style={{ backgroundColor: `${PRIMARY}1A`, color: PRIMARY, borderColor: `${PRIMARY}33` }}>
@@ -358,18 +413,14 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
                   <span className="material-symbols-outlined" style={{ color: PRIMARY }}>waving_hand</span>
                   <span className="text-sm font-medium text-slate-700" style={dark ? { color: TEXT_DARK } : undefined}>{locale === 'tr' ? 'Hoş geldin ekranı' : 'Welcome Screen'}</span>
                 </div>
-                <span className="relative flex h-6 w-11 items-center rounded-full shrink-0" style={{ backgroundColor: PRIMARY }}>
-                  <span className="absolute left-1 h-4 w-4 rounded-full bg-white shadow" style={{ left: '1.5rem' }} />
+                <span className="relative w-12 h-7 rounded-full flex items-center shrink-0" style={{ backgroundColor: PRIMARY }}>
+                  <span
+                    className="absolute top-0.5 w-6 h-6 rounded-full shadow-md transition-all duration-300 bg-white"
+                    style={{ left: '22px' }}
+                  />
                 </span>
               </button>
             )}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100" style={dark ? { borderColor: BORDER_DARK } : undefined}>
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined" style={{ color: PRIMARY }}>dark_mode</span>
-                <span className="text-sm font-medium text-slate-700" style={dark ? { color: TEXT_DARK } : undefined}>{t('settings.darkMode', locale)}</span>
-              </div>
-              <Toggle enabled={darkMode} onChange={() => onDarkModeChange?.(!darkMode)} />
-            </div>
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100" style={dark ? { borderColor: BORDER_DARK } : undefined}>
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined" style={{ color: PRIMARY }}>notifications_active</span>
@@ -555,7 +606,7 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
             <span className="material-symbols-outlined text-sm">logout</span>
             <span className="text-sm font-bold">{t('settings.logout', locale)}</span>
           </button>
-          <p className="text-[10px] text-slate-300 uppercase tracking-[0.2em] mt-4" style={dark ? { color: TEXT_MUTED } : undefined}>Nudge v2.4.0</p>
+          <p className="text-[10px] text-slate-300 uppercase tracking-[0.2em] mt-4" style={dark ? { color: TEXT_MUTED } : undefined}>Lybell v2.4.0</p>
         </div>
       </div>
 

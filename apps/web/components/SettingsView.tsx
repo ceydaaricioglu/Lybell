@@ -59,7 +59,14 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
   const [overdueReminder, setOverdueReminder] = useState(() => getOverdueReminderEnabled());
   const [overdueReminderTime, setOverdueReminderTime] = useState(() => getOverdueReminderTime());
   const [notificationSound, setNotificationSoundState] = useState<NotificationSound>(() => getNotificationSound());
-  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return localStorage.getItem(`displayName_${userId}`) ?? null;
+    } catch {
+      return null;
+    }
+  });
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
@@ -73,7 +80,53 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
   }, [isPro]);
 
   useEffect(() => {
-    getProfile(userId).then((p) => setDisplayName(p.displayName || null));
+    let cancelled = false;
+    (async () => {
+      if (!userId) return;
+      const cacheKey = `displayName_${userId}`;
+
+      // 1) Meta'dan (auth.getUser) ismi hızlı al: kullanıcı kartı gecikmesin.
+      if (!isMockUser(userId)) {
+        try {
+          const { data } = await supabase.auth.getUser();
+          const meta = (data?.user?.user_metadata ?? {}) as Record<string, any>;
+          const metaName =
+            (meta.full_name as string | undefined) ||
+            (meta.name as string | undefined) ||
+            (meta.first_name && meta.last_name ? `${meta.first_name} ${meta.last_name}` : '');
+          if (metaName && !cancelled) {
+            setDisplayName(metaName);
+            try {
+              localStorage.setItem(cacheKey, metaName);
+            } catch {
+              // noop
+            }
+          }
+        } catch {
+          // sessiz geç
+        }
+      }
+
+      // 2) Ardından profiles tablosundaki nihai değeri al.
+      try {
+        const p = await getProfile(userId);
+        if (cancelled) return;
+        const next = p.displayName || null;
+        setDisplayName(next);
+        try {
+          if (next) localStorage.setItem(cacheKey, next);
+          else localStorage.removeItem(cacheKey);
+        } catch {
+          // noop
+        }
+      } catch {
+        // sessiz geç
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   useEffect(() => {
@@ -310,39 +363,44 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
         {/* Profil - scroll target */}
         <div ref={profileRef} />
         {/* Profil Kartı – tıklanınca Profil ekranına gider */}
-        <button
-          type="button"
-          onClick={onOpenProfile}
-          className={`w-full rounded-xl p-5 text-left transition-all border shadow-sm hover:shadow-md ${
-            dark ? 'bg-slate-900 border-slate-800 hover:bg-slate-800/80' : 'bg-white border-slate-200 hover:bg-slate-50/80'
-          }`}
+        <div
+          className="sticky top-0 z-30"
+          style={{ backgroundColor: dark ? BG_DARK : BG_LIGHT, paddingTop: '1rem', paddingBottom: '0.5rem' }}
         >
-          <div className="flex items-center gap-4">
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold text-white"
-              style={{ backgroundColor: PRIMARY }}
-            >
-              {userInitial}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className={`text-base font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>
-                {userDisplayTitle}
-              </h2>
-              <p className={`text-sm truncate ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{userSubtitle}</p>
-              <span
-                className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${
-                  isMock ? (dark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600') : ''
-                }`}
-                style={!isMock ? { backgroundColor: `${PRIMARY}20`, color: PRIMARY } : undefined}
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            className={`w-full rounded-xl p-5 text-left transition-all border shadow-sm hover:shadow-md ${
+              dark ? 'bg-slate-900 border-slate-800 hover:bg-slate-800/80' : 'bg-white border-slate-200 hover:bg-slate-50/80'
+            }`}
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold text-white"
+                style={{ backgroundColor: PRIMARY }}
               >
-                {isMock ? 'Misafir' : 'Kayıtlı Hesap'}
-              </span>
+                {userInitial}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className={`text-base font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>
+                  {userDisplayTitle}
+                </h2>
+                <p className={`text-sm truncate ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{userSubtitle}</p>
+                <span
+                  className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${
+                    isMock ? (dark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600') : ''
+                  }`}
+                  style={!isMock ? { backgroundColor: `${PRIMARY}20`, color: PRIMARY } : undefined}
+                >
+                  {isMock ? 'Misafir' : 'Kayıtlı Hesap'}
+                </span>
+              </div>
+              <svg className={`w-5 h-5 flex-shrink-0 ${dark ? 'text-slate-500' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </div>
-            <svg className={`w-5 h-5 flex-shrink-0 ${dark ? 'text-slate-500' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </button>
+          </button>
+        </div>
 
         {/* Pro: üyeyse bilgi, değilse yükselt butonu */}
         {isPro ? (
@@ -419,17 +477,6 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
                 </svg>
               </button>
             )}
-            <div className={`flex items-center justify-between px-5 py-4 ${dark ? 'hover:bg-slate-800/50' : ''}`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${dark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                  <svg className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                </div>
-                <span className={`font-medium ${dark ? 'text-slate-100' : 'text-slate-900'}`}>{t('settings.darkMode', locale)}</span>
-              </div>
-              <Toggle enabled={darkMode} onChange={() => onDarkModeChange?.(!darkMode)} />
-            </div>
 
             <div className={`flex items-center justify-between px-5 py-4 ${dark ? 'hover:bg-slate-800/50' : ''}`}>
               <div className="flex items-center gap-3">

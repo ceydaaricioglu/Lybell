@@ -170,7 +170,21 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
           {/* Google Takvim'e aktar — her zaman göster (referans) */}
           <div className="mb-6 px-4 py-3 rounded-xl bg-slate-100 flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <p className="font-semibold text-slate-900">Google Takvim&apos;e aktar</p>
+              <p className="font-semibold text-slate-900 flex items-center gap-2">
+                <span>Google Takvim&apos;e aktar</span>
+                <span
+                  className="inline-flex items-center justify-center opacity-70"
+                  style={{ color: PRIMARY }}
+                  aria-label="Pro"
+                >
+                  <span
+                    className="material-symbols-outlined text-[14px] leading-none"
+                    style={{ fontVariationSettings: "'FILL' 0, 'wght' 400" }}
+                  >
+                    crown
+                  </span>
+                </span>
+              </p>
               <p className="text-xs text-slate-500 mt-0.5">
                 Bu listedeki görevler (işaretlenenler) Google Takvim&apos;de görünebilir
               </p>

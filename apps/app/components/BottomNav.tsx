@@ -18,7 +18,7 @@ const TAB_ICON_NAMES: Record<string, string> = {
   tasks: 'format_list_bulleted',
   calendar: 'calendar_today',
   categories: 'folder',
-  profile: 'person',
+  profile: 'settings',
 };
 
 const LABEL_KEYS: Record<string, string> = {
@@ -26,7 +26,7 @@ const LABEL_KEYS: Record<string, string> = {
   tasks: 'nav.tasks',
   calendar: 'nav.calendar',
   categories: 'nav.categories',
-  profile: 'nav.profile',
+  profile: 'nav.settings',
 };
 
 export default function BottomNav({ currentView, onNavigate, darkMode = false, visibleTabs }: BottomNavProps) {

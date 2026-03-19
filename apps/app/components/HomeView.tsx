@@ -11,6 +11,7 @@ const WEEKDAY_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'C
 
 interface HomeViewProps {
   darkMode?: boolean;
+  isPro?: boolean;
   onCategorySelect: (category: string) => void;
   userId: string;
   onViewAll: () => void;
@@ -24,20 +25,40 @@ interface HomeViewProps {
   categories?: Category[];
 }
 
-export default function HomeView({ darkMode = false, onCategorySelect, userId, onViewAll, onViewCalendar, onViewStats, onEditTask, onStartPomodoro, tasks: tasksFromParent, categories: categoriesFromParent }: HomeViewProps) {
+export default function HomeView({
+  darkMode = false,
+  isPro = false,
+  onCategorySelect,
+  userId,
+  onViewAll,
+  onViewCalendar,
+  onViewStats,
+  onEditTask,
+  onStartPomodoro,
+  tasks: tasksFromParent,
+  categories: categoriesFromParent,
+}: HomeViewProps) {
   const dark = darkMode;
   const [localCategories, setLocalCategories] = useState<Category[]>([]);
   const [localTasks, setLocalTasks] = useState<TimelineTask[]>([]);
   const [weekCompletedCount, setWeekCompletedCount] = useState<number>(0);
   const [myDayIds, setMyDayIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return localStorage.getItem(`displayName_${userId}`) ?? null;
+    } catch {
+      return null;
+    }
+  });
   const allTasks = tasksFromParent ?? localTasks;
   const categories = categoriesFromParent ?? localCategories;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const cacheKey = `displayName_${userId}`;
       // 1) Oturumdaki kullanıcı metadata'sından ismi hemen çek (çok hızlı, genelde local)
       try {
         const { data } = await supabase.auth.getUser();
@@ -47,8 +68,13 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
             (meta.full_name as string | undefined) ||
             (meta.name as string | undefined) ||
             (meta.first_name && meta.last_name ? `${meta.first_name} ${meta.last_name}` : '');
-          if (metaName && !displayName) {
+          if (metaName) {
             setDisplayName(metaName);
+            try {
+              localStorage.setItem(cacheKey, metaName);
+            } catch {
+              // noop
+            }
           }
         }
       } catch {
@@ -60,6 +86,11 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
         const p = await getProfile(userId);
         if (!cancelled && p.displayName) {
           setDisplayName(p.displayName);
+          try {
+            localStorage.setItem(cacheKey, p.displayName);
+          } catch {
+            // noop
+          }
         }
       } catch {
         // profil hatasını sessizce yut
@@ -160,12 +191,12 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
   const todayTotalCount = todayAllTasks.length;
   const todayProgressPct = todayTotalCount > 0 ? Math.round((todayCompletedCount / todayTotalCount) * 100) : 0;
 
-  const userInitial = (displayName && displayName.trim()[0]) ? displayName.trim()[0].toUpperCase() : 'K';
+  const firstName = displayName?.trim() ? displayName.trim().split(/\s+/)[0] : '';
   const dateLabel = `${currentDay} ${MONTHS_TR[currentMonth]}, ${WEEKDAY_TR[today.getDay()]}`;
 
   if (loading) {
     return (
-      <div className={`flex flex-col flex-1 min-h-0 overflow-auto pb-24 ${dark ? 'bg-[#221610]' : 'bg-[#f5f0ea]'}`}>
+      <div className={`flex flex-col flex-1 min-h-0 overflow-auto pb-16 ${dark ? 'bg-[#221610]' : 'bg-[#f5f0ea]'}`}>
         <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 px-4 md:px-0 pt-8 pb-4 min-w-0 overflow-x-hidden">
           <div className={dark ? 'h-px w-12 bg-amber-400/80 mb-5' : 'mb-6'}>
             <div className={`h-8 rounded w-48 mb-2 animate-pulse ${dark ? '' : 'bg-stone-200'}`} style={dark ? { backgroundColor: '#3d2a1f' } : undefined}></div>
@@ -192,23 +223,25 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
 
   // Hızlı kategori butonları için "Rutinler" ve "Okuma Listesi"ni bul
   const routinesCategory =
-    categories.find((c) => c.name.toLowerCase().includes('rutin')) ?? categories[0];
+    categories.find((c) => c.name.toLowerCase().includes('rutin')) ??
+    categories.find((c) => c.id === 'routines') ??
+    categories[0];
+  // Okuma Listesi yeni kullanıcıda yoksa kesinlikle fallback yapmayalım.
   const readingCategory =
-    categories.find((c) => c.name.toLowerCase().includes('okuma')) ?? categories[1] ?? categories[0];
+    categories.find((c) => c.name.toLowerCase().includes('okuma')) ??
+    categories.find((c) => c.id === 'reading') ??
+    null;
 
   return (
-    <div className={`flex flex-col flex-1 min-h-0 overflow-auto pb-24 ${bgLight} ${dark ? 'text-slate-100' : 'text-slate-900'}`}>
+    <div className={`flex flex-col flex-1 min-h-0 overflow-auto pb-16 ${bgLight} ${dark ? 'text-slate-100' : 'text-slate-900'}`}>
       <div className="w-full max-w-md mx-auto min-w-0 overflow-x-hidden">
         {/* Header */}
         <header className="px-6 pt-10 pb-6 bg-white/95 backdrop-blur-md sticky top-0 z-50 flex items-center justify-between border-b border-slate-100">
           <div className="flex items-center gap-4">
-            <div
-              className="w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center text-white font-semibold text-lg border-2 border-white shadow-sm"
-            >
-              {userInitial}
-            </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">Hoş geldin</h1>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                {firstName ? `Hoş geldin, ${firstName}` : 'Hoş geldin'}
+              </h1>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">
                 {headerDateLabel}
               </p>
@@ -236,7 +269,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
         </header>
 
         {/* Main content */}
-        <main className="flex-1 px-6 space-y-10 pb-32 pt-2">
+        <main className="flex-1 px-6 space-y-10 pb-8 pt-2">
           {/* Quick add */}
           <section className="mt-8">
             <div className="flex gap-3">
@@ -260,7 +293,9 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
             <button
               type="button"
               onClick={() => onCategorySelect('voice-add')}
-              className="mt-4 flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full text-slate-600 text-[13px] font-semibold hover:bg-slate-200 transition-colors"
+              disabled={!isPro}
+              className="mt-4 flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full text-[13px] font-semibold transition-colors"
+              style={!isPro ? { opacity: 0.55, cursor: 'not-allowed', color: '#9CA3AF' } : undefined}
             >
               <svg
                 className="h-4 w-4"
@@ -274,6 +309,20 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
                 />
               </svg>
               Sesle ekle
+              {!isPro && (
+                <span
+                  className="ml-1 inline-flex items-center justify-center opacity-70"
+                  style={{ color: primary }}
+                  aria-label="Pro"
+                >
+                  <span
+                    className="material-symbols-outlined text-[14px] leading-none"
+                    style={{ fontVariationSettings: "'FILL' 0, 'wght' 400" }}
+                  >
+                    crown
+                  </span>
+                </span>
+              )}
             </button>
           </section>
 
@@ -333,7 +382,7 @@ export default function HomeView({ darkMode = false, onCategorySelect, userId, o
 
           {/* Empty state when hiç görev yok */}
           {todayTasks.length === 0 && todayTotalCount === 0 && (
-            <section className="flex flex-col items-center justify-center py-16">
+            <section className="flex flex-col items-center justify-center py-6">
               <div className="w-40 h-40 bg-white rounded-full flex items-center justify-center mb-8 border border-slate-100 shadow-sm">
                 <div className="w-14 h-18 border-2 border-slate-200 rounded-lg relative flex items-center justify-center">
                   <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-7 h-3 bg-slate-200 rounded-t-md" />

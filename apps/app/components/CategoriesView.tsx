@@ -233,7 +233,7 @@ export default function CategoriesView({
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 px-1">Listelerim</h2>
 
             {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16">
+              <div className="flex flex-col items-center justify-center py-6">
                 <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 bg-white border border-slate-100">
                   <span className="material-symbols-outlined text-4xl text-slate-400">folder</span>
                 </div>
@@ -292,6 +292,17 @@ export default function CategoriesView({
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCategory(cat);
+                            setShowAddCategoryModal(true);
+                          }}
+                          className="text-slate-400 hover:text-slate-600 transition-colors"
+                          aria-label="Listeyi düzenle"
+                        >
+                          <span className="material-symbols-outlined">edit</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => onCategorySelect(cat.id)}

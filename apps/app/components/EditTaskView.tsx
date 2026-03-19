@@ -314,7 +314,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
           </button>
         </header>
 
-        <main className="flex-1 overflow-y-auto pb-24">
+        <main className="flex-1 overflow-y-auto pb-16">
           <div className="p-4 space-y-4">
           {/* Task Title Section */}
           <div className="flex flex-col gap-2">

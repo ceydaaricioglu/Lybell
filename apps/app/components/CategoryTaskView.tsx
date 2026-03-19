@@ -245,7 +245,7 @@ export default function CategoryTaskView({ category, onBack, userId, isPro = fal
         </div>
       </header>
 
-      <main className="flex-1 px-6 space-y-6 pb-32 pt-6">
+      <main className="flex-1 px-6 space-y-6 pb-16 pt-6">
         {/* Search */}
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
