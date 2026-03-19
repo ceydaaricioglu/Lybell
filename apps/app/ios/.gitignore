@@ -11,3 +11,7 @@ capacitor-cordova-ios-plugins
 # Generated Config files
 App/App/capacitor.config.json
 App/App/config.xml
+
+# Xcode caches (safe to regenerate; keeps workspace clean)
+App/App.xcodeproj/xcshareddata/
+App/App.xcodeproj/project.xcworkspace/xcshareddata/
