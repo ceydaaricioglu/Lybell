@@ -12,7 +12,8 @@ Deno.serve(async (req) => {
   const state = url.searchParams.get("state"); // userId
   const error = url.searchParams.get("error");
 
-  const appUrl = Deno.env.get("APP_URL") || "http://localhost:3000";
+  // Production: https://lybell.app — yerel deneme için Supabase’te APP_URL secret’ı (örn. http://localhost:3001) tanımlanabilir.
+  const appUrl = Deno.env.get("APP_URL") || "https://lybell.app";
   const redirectTo = `${appUrl}?google_calendar=callback`;
 
   if (error || !code || !state) {

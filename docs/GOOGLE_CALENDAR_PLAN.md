@@ -103,10 +103,10 @@ Takvim grid’inde **uygulama görevleri** ile **Google etkinlikleri** bir arada
 ```bash
 supabase secrets set GOOGLE_CLIENT_ID="..."
 supabase secrets set GOOGLE_CLIENT_SECRET="..."
-supabase secrets set APP_URL="https://your-app-domain.com"
+supabase secrets set APP_URL="https://lybell.app"
 ```
 
-- `APP_URL`: OAuth sonrası kullanıcının yönlendirileceği uygulama adresi (örn. production URL veya `http://localhost:3000` geliştirme için).
+- `APP_URL`: OAuth sonrası kullanıcının yönlendirileceği uygulama adresi. Production: `https://lybell.app`. Geliştirme: `http://localhost:3000` veya `3001` (Supabase secret ile).
 
 ### 5.3 Veritabanı
 

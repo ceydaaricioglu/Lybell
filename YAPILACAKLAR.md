@@ -1,5 +1,16 @@
 # Yapılacaklar ve Notlar
 
+## 🔧 Altyapı / domain geçişi (lybell.app)
+
+| # | Madde | Durum / not |
+|---|--------|-------------|
+| 1 | **E-posta SMTP testi** | Yeni hesap oluştur veya "Şifremi unuttum" dene. Mail **Lybell** adından ve **noreply@lybell.app** adresinden geliyorsa Resend + Supabase SMTP tamamdır. İlk işlerden biri. |
+| 2 | **E-posta şablonları – tasarım** | Supabase Email Templates temel düzenleme yapıldı. Sonrası: daha renkli, farklı tasarımlı, Lybell markasına uygun profesyonel e-posta şablonları hazırlamak. |
+| 3 | **Mobil deep link** | `lybell://` veya App ID scheme (`com.cursordeneme.app://`) – şu an kullanılmıyor; ileride native OAuth / external browser geri dönüşü için değerlendirilecek. Sonra detaylı konuşulacak. |
+| 4 | **Edge function deploy ve secrets** | Supabase CLI ile deploy, Project Settings → Edge Functions → Secrets. Son madde olarak detaylı konuşulacak. |
+
+---
+
 ## 📌 Yarın / sonra bakılacaklar (not alındı)
 
 | # | Madde | Not |

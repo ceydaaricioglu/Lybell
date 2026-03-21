@@ -128,7 +128,7 @@ Bunlar tarayıcıda görünmez; sadece sunucuda kullanılır.
 ```bash
 npx supabase secrets set GOOGLE_CLIENT_ID="Adım 4'teki Client ID"
 npx supabase secrets set GOOGLE_CLIENT_SECRET="Adım 4'teki Client Secret"
-npx supabase secrets set APP_URL="https://your-app-url.com"
+npx supabase secrets set APP_URL="https://lybell.app"
 ```
 
 - **APP_URL:** OAuth’tan sonra kullanıcının geri döneceği adres.
