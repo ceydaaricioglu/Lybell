@@ -4,7 +4,7 @@ import { useLocale } from '@/components/LocaleContext';
 import { t } from '@cursor-deneme/shared';
 import { DEFAULT_NAV_TABS } from '@cursor-deneme/shared';
 
-const PRIMARY = '#ec5b13';
+const PRIMARY = '#1A2332';
 
 const ICONS: Record<string, React.ReactNode> = {
   home: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />,
@@ -40,7 +40,7 @@ export default function WebSidebar({ currentView, onNavigate, darkMode = false, 
   const isActive = (view: string) => currentView === view || (view === 'categories' && (currentView === 'category' || currentView === 'categories'));
 
   const navBg = dark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200';
-  const activeBg = 'bg-[#ec5b13]/10 text-[#ec5b13]';
+  const activeBg = 'bg-[#1A2332]/10 text-[#1A2332]';
   const inactiveClass = dark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100';
 
   return (
@@ -117,8 +117,8 @@ export default function WebSidebar({ currentView, onNavigate, darkMode = false, 
       </nav>
       {!isPro && onOpenPro && (
         <div className="p-3 mt-auto">
-          <div className={`p-3 rounded-xl border ${dark ? 'bg-[#ec5b13]/10 border-[#ec5b13]/20' : 'bg-[#ec5b13]/5 border-[#ec5b13]/10'}`}>
-            <p className="text-[11px] font-semibold text-[#ec5b13] mb-0.5">{locale === 'tr' ? 'Pro\'ya Yükselt' : 'Upgrade to Pro'}</p>
+          <div className={`p-3 rounded-xl border ${dark ? 'bg-[#1A2332]/15 border-[#1A2332]/30' : 'bg-slate-100 border-slate-200'}`}>
+            <p className="text-[11px] font-semibold text-[#1A2332] dark:text-slate-200 mb-0.5">{locale === 'tr' ? 'Pro\'ya Yükselt' : 'Upgrade to Pro'}</p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-2">{locale === 'tr' ? 'Sınırsız proje ve daha fazlası.' : 'Get unlimited projects and AI insights.'}</p>
             <button
               type="button"

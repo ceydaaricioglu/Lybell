@@ -14,7 +14,8 @@ const COLOR_BOX_CLASS: Record<string, { box: string; icon: string }> = {
   blue: { box: 'bg-blue-50', icon: 'text-blue-500' },
   purple: { box: 'bg-purple-50', icon: 'text-purple-500' },
   pink: { box: 'bg-pink-50', icon: 'text-pink-500' },
-  orange: { box: 'bg-orange-50', icon: 'text-orange-500' },
+  slate: { box: 'bg-slate-100', icon: 'text-slate-600' },
+  orange: { box: 'bg-slate-100', icon: 'text-slate-600' },
   yellow: { box: 'bg-yellow-50', icon: 'text-yellow-600' },
   emerald: { box: 'bg-emerald-50', icon: 'text-emerald-500' },
 };
@@ -160,7 +161,7 @@ export default function CategoriesView({
     );
   }
 
-  const colorBox = (color: string) => COLOR_BOX_CLASS[color] ?? COLOR_BOX_CLASS.orange;
+  const colorBox = (color: string) => COLOR_BOX_CLASS[color] ?? COLOR_BOX_CLASS.slate;
 
   return (
     <div className="flex flex-col flex-1 min-h-screen overflow-auto" style={{ backgroundColor: pageBg }}>

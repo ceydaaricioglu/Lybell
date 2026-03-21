@@ -36,6 +36,7 @@ import { LocaleProvider } from '@/components/LocaleContext';
 import { DEFAULT_NAV_TABS, getVisibleNavTabs } from '@cursor-deneme/shared';
 
 const AUTH_CHECK_TIMEOUT_MS = 6000;
+const FORCE_ONBOARDING_PREFIX = 'force_onboarding_';
 
 export default function Home() {
   const [userId, setUserId] = useState<string>('');
@@ -48,6 +49,9 @@ export default function Home() {
   const [pomodoroTask, setPomodoroTask] = useState<TimelineTask | null>(null);
   /** Görev ekleme/düzenlemeden Geri veya Kaydet sonrası dönülecek ekran */
   const [returnViewAfterEdit, setReturnViewAfterEdit] = useState<'home' | 'tasks' | 'category' | 'categories' | 'calendar'>('home');
+  // Kategori detay ekranından (CategoryTaskView) "geri" ile çıkınca nereye dönülecek?
+  // Kullanıcı Home'dan mı girdi, yoksa Kategoriler listesinden mi?
+  const [returnViewAfterCategory, setReturnViewAfterCategory] = useState<'home' | 'categories'>('home');
   /** Takvimden seçilen gün; Görevler ekranında bu tarih vurgulanır */
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<string | undefined>(undefined);
   /** Karanlık mod (Ana Sayfa tasarımı Dark Refined olur) */
@@ -60,6 +64,20 @@ export default function Home() {
   const [deletingTaskIds, setDeletingTaskIds] = useState<Set<string>>(new Set());
   /** Merkezi görev listesi – ekranlar arası tek fetch, mutasyonlarda refresh */
   const [tasks, setTasks] = useState<TimelineTask[]>([]);
+  const resolveInitialView = useCallback((uid: string): 'home' | 'onboarding1' => {
+    const onboardingCompleted = localStorage.getItem(`onboarding_${uid}`);
+    if (onboardingCompleted === 'true') return 'home';
+
+    const forceOnboardingKey = `${FORCE_ONBOARDING_PREFIX}${uid}`;
+    const forceOnboarding = localStorage.getItem(forceOnboardingKey) === '1';
+    if (forceOnboarding) {
+      localStorage.removeItem(forceOnboardingKey);
+      return 'onboarding1';
+    }
+
+    if (uid.startsWith('mock-')) return 'onboarding1';
+    return 'home';
+  }, []);
   const loadTasks = useCallback(async () => {
     if (!userId) return;
     const list = await fetchTasksFromSupabase(userId);
@@ -82,6 +100,12 @@ export default function Home() {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('app_dark_mode') : null;
     setIsDarkMode(stored === 'true');
   }, []);
+
+  /** R0: Tailwind `dark:` varyantları `html.dark` ile çalışır (EditTaskView vb.) */
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.classList.toggle('dark', isDarkMode);
+  }, [isDarkMode]);
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('app_pro_mock') : null;
@@ -201,16 +225,14 @@ export default function Home() {
         if (fromGoogleCalendar) {
           setCurrentView('calendar');
         } else {
-          const onboardingCompleted = localStorage.getItem(`onboarding_${session.user.id}`);
-          setCurrentView(onboardingCompleted ? 'home' : 'onboarding1');
+          setCurrentView(resolveInitialView(session.user.id));
         }
       } else {
         setUserId('');
         const mockUserId = localStorage.getItem('mock_user_id');
         if (mockUserId) {
           setUserId(mockUserId);
-          const onboardingCompleted = localStorage.getItem(`onboarding_${mockUserId}`);
-          setCurrentView(onboardingCompleted ? 'home' : 'onboarding1');
+          setCurrentView(resolveInitialView(mockUserId));
         } else {
           setCurrentView('login');
         }
@@ -231,8 +253,7 @@ export default function Home() {
         const mockUserId = typeof window !== 'undefined' ? localStorage.getItem('mock_user_id') : null;
         if (mockUserId) {
           setUserId(mockUserId);
-          const onboardingCompleted = typeof window !== 'undefined' ? localStorage.getItem(`onboarding_${mockUserId}`) : null;
-          setCurrentView(onboardingCompleted ? 'home' : 'onboarding1');
+          setCurrentView(resolveInitialView(mockUserId));
         } else {
           setCurrentView('login');
         }
@@ -250,8 +271,7 @@ export default function Home() {
         else {
           setCurrentView((prev) => {
             if (prev === 'login') {
-              const onboardingCompleted = localStorage.getItem(`onboarding_${session.user.id}`);
-              return onboardingCompleted ? 'home' : 'onboarding1';
+              return resolveInitialView(session.user.id);
             }
             return prev;
           });
@@ -266,16 +286,11 @@ export default function Home() {
       clearTimeout(t);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [resolveInitialView]);
 
   const handleLogin = (newUserId: string) => {
     setUserId(newUserId);
-    const onboardingCompleted = localStorage.getItem(`onboarding_${newUserId}`);
-    if (onboardingCompleted) {
-      setCurrentView('home');
-    } else {
-      setCurrentView('onboarding1');
-    }
+    setCurrentView(resolveInitialView(newUserId));
   };
 
   const handleSkip = () => {
@@ -473,7 +488,7 @@ export default function Home() {
       return (
         <CategoryTaskView
           category={selectedCategory}
-          onBack={() => setCurrentView('home')}
+          onBack={() => setCurrentView(returnViewAfterCategory)}
           userId={userId}
           isPro={isPro}
           deletingTaskIds={deletingTaskIds}
@@ -568,6 +583,7 @@ export default function Home() {
           onBack={() => setCurrentView('home')}
           onCategorySelect={(category) => {
             setSelectedCategory(category);
+            setReturnViewAfterCategory('categories');
             setCurrentView('category');
           }}
           tasks={tasks}
@@ -591,6 +607,7 @@ export default function Home() {
             setCurrentView('categories');
           } else {
             setSelectedCategory(category);
+            setReturnViewAfterCategory('home');
             setCurrentView('category');
           }
         }}
@@ -613,7 +630,7 @@ export default function Home() {
 
   return (
     <LocaleProvider>
-      <div className="main-content-pad flex flex-col flex-1 min-h-screen bg-white">
+      <div className="main-content-pad flex flex-col flex-1 min-h-screen bg-white dark:bg-[#0f172a]">
         <div className="flex-1 min-h-0 flex flex-col">
           {renderCurrentView()}
         </div>

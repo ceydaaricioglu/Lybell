@@ -74,7 +74,7 @@ function QuadrantCard({
         className={`shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${dark ? 'border-zinc-500' : 'border-stone-400'}`}
         aria-label="Tamamla"
       >
-        {task.completed ? <span className="text-amber-500 text-xs">✓</span> : null}
+        {task.completed ? <span className="text-emerald-600 dark:text-emerald-400 text-xs">✓</span> : null}
       </button>
       <span className={`flex-1 text-sm truncate ${dark ? 'text-zinc-200' : 'text-stone-800'}`}>{task.title}</span>
     </div>
@@ -150,16 +150,16 @@ export default function EisenhowerView({
           {renderQuad(q1, dark ? 'bg-red-950/30' : 'bg-red-50', dark ? 'border-red-800' : 'border-red-200')}
         </div>
         <div>
-          <h3 className={`text-xs font-bold uppercase mb-2 ${dark ? 'text-amber-400' : 'text-amber-700'}`}>
+          <h3 className={`text-xs font-bold uppercase mb-2 ${dark ? 'text-indigo-300' : 'text-indigo-700'}`}>
             {quadrantLabel('q2')}
           </h3>
-          {renderQuad(q2, dark ? 'bg-amber-950/20' : 'bg-amber-50/60', dark ? 'border-amber-800' : 'border-amber-200')}
+          {renderQuad(q2, dark ? 'bg-indigo-950/30' : 'bg-indigo-50/80', dark ? 'border-indigo-800' : 'border-indigo-200')}
         </div>
         <div>
-          <h3 className={`text-xs font-bold uppercase mb-2 ${dark ? 'text-orange-400' : 'text-orange-600'}`}>
+          <h3 className={`text-xs font-bold uppercase mb-2 ${dark ? 'text-violet-300' : 'text-violet-700'}`}>
             {quadrantLabel('q3')}
           </h3>
-          {renderQuad(q3, dark ? 'bg-orange-950/20' : 'bg-orange-50/60', dark ? 'border-orange-800' : 'border-orange-200')}
+          {renderQuad(q3, dark ? 'bg-violet-950/25' : 'bg-violet-50/70', dark ? 'border-violet-800' : 'border-violet-200')}
         </div>
         <div>
           <h3 className={`text-xs font-bold uppercase mb-2 ${dark ? 'text-zinc-400' : 'text-stone-500'}`}>
@@ -171,7 +171,7 @@ export default function EisenhowerView({
       <button
         type="button"
         onClick={onAddTask}
-        className={`w-full py-3 rounded-xl font-medium text-sm ${dark ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
+        className={`w-full py-3 rounded-xl font-medium text-sm ${dark ? 'bg-slate-700/50 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-900 hover:bg-slate-200'}`}
       >
         + {locale === 'tr' ? 'Yeni görev' : 'New task'}
       </button>

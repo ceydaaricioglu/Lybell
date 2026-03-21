@@ -54,7 +54,7 @@ function getCategoryColor(categoryId: string | null | undefined, categories: Cat
 function getPriorityBadgeStyle(priority: 'high' | 'medium' | 'low' | null | undefined, dark: boolean) {
   if (priority === 'high') return dark ? 'bg-red-500/20 text-red-400' : 'bg-red-50 text-red-600';
   if (priority === 'low') return dark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600';
-  return dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-50 text-amber-700';
+  return dark ? 'bg-slate-500/20 text-slate-300' : 'bg-slate-100 text-slate-800';
 }
 
 function formatDueLabel(
@@ -230,7 +230,7 @@ export default function TasksView({
     return (
       <div className={`min-h-screen flex items-center justify-center ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
         <div className="text-center">
-          <div className={`w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4 ${dark ? 'border-zinc-700 border-t-amber-400/80' : 'border-stone-200 border-t-amber-500'}`} />
+          <div className={`w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4 ${dark ? 'border-zinc-700 border-t-slate-400' : 'border-stone-200 border-t-slate-800'}`} />
           <p className={dark ? 'text-zinc-500' : 'text-stone-500'}>{t('tasks.loading', locale)}</p>
         </div>
       </div>
@@ -242,7 +242,7 @@ export default function TasksView({
       className="flex flex-col flex-1 min-h-screen relative text-slate-900 dark:text-slate-100"
       style={{ backgroundColor: dark ? BG_DARK : '#FFFFFF' }}
     >
-      <div className="flex flex-col flex-1 min-h-screen max-w-md mx-auto w-full overflow-hidden bg-white">
+      <div className="flex flex-col flex-1 min-h-screen max-w-md mx-auto w-full overflow-hidden bg-white relative">
         {/* Header - yeni Görevler tasarımı */}
         <header className="px-6 pt-10 pb-6 bg-white/95 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between border-b border-slate-100">
           <div className="flex items-center gap-3">
@@ -633,15 +633,27 @@ export default function TasksView({
               )}
         </div>
 
-        {/* Floating Action Button - tasarımdaki yuvarlak FAB */}
-        <div className="fixed bottom-20 right-6 z-40 nav-safe-bottom">
-          <button
-            type="button"
-            onClick={onAddTask}
-            className="flex items-center justify-center rounded-full h-14 w-14 text-white shadow-xl shadow-slate-300 hover:scale-105 active:scale-95 transition-transform bg-slate-900"
-          >
-            <span className="material-symbols-outlined text-3xl">add</span>
-          </button>
+        {/* Floating Action Button (FAB) */}
+        {/* `fixed` + iç kolon hizası: FAB'ı sadece viewport'a göre değil, uygulama genişliğine göre konumlandırıyoruz. */}
+        <div className="fixed left-0 right-0 bottom-0 z-50 pointer-events-none">
+          <div className="max-w-md mx-auto relative pointer-events-none">
+            <div
+              className="absolute right-6 pointer-events-auto"
+              style={{ bottom: 'calc(4.5rem + max(env(safe-area-inset-bottom, 0px), 48px))' }}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAddTask();
+                }}
+                className="flex items-center justify-center rounded-full h-14 w-14 text-white shadow-xl shadow-slate-300 hover:scale-105 active:scale-95 transition-transform bg-slate-900 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-3xl">add</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -698,7 +710,7 @@ function TaskCard({
         onSelect();
       }}
       onKeyDown={(e) => e.key === 'Enter' && onSelect()}
-      className={'group flex items-center gap-4 p-4 rounded-xl border shadow-sm cursor-pointer transition-all ' + (dark ? 'bg-slate-800/60 border-slate-700 hover:border-amber-500/30' : 'bg-white border-slate-200 hover:border-amber-500/30')}
+      className={'group flex items-center gap-4 p-4 rounded-xl border shadow-sm cursor-pointer transition-all ' + (dark ? 'bg-slate-800/60 border-slate-700 hover:border-slate-500/40' : 'bg-white border-slate-200 hover:border-slate-400')}
     >
       <input
         type="checkbox"
@@ -707,7 +719,7 @@ function TaskCard({
           e.stopPropagation();
           onToggle();
         }}
-        className="w-5 h-5 rounded-full border-2 border-slate-300 text-amber-500 focus:ring-amber-500 flex-shrink-0"
+        className="w-5 h-5 rounded-full border-2 border-slate-300 text-slate-800 focus:ring-slate-500 flex-shrink-0"
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">

@@ -198,7 +198,7 @@ export default function PomodoroTimer({ task, userId, onClose, isPro = false }: 
             onClick={toggleTimer}
             className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105 active:scale-95 ${
               isRunning
-                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
+                ? 'bg-gradient-to-r from-slate-800 to-slate-900 text-white'
                 : isBreak
                 ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
                 : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white'

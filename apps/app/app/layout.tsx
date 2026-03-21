@@ -38,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr">
+    <html lang="tr" suppressHydrationWarning>
       <head>
         {/* Material Symbols – onboarding ikonları için */}
         <link
@@ -47,14 +47,14 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} antialiased safe-area-body font-sans min-h-screen bg-[#F8FAFC]`}
+        className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} antialiased safe-area-body font-sans min-h-screen bg-[#F8FAFC] dark:bg-[#0f172a] dark:text-slate-100`}
         suppressHydrationWarning
       >
         <ErrorBoundary>
           <ToastProvider>
             {/* Tarayıcıda app boyutunda, ortada görünsün */}
             <div className="min-h-screen flex justify-center">
-              <div className="w-full max-w-[412px] min-h-screen bg-[#F8FAFC] relative overflow-x-hidden">
+              <div className="w-full max-w-[412px] min-h-screen bg-[#F8FAFC] dark:bg-[#0f172a] relative overflow-x-hidden">
                 {children}
               </div>
             </div>

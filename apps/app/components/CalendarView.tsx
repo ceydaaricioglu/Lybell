@@ -10,7 +10,6 @@ import { useLocale } from '@/components/LocaleContext';
 
 // Lybell takvim paleti
 const PRIMARY = '#1e293b'; // deep navy
-const ACCENT_ORANGE = '#ec5b13';
 const BG_LIGHT = '#f8fafc';
 const BG_DARK = '#0f172a';
 const DAY_NAMES = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -240,7 +239,7 @@ export default function CalendarView({
             type="button"
             onClick={onBack}
             className={`flex items-center justify-center size-10 rounded-full ${
-              dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
+              dark ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'
             }`}
             aria-label="Geri"
           >
@@ -249,7 +248,7 @@ export default function CalendarView({
           <button
             type="button"
             className={`flex items-center justify-center size-10 rounded-full ${
-              dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
+              dark ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'
             }`}
             aria-label="Ara"
           >
@@ -262,7 +261,7 @@ export default function CalendarView({
         {/* Takvim kartı */}
         <div
           className={`rounded-3xl p-4 border ${
-            dark ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-100'
+            dark ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100 shadow-sm'
           }`}
         >
           <div className="flex items-center justify-between mb-4 px-2">
@@ -346,7 +345,7 @@ export default function CalendarView({
         {!isMock && !googleConnected && (
           <div
             className={`rounded-xl px-4 py-3 flex items-center justify-between gap-3 border ${dark ? 'border-[#3d2a1f]' : 'border-slate-200'}`}
-            style={dark ? { backgroundColor: '#2a1f1a' } : { backgroundColor: '#f8fafc' }}
+            style={dark ? { backgroundColor: '#2a1f1a' } : { backgroundColor: '#ffffff' }}
           >
             <div className="flex items-center gap-2 min-w-0">
               <span className="material-symbols-outlined text-lg flex-shrink-0" style={{ color: PRIMARY }}>event</span>
@@ -377,7 +376,7 @@ export default function CalendarView({
           </h3>
           {selectedDayTasks.length === 0 && selectedDayGoogleEvents.length === 0 ? (
             <div className={`rounded-xl p-6 border flex flex-col items-center text-center ${dark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-              <div className={`size-16 rounded-full flex items-center justify-center mb-4 ${dark ? 'bg-slate-800' : 'bg-slate-50'}`}>
+              <div className={`size-16 rounded-full flex items-center justify-center mb-4 ${dark ? 'bg-slate-800' : 'bg-white border border-slate-100'}`}>
                 <span className="material-symbols-outlined text-slate-300 text-3xl">task_alt</span>
               </div>
               <h4 className={`text-base font-semibold ${dark ? 'text-slate-100' : 'text-slate-900'}`}>

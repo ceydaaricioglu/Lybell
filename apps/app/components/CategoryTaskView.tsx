@@ -198,7 +198,7 @@ export default function CategoryTaskView({ category, onBack, userId, isPro = fal
   const progressOffset = circumference - (progressPercent / 100) * circumference;
 
   return (
-    <div className="flex flex-col flex-1 min-h-screen bg-[#F8FAFC]">
+    <div className="flex flex-col flex-1 min-h-screen bg-[#F8FAFC] relative">
       {/* Header */}
       <header className="px-6 pt-10 pb-6 bg-white/95 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between border-b border-slate-100">
         <div className="flex items-center gap-3 min-w-0">
@@ -245,7 +245,7 @@ export default function CategoryTaskView({ category, onBack, userId, isPro = fal
         </div>
       </header>
 
-      <main className="flex-1 px-6 space-y-6 pb-16 pt-6">
+      <main className="flex-1 px-6 space-y-6 pb-24 pt-6">
         {/* Search */}
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
@@ -348,6 +348,26 @@ export default function CategoryTaskView({ category, onBack, userId, isPro = fal
           </div>
         )}
       </main>
+
+      {/* Floating Action Button (FAB) */}
+      <div
+        className="absolute right-6 z-50 pointer-events-auto"
+        style={{ bottom: 'calc(4.5rem + max(env(safe-area-inset-bottom, 0px), 48px))' }}
+      >
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onAddTask?.(category);
+          }}
+          disabled={!onAddTask}
+          className="flex items-center justify-center rounded-full h-14 w-14 text-white shadow-xl shadow-slate-300 hover:scale-105 active:scale-95 transition-transform bg-slate-900 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+          aria-label={locale === 'tr' ? 'Görev Ekle' : 'Add task'}
+        >
+          <span className="material-symbols-outlined text-3xl">add</span>
+        </button>
+      </div>
     </div>
   );
 }

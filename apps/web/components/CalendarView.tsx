@@ -7,7 +7,7 @@ import { getCategoryColor, MONTHS_TR } from '@cursor-deneme/shared';
 import { supabase } from '@cursor-deneme/shared';
 import { getGoogleCalendarAuthUrl, getMonthRange, type GoogleCalendarEvent } from '@cursor-deneme/shared';
 
-const PRIMARY = '#ec5b13';
+const PRIMARY = '#1A2332';
 const DAY_NAMES = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
 interface CalendarViewProps {
@@ -221,7 +221,7 @@ export default function CalendarView({
   if (loading) {
     return (
       <div className={`flex h-screen items-center justify-center ${dark ? 'bg-[#221610]' : 'bg-[#f8f6f6]'}`}>
-        <div className={`w-12 h-12 border-4 rounded-full animate-spin ${dark ? 'border-slate-700 border-t-[#ec5b13]' : 'border-slate-200 border-t-[#ec5b13]'}`} />
+        <div className={`w-12 h-12 border-4 rounded-full animate-spin ${dark ? 'border-slate-700 border-t-[#1A2332]' : 'border-slate-200 border-t-[#1A2332]'}`} />
       </div>
     );
   }
@@ -262,7 +262,7 @@ export default function CalendarView({
           <button type="button" className="p-2 text-slate-500 hover:bg-slate-100 rounded-full hidden md:flex" aria-label="Bildirimler">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
           </button>
-          <div className="size-8 rounded-full bg-slate-300 flex items-center justify-center text-sm font-semibold text-slate-600 border-2 border-[#ec5b13]/20">?</div>
+          <div className="size-8 rounded-full bg-slate-300 flex items-center justify-center text-sm font-semibold text-slate-600 border-2 border-[#1A2332]/20">?</div>
         </div>
       </header>
 
@@ -297,10 +297,10 @@ export default function CalendarView({
                     type="button"
                     onClick={() => setSelectedDate(day.toString())}
                     className={`border-b border-r ${cellBorder} p-2 text-left group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors min-h-[80px] ${
-                      isToday ? 'bg-[#ec5b13]/5' : ''
-                    } ${isSelected ? 'ring-2 ring-[#ec5b13]/40 ring-inset' : ''}`}
+                      isToday ? 'bg-[#1A2332]/5' : ''
+                    } ${isSelected ? 'ring-2 ring-[#1A2332]/40 ring-inset' : ''}`}
                   >
-                    <span className={`text-sm font-medium block mb-1 ${isToday ? 'font-bold text-[#ec5b13]' : ''}`}>
+                    <span className={`text-sm font-medium block mb-1 ${isToday ? 'font-bold text-[#1A2332]' : ''}`}>
                       {day}
                       {isToday && ' Bugün'}
                     </span>
@@ -377,11 +377,11 @@ export default function CalendarView({
           {!isMock && !googleConnected && !googleLoading && (
             <div className="mt-4 flex flex-wrap items-center gap-2">
               {isPro ? (
-                <a href={getGoogleCalendarAuthUrl(userId) || '#'} className="text-xs font-semibold text-[#ec5b13] hover:underline">
+                <a href={getGoogleCalendarAuthUrl(userId) || '#'} className="text-xs font-semibold text-[#1A2332] hover:underline">
                   Google Takvim&apos;i Bağla
                 </a>
               ) : onOpenPro ? (
-                <button type="button" onClick={onOpenPro} className="text-xs font-semibold text-[#ec5b13] hover:underline">
+                <button type="button" onClick={onOpenPro} className="text-xs font-semibold text-[#1A2332] hover:underline">
                   Pro ile Google Takvim
                 </button>
               ) : null}
@@ -399,7 +399,7 @@ export default function CalendarView({
               ) : (
                 upcomingTasks.map(({ task, date, label }) => {
                   const cat = getCategoryById(task.category);
-                  const borderClass = cat && cat.color ? (CATEGORY_BORDER[cat.color] ?? 'border-l-[#ec5b13]') : 'border-l-[#ec5b13]';
+                  const borderClass = cat && cat.color ? (CATEGORY_BORDER[cat.color] ?? 'border-l-[#1A2332]') : 'border-l-[#1A2332]';
                   return (
                     <button
                       key={task.id ?? task.title + date}
@@ -408,7 +408,7 @@ export default function CalendarView({
                       className={`w-full p-4 rounded-xl shadow-sm border-l-4 text-left transition-colors hover:opacity-90 ${dark ? 'bg-slate-800' : 'bg-white'} ${borderClass}`}
                     >
                       <div className="flex justify-between items-start mb-1">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${cat ? getCategoryColor(cat.color).text : 'text-[#ec5b13]'}`}>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${cat ? getCategoryColor(cat.color).text : 'text-[#1A2332]'}`}>
                           {cat?.name ?? 'Görev'}
                         </span>
                         <span className="text-[10px] text-slate-400">{label}</span>
@@ -421,10 +421,10 @@ export default function CalendarView({
               )}
             </div>
           </div>
-          <div className="mt-auto p-4 rounded-2xl bg-[#ec5b13]/10 border border-[#ec5b13]/20">
+          <div className="mt-auto p-4 rounded-2xl bg-[#1A2332]/10 border border-[#1A2332]/20">
             <div className="flex items-center gap-3 mb-2">
-              <svg className="w-5 h-5 text-[#ec5b13]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-              <h4 className="text-sm font-bold text-[#ec5b13]">Verimlilik İpucu</h4>
+              <svg className="w-5 h-5 text-[#1A2332]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              <h4 className="text-sm font-bold text-[#1A2332]">Verimlilik İpucu</h4>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               Toplantıları salı günleri gruplayarak derin iş için daha fazla zaman açın.

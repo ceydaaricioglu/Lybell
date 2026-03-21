@@ -268,16 +268,16 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
   };
 
   const inputBase = dark
-    ? 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500'
-    : 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 bg-white border border-stone-200 text-stone-900 placeholder:text-stone-400';
+    ? 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500/40 focus:border-slate-500/40 bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500 dark:[color-scheme:dark]'
+    : 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-900/30 bg-white border border-stone-200 text-stone-900 placeholder:text-stone-400';
   const labelClass = dark ? 'block text-sm font-semibold text-zinc-400 mb-2' : 'block text-sm font-semibold text-stone-600 mb-2';
   const selectBtn = dark
     ? 'w-full px-4 py-4 rounded-xl text-left flex items-center justify-between border border-zinc-700 bg-zinc-900 hover:border-zinc-600 transition-all'
-    : 'w-full px-4 py-4 rounded-xl text-left flex items-center justify-between border border-stone-200 bg-white hover:border-amber-300 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] transition-all';
+    : 'w-full px-4 py-4 rounded-xl text-left flex items-center justify-between border border-stone-200 bg-white hover:border-slate-300 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] transition-all';
   const dropdownPanel = dark ? 'mt-2 border border-zinc-700 rounded-xl overflow-hidden bg-zinc-900' : 'mt-2 border border-stone-200 rounded-xl overflow-hidden bg-white shadow-[0_4px_16px_-4px_rgba(0,0,0,0.08)]';
 
   return (
-    <div className={`min-h-screen flex flex-col ${dark ? 'bg-[#0f0f0f]' : 'bg-[#f5f0ea]'}`}>
+    <div className={`min-h-screen flex flex-col ${dark ? 'bg-[#0f172a]' : 'bg-[#f8f6f6]'}`}>
       <header className="px-5 pt-6 pb-4">
         <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 flex items-center gap-4">
           <button onClick={onBack} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${dark ? 'hover:bg-zinc-800' : 'hover:bg-white/80'}`} aria-label="Geri">
@@ -336,7 +336,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                         else setSyncToGoogle(false);
                         setShowCategoryOptions(false);
                       }}
-                      className={`w-full px-4 py-4 text-left flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800' : 'border-stone-100 hover:bg-amber-50/50'}`}
+                      className={`w-full px-4 py-4 text-left flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800' : 'border-stone-100 hover:bg-slate-50/80'}`}
                     >
                       <span className="text-2xl">{cat.icon}</span>
                       <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>{cat.name}</div>
@@ -358,7 +358,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                 role="switch"
                 aria-checked={syncToGoogle}
                 onClick={() => setSyncToGoogle((v) => !v)}
-                className={`relative w-12 h-7 rounded-full transition-colors ${syncToGoogle ? (dark ? 'bg-amber-500' : 'bg-amber-500') : dark ? 'bg-zinc-600' : 'bg-stone-300'}`}
+                className={`relative w-12 h-7 rounded-full transition-colors ${syncToGoogle ? 'bg-[#1A2332]' : dark ? 'bg-zinc-600' : 'bg-stone-300'}`}
               >
                 <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${syncToGoogle ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
@@ -485,7 +485,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                       const a = new Audio(voiceNote);
                       a.play().catch(() => {});
                     }}
-                    className={`shrink-0 p-2 rounded-lg ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}`}
+                    className={`shrink-0 p-2 rounded-lg ${dark ? 'bg-slate-500/25 text-slate-200' : 'bg-slate-100 text-slate-800'}`}
                     title="Oynat"
                   >
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -572,14 +572,14 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                   <a
                     href={attachmentData}
                     download={attachmentName || 'ek'}
-                    className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}`}
+                    className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium ${dark ? 'bg-slate-500/25 text-slate-200' : 'bg-slate-100 text-slate-800'}`}
                   >
                     İndir
                   </a>
                 )}
               </div>
             ) : (
-              <label className={`flex items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-4 cursor-pointer transition-colors ${dark ? 'border-zinc-600 hover:border-amber-500/40 bg-zinc-900/40' : 'border-stone-200 hover:border-amber-300 bg-stone-50/50'}`}>
+              <label className={`flex items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-4 cursor-pointer transition-colors ${dark ? 'border-zinc-600 hover:border-slate-500/50 bg-zinc-900/40' : 'border-stone-200 hover:border-slate-300 bg-stone-50/50'}`}>
                 <input
                   type="file"
                   className="hidden"
@@ -642,9 +642,9 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                   { v: 'monthly' as const, l: '📅 Her ay' },
                   ...(isPro ? [{ v: 'weekdays' as const, l: '📆 Sadece hafta içi' }] : []),
                 ].map(({ v, l }) => (
-                  <button key={v} onClick={() => { setRecurrence(v); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-200' : 'border-stone-100 hover:bg-amber-50/50 text-stone-800'}`}>{l}</button>
+                  <button key={v} onClick={() => { setRecurrence(v); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-200' : 'border-stone-100 hover:bg-slate-50/80 text-stone-800'}`}>{l}</button>
                 ))}
-                <button onClick={() => { setRecurrence(null); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left ${dark ? 'hover:bg-zinc-800 text-zinc-500' : 'hover:bg-amber-50/50 text-stone-500'}`}>Tekrar yok</button>
+                <button onClick={() => { setRecurrence(null); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left ${dark ? 'hover:bg-zinc-800 text-zinc-500' : 'hover:bg-slate-50/80 text-stone-500'}`}>Tekrar yok</button>
               </div>
             )}
           </div>
@@ -795,7 +795,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                           setTags([...tags, tag.id]);
                         }
                       }}
-                      className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 ' : 'border-stone-100 '}${isSelected ? (dark ? 'bg-amber-500/20' : 'bg-amber-50') : (dark ? 'hover:bg-zinc-800' : 'hover:bg-amber-50/50')}`}
+                      className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 ' : 'border-stone-100 '}${isSelected ? (dark ? 'bg-slate-600/25' : 'bg-slate-100') : (dark ? 'hover:bg-zinc-800' : 'hover:bg-slate-50/80')}`}
                     >
                       <div className={`w-8 h-8 ${colors.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
                         <span className={`text-sm font-bold ${colors.text}`}>#</span>
@@ -804,7 +804,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                         <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>{tag.name}</div>
                       </div>
                       {isSelected && (
-                        <svg className={`w-5 h-5 flex-shrink-0 ${dark ? 'text-amber-400' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={`w-5 h-5 flex-shrink-0 ${dark ? 'text-slate-300' : 'text-slate-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
@@ -842,8 +842,8 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                       }}
                       className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                         subtask.completed
-                          ? (dark ? 'bg-amber-400/80 border-amber-400/80' : 'bg-amber-500 border-amber-500')
-                          : (dark ? 'border-zinc-600 hover:border-zinc-500' : 'border-stone-300 hover:border-amber-400')
+                          ? (dark ? 'bg-slate-500 border-slate-400' : 'bg-slate-800 border-slate-800')
+                          : (dark ? 'border-zinc-600 hover:border-zinc-500' : 'border-stone-300 hover:border-slate-500')
                       }`}
                     >
                       {subtask.completed && (
@@ -868,18 +868,18 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                 
                 {/* İlerleme Çubuğu */}
                 {subtasks.length > 0 && (
-                  <div className={`mt-3 p-3 rounded-xl border ${dark ? 'bg-zinc-800/60 border-zinc-700' : 'bg-amber-50/80 border-amber-100'}`}>
+                  <div className={`mt-3 p-3 rounded-xl border ${dark ? 'bg-zinc-800/60 border-zinc-700' : 'bg-slate-50 border-slate-200'}`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`text-xs font-semibold ${dark ? 'text-amber-400/90' : 'text-amber-700'}`}>
+                      <span className={`text-xs font-semibold ${dark ? 'text-slate-300' : 'text-slate-800'}`}>
                         {subtasks.filter(s => s.completed).length}/{subtasks.length} tamamlandı
                       </span>
-                      <span className={`text-xs font-bold ${dark ? 'text-amber-400' : 'text-amber-700'}`}>
+                      <span className={`text-xs font-bold ${dark ? 'text-slate-300' : 'text-slate-800'}`}>
                         %{Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100)}
                       </span>
                     </div>
-                    <div className={`w-full rounded-full h-2 ${dark ? 'bg-zinc-700' : 'bg-amber-200'}`}>
+                    <div className={`w-full rounded-full h-2 ${dark ? 'bg-zinc-700' : 'bg-slate-200'}`}>
                       <div
-                        className={`h-2 rounded-full transition-all duration-500 ${dark ? 'bg-amber-400/80' : 'bg-amber-500'}`}
+                        className={`h-2 rounded-full transition-all duration-500 ${dark ? 'bg-slate-500' : 'bg-slate-800'}`}
                         style={{ width: `${(subtasks.filter(s => s.completed).length / subtasks.length) * 100}%` }}
                       />
                     </div>
@@ -926,7 +926,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                   setNewSubtaskTitle('');
                 }}
                 disabled={!newSubtaskTitle.trim()}
-                className={`px-4 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white hover:bg-amber-700'}`}
+                className={`px-4 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dark ? 'bg-[#1A2332] text-white hover:bg-slate-800' : 'bg-[#1A2332] text-white hover:bg-slate-800'}`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -941,7 +941,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
           <button
             onClick={handleSave}
             disabled={!(title ?? '').trim() || (!effectiveCategory && !task)}
-            className={`w-full py-4 font-semibold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${dark ? 'bg-amber-500/90 text-black hover:bg-amber-400' : 'bg-amber-600 text-white shadow-lg hover:shadow-xl hover:bg-amber-700'}`}
+            className={`w-full py-4 font-semibold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${dark ? 'bg-[#1A2332] text-white shadow-lg hover:bg-slate-800' : 'bg-[#1A2332] text-white shadow-lg hover:shadow-xl hover:bg-slate-800'}`}
             aria-label={isNewTask ? 'Görevi oluştur' : 'Değişiklikleri kaydet'}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -978,7 +978,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
               <p className={`py-6 text-center text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Henüz şablon yok. Bir görevi &quot;Şablon olarak kaydet&quot; ile kaydedebilirsin.</p>
             ) : (
               templateList.map((t) => (
-                <button key={t.id} onClick={() => applyTemplate(t)} className={`w-full text-left px-4 py-3 rounded-xl mb-1 ${dark ? 'hover:bg-zinc-800 text-zinc-100' : 'hover:bg-amber-50 text-stone-900'}`}>
+                <button key={t.id} onClick={() => applyTemplate(t)} className={`w-full text-left px-4 py-3 rounded-xl mb-1 ${dark ? 'hover:bg-zinc-800 text-zinc-100' : 'hover:bg-slate-50 text-stone-900'}`}>
                   <span className="font-medium">{t.name}</span>
                   <span className={`block text-sm truncate ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{t.title}</span>
                 </button>
@@ -1001,7 +1001,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
           />
           <div className="flex gap-2">
             <button onClick={() => { setShowSaveAsTemplate(false); setTemplateName(''); }} className={`flex-1 py-3 rounded-xl font-medium ${dark ? 'bg-zinc-800 text-zinc-300' : 'bg-stone-100 text-stone-700'}`}>İptal</button>
-            <button onClick={handleSaveAsTemplate} className="flex-1 py-3 rounded-xl font-medium bg-amber-500 text-black hover:bg-amber-400">Kaydet</button>
+            <button onClick={handleSaveAsTemplate} className="flex-1 py-3 rounded-xl font-medium bg-[#1A2332] text-white hover:bg-slate-800">Kaydet</button>
           </div>
         </Modal>
       )}

@@ -15,7 +15,7 @@ const PRIMARY = '#1A2332';
 /** İkon id → pastel arka plan + metin rengi (referans tasarım) */
 const PASTEL_STYLES: { bg: string; text: string }[] = [
   { bg: '#fef2f2', text: '#ef4444' },
-  { bg: '#fff7ed', text: '#f97316' },
+  { bg: '#f1f5f9', text: '#334155' },
   { bg: '#f0fdf4', text: '#22c55e' },
   { bg: '#eff6ff', text: '#3b82f6' },
   { bg: '#f5f3ff', text: '#8b5cf6' },
@@ -77,7 +77,7 @@ export default function AddCategoryModal({ onClose, onSave, userId, category, da
         id: category?.id || `category-${Date.now()}`,
         name: categoryName.trim(),
         icon: selectedIcon,
-        color: category?.color || 'orange',
+        color: category?.color || 'slate',
         userId,
         syncToGoogle: isPro ? syncToGoogle : undefined,
       };

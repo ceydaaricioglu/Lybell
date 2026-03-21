@@ -122,8 +122,6 @@ export default function CategoryTaskView({ category, onBack, userId, isPro = fal
 
   const PRIMARY = '#2463eb';
   const BG_LIGHT = '#f6f6f8';
-  const ACCENT_ORANGE = '#f97316';
-  const ACCENT_YELLOW = '#eab308';
 
   const renderTaskCard = (task: TimelineTask, isInProgressColumn: boolean) => {
     const isOverdue = parseInt(task.date, 10) < currentDay && !task.completed;
@@ -325,7 +323,7 @@ export default function CategoryTaskView({ category, onBack, userId, isPro = fal
           </div>
           <div className="space-y-2">
             <div className="flex gap-3">
-              <div className="mt-1 w-1.5 h-1.5 rounded-full bg-[#f97316]" />
+              <div className="mt-1 w-1.5 h-1.5 rounded-full bg-[#1A2332]" />
               <p className="text-xs text-slate-600">
                 <span className="font-bold text-slate-900">{toDoTasks.length}</span> {t('project.tasksRemaining', locale)}
               </p>

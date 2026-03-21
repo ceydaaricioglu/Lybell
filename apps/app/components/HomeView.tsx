@@ -198,7 +198,7 @@ export default function HomeView({
     return (
       <div className={`flex flex-col flex-1 min-h-0 overflow-auto pb-16 ${dark ? 'bg-[#221610]' : 'bg-[#f5f0ea]'}`}>
         <div className="w-full max-w-md md:max-w-none mx-auto md:mx-0 px-4 md:px-0 pt-8 pb-4 min-w-0 overflow-x-hidden">
-          <div className={dark ? 'h-px w-12 bg-amber-400/80 mb-5' : 'mb-6'}>
+          <div className={dark ? 'h-px w-12 bg-slate-500/80 mb-5' : 'mb-6'}>
             <div className={`h-8 rounded w-48 mb-2 animate-pulse ${dark ? '' : 'bg-stone-200'}`} style={dark ? { backgroundColor: '#3d2a1f' } : undefined}></div>
             <div className={`h-4 rounded w-32 animate-pulse ${dark ? '' : 'bg-stone-100'}`} style={dark ? { backgroundColor: '#2a1f1a' } : undefined}></div>
           </div>

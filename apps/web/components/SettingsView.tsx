@@ -43,7 +43,7 @@ interface SettingsViewProps {
   onBack?: () => void;
 }
 
-const PRIMARY = '#ec5b13';
+const PRIMARY = '#1A2332';
 const BG_LIGHT = '#f8f6f6';
 const BG_DARK = '#221610';
 const NEUTRAL_LIGHT = '#e5e1df';
@@ -130,15 +130,34 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
   }, [userId]);
 
   useEffect(() => {
-    fetchTemplates(userId).then(setTemplates);
+    let cancelled = false;
+    fetchTemplates(userId)
+      .then((list) => {
+        if (!cancelled) setTemplates(list);
+      })
+      .catch((err: unknown) => {
+        if ((err as { name?: string })?.name === 'AbortError') return;
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   // Gerçek kullanıcı görünüyor ama Supabase oturumu yoksa state'i düzelt (girişe yönlendir)
   useEffect(() => {
     if (!userId || isMockUser(userId) || !onSessionLost) return;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) onSessionLost();
-    });
+    let cancelled = false;
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (!cancelled && !session) onSessionLost();
+      })
+      .catch((err: unknown) => {
+        if ((err as { name?: string })?.name === 'AbortError') return;
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [userId, onSessionLost]);
 
   const isMock = isMockUser(userId);
@@ -404,7 +423,7 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
 
         {/* Pro: üyeyse bilgi, değilse yükselt butonu */}
         {isPro ? (
-          <div className={`w-full rounded-xl p-5 text-left border ${dark ? 'bg-[#f97316]/10 border-[#f97316]/30' : 'bg-[#f97316]/5 border-[#f97316]/20'}`}>
+          <div className={`w-full rounded-xl p-5 text-left border ${dark ? 'bg-[#1A2332]/10 border-[#1A2332]/30' : 'bg-[#1A2332]/5 border-[#1A2332]/20'}`}>
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white" style={{ backgroundColor: PRIMARY }}>
                 <span className="text-2xl">👑</span>
@@ -432,7 +451,7 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
           <button
             type="button"
             onClick={onOpenPro}
-            className={`w-full rounded-xl p-5 text-left transition-all border shadow-sm hover:shadow-md ${dark ? 'bg-[#f97316]/10 border-[#f97316]/30 hover:bg-[#f97316]/15' : 'bg-[#f97316]/5 border-[#f97316]/20 hover:bg-[#f97316]/10'}`}
+            className={`w-full rounded-xl p-5 text-left transition-all border shadow-sm hover:shadow-md ${dark ? 'bg-[#1A2332]/10 border-[#1A2332]/30 hover:bg-[#1A2332]/15' : 'bg-[#1A2332]/5 border-[#1A2332]/20 hover:bg-[#1A2332]/10'}`}
           >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white" style={{ backgroundColor: PRIMARY }}>
@@ -720,7 +739,7 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
                 <div className="text-[10px] text-slate-500">Streak 🔥</div>
               </div>
             </div>
-            <div className={`rounded-lg p-3 ${dark ? 'bg-slate-800/80 border border-slate-700' : 'bg-[#f97316]/10 border border-[#f97316]/20'}`}>
+            <div className={`rounded-lg p-3 ${dark ? 'bg-slate-800/80 border border-slate-700' : 'bg-[#1A2332]/10 border border-[#1A2332]/20'}`}>
               <div className="flex items-center justify-between">
                 <span className={`text-sm font-medium ${dark ? 'text-slate-300' : 'text-slate-700'}`}>Toplam Odaklanma Süresi</span>
                 <span className="text-sm font-bold" style={{ color: PRIMARY }}>
@@ -846,8 +865,8 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
             </button>
             <button onClick={handleArchiveCompleted} className={`w-full flex items-center justify-between px-5 py-4 transition-colors ${dark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'}`}>
               <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${dark ? 'bg-slate-800' : 'bg-[#f97316]/10'}`}>
-                  <svg className="w-5 h-5" style={{ color: dark ? '#f97316' : PRIMARY }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${dark ? 'bg-slate-800' : 'bg-[#1A2332]/10'}`}>
+                  <svg className="w-5 h-5" style={{ color: PRIMARY }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                   </svg>
                 </div>

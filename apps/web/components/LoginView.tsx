@@ -1,12 +1,63 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { supabase } from '@cursor-deneme/shared';
 import { saveProfile } from '@cursor-deneme/shared';
 import Modal from '@/components/Modal';
 import { PRIVACY_POLICY_TR, PRIVACY_POLICY_EN, TERMS_OF_USE_TR, TERMS_OF_USE_EN } from '@/lib/legalTexts';
 
 const MIN_PASSWORD_LENGTH = 8;
+const AUTH_REQUEST_TIMEOUT_MS = 30000;
+const SIGN_IN_REQUEST_TIMEOUT_MS = 35000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const FORGOT_PASSWORD_MIN_INTERVAL_MS = 75_000;
+const FORGOT_PASSWORD_RATE_LIMIT_COOLDOWN_MS = 10 * 60 * 1000;
+const FORGOT_PASSWORD_RATE_LIMIT_KEY = 'forgot_password_rate_limit_until';
+
+function LybellAuthLogoBlock() {
+  return (
+    <img src="/lybell-mark.svg" alt="" width={72} height={72} className="block mb-4" />
+  );
+}
+
+function normalizeAuthError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes('email rate limit exceeded') || lower.includes('too many requests')) {
+    return 'Bu sefer istek reddedildi (sunucu hız sınırı). Aynı e-posta/IP için daha önceki denemeler de sayılır; 5–10 dk sonra tekrar dene. Hiç mail gelmediyse Supabase’te özel SMTP / şablon ayarlarını kontrol et; gelen kutusu ve spam’e de bak.';
+  }
+  return message;
+}
+
+function isRateLimitError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return lower.includes('email rate limit exceeded') || lower.includes('too many requests');
+}
+
+function formatWait(ms: number): string {
+  const totalSec = Math.max(1, Math.ceil(ms / 1000));
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (min === 0) return `${sec} saniye`;
+  if (sec === 0) return `${min} dakika`;
+  return `${min} dk ${sec} sn`;
+}
+
 
 /** Şifre gücü: uzunluk ve çeşitlilik (büyük/küçük/rakam/sembol) */
 function getPasswordStrength(p: string): 'weak' | 'medium' | 'strong' {
@@ -83,6 +134,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+  const lastForgotPasswordRequestAt = useRef<number>(0);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const isTr = typeof navigator !== 'undefined' ? navigator.language.toLowerCase().startsWith('tr') : true;
@@ -115,6 +167,10 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
       setError('Lütfen e-posta adresinizi girin');
       return;
     }
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      setError('Lütfen geçerli bir e-posta adresi girin');
+      return;
+    }
     if (!password.trim()) {
       setError('Lütfen şifrenizi girin');
       return;
@@ -140,33 +196,42 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
     setError(null);
     try {
       if (isSignUp) {
-        const { data, error: err } = await supabase.auth.signUp({
-          email: trimmedEmail,
-          password: password.trim(),
-          options: {
-            emailRedirectTo: getAuthCompleteUrl('type=signup'),
-          },
-        });
+        const { data, error: err } = await withTimeout(
+          supabase.auth.signUp({
+            email: trimmedEmail,
+            password: password.trim(),
+            options: {
+              emailRedirectTo: getAuthCompleteUrl('type=signup'),
+            },
+          }),
+          AUTH_REQUEST_TIMEOUT_MS,
+          'İstek zaman aşımına uğradı. Lütfen tekrar deneyin.',
+        );
         if (err) {
           setError(err.message);
-          setLoading(false);
           return;
         }
         const displayName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ') || null;
         if (data.user && data.session) {
           if (displayName) await saveProfile(data.user.id, { displayName });
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(`force_onboarding_${data.user.id}`, '1');
+          }
           onLogin(data.user.id);
         } else if (data.user && !data.session) {
           setError('Hesabınız oluşturuldu. E-postanıza gelen onay bağlantısına tıklayın (gelen kutusu ve spam klasörünü kontrol edin), sonra buradan giriş yapın.');
         }
       } else {
-        const { data, error: err } = await supabase.auth.signInWithPassword({
-          email: trimmedEmail,
-          password: password.trim(),
-        });
+        const { data, error: err } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email: trimmedEmail,
+            password: password.trim(),
+          }),
+          SIGN_IN_REQUEST_TIMEOUT_MS,
+          'Giriş isteği zaman aşımına uğradı. Lütfen internet bağlantını kontrol edip tekrar dene.',
+        );
         if (err) {
           setError(err.message);
-          setLoading(false);
           return;
         }
         if (data.user) {
@@ -174,9 +239,25 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
         }
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+      const message = err instanceof Error ? err.message : 'Bir hata oluştu';
+      if (message.toLowerCase().includes('zaman aşımı')) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          const existingUserId = data?.session?.user?.id;
+          if (existingUserId) {
+            onLogin(existingUserId);
+            return;
+          }
+        } catch {
+          // noop
+        }
+        setError('Giriş beklenenden uzun sürüyor. Lütfen birkaç saniye bekleyip tekrar dene.');
+        return;
+      }
+      setError(message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleGoogleLogin = async () => {
@@ -194,7 +275,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
         if (msg.includes('provider is not enabled') || msg.includes('Unsupported provider') || (msg.includes('validation_failed') && msg.includes('provider'))) {
           setError('Google ile giriş henüz ayarlanmadı. E-posta ve şifre ile giriş yapabilirsin.');
         } else {
-          setError(msg);
+          setError(normalizeAuthError(msg));
         }
         setLoading(false);
       }
@@ -203,7 +284,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
       if (msg.includes('provider is not enabled') || msg.includes('Unsupported provider') || (msg.includes('validation_failed') && msg.includes('provider'))) {
         setError('Google ile giriş henüz ayarlanmadı. E-posta ve şifre ile giriş yapabilirsin.');
       } else {
-        setError(msg);
+        setError(normalizeAuthError(msg));
       }
       setLoading(false);
     }
@@ -211,73 +292,135 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
 
   const handleForgotPassword = async () => {
     const trimmed = forgotEmail.trim();
+    const now = Date.now();
+
+    if (typeof window !== 'undefined') {
+      const rateLimitUntil = Number(localStorage.getItem(FORGOT_PASSWORD_RATE_LIMIT_KEY) || '0');
+      if (rateLimitUntil > now) {
+        setError(`Sunucu şu an yeni isteği kabul etmiyor. Lütfen ${formatWait(rateLimitUntil - now)} bekleyip tekrar dene.`);
+        return;
+      }
+    }
+
     if (!trimmed) {
       setError('Lütfen e-posta adresinizi girin');
+      return;
+    }
+    if (!EMAIL_REGEX.test(trimmed)) {
+      setError('Lütfen geçerli bir e-posta adresi girin');
+      return;
+    }
+    const elapsed = now - lastForgotPasswordRequestAt.current;
+    if (lastForgotPasswordRequestAt.current > 0 && elapsed < FORGOT_PASSWORD_MIN_INTERVAL_MS) {
+      const waitSec = Math.ceil((FORGOT_PASSWORD_MIN_INTERVAL_MS - elapsed) / 1000);
+      setError(
+        `Çok hızlı tekrar deniyorsun. Sunucu güvenliği için ${waitSec} saniye bekleyip tekrar dene. Mail gelmediyse spam klasörüne ve Supabase e-posta ayarlarına da bak.`,
+      );
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const { error: err } = await supabase.auth.resetPasswordForEmail(trimmed, {
-        redirectTo: getAuthCompleteUrl('type=recovery'),
-      });
+      const { error: err } = await withTimeout(
+        supabase.auth.resetPasswordForEmail(trimmed, {
+          redirectTo: getAuthCompleteUrl('type=recovery'),
+        }),
+        AUTH_REQUEST_TIMEOUT_MS,
+        'Şifre sıfırlama isteği zaman aşımına uğradı. Lütfen tekrar deneyin.',
+      );
       if (err) {
-        setError(err.message);
-        setLoading(false);
+        lastForgotPasswordRequestAt.current = Date.now();
+        if (isRateLimitError(err.message) && typeof window !== 'undefined') {
+          localStorage.setItem(
+            FORGOT_PASSWORD_RATE_LIMIT_KEY,
+            String(Date.now() + FORGOT_PASSWORD_RATE_LIMIT_COOLDOWN_MS),
+          );
+        }
+        setError(normalizeAuthError(err.message));
         return;
+      }
+      lastForgotPasswordRequestAt.current = Date.now();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(FORGOT_PASSWORD_RATE_LIMIT_KEY);
       }
       setForgotSent(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+      lastForgotPasswordRequestAt.current = Date.now();
+      const message = err instanceof Error ? err.message : 'Bir hata oluştu';
+      if (isRateLimitError(message) && typeof window !== 'undefined') {
+        localStorage.setItem(
+          FORGOT_PASSWORD_RATE_LIMIT_KEY,
+          String(Date.now() + FORGOT_PASSWORD_RATE_LIMIT_COOLDOWN_MS),
+        );
+      }
+      setError(normalizeAuthError(message));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (showForgotPassword) {
     return (
-      <div className={`min-h-screen ${dark ? 'bg-[#0f0f0f] text-zinc-100' : 'bg-[#f5f0ea] text-stone-800'}`}>
-        <div className="max-w-md mx-auto px-5 pt-6 pb-4">
-          <header className="mb-6">
-            <h1 className={dark ? 'text-xl font-semibold text-white' : 'text-xl font-semibold text-stone-800'}>Şifremi unuttum</h1>
-            <p className={dark ? 'text-sm text-zinc-500 mt-1' : 'text-stone-500 mt-1'}>
-              E-posta adresinizi girin, size şifre sıfırlama bağlantısı gönderelim.
-            </p>
-          </header>
-          <div className={`rounded-xl p-5 mb-4 ${dark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-stone-100'}`}>
+      <div
+        className="relative flex min-h-screen w-full flex-col bg-background-light font-display antialiased text-slate-900"
+        style={{ backgroundColor: '#f8f6f6' }}
+      >
+        <div className="flex flex-col items-center pt-10 pb-6 px-6">
+          <LybellAuthLogoBlock />
+          <h1 className="text-slate-900 text-3xl font-bold tracking-tight mb-1">Şifremi unuttum</h1>
+          <p className="text-slate-500 text-sm font-medium text-center">
+            E-posta adresinizi girin, size sıfırlama bağlantısı gönderelim.
+          </p>
+        </div>
+
+        <div className="px-6">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
             {forgotSent ? (
-              <p className={dark ? 'text-zinc-300' : 'text-stone-700'}>
-                E-posta gönderildi. Gelen kutunuzu ve <strong>spam</strong> klasörünü kontrol edin; bağlantıya tıklayarak şifrenizi sıfırlayabilirsiniz.
-              </p>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 p-3 text-sm space-y-2">
+                <p>
+                  İstek kabul edildi. Birkaç dakika içinde gelen kutunu ve <strong>spam / gereksiz</strong> klasörünü kontrol et.
+                </p>
+                <p className="text-emerald-900/90 text-xs leading-relaxed">
+                  Bu adresle kayıtlı hesap yoksa güvenlik için mail gönderilmez (ekranda yine başarı görünebilir). Hâlâ yoksa
+                  Supabase → Authentication → URL Configuration: <strong>Redirect URLs</strong> listesine{' '}
+                  <strong className="break-all">{getAuthCompleteUrl()}</strong> ekle; yerelde deniyorsan o ortamın{' '}
+                  <span className="whitespace-nowrap">/auth/complete</span> adresini de ekle. Gerekirse özel SMTP kullan.
+                </p>
+              </div>
             ) : (
               <>
-                <label className={`block text-sm font-medium mb-1.5 ${dark ? 'text-zinc-400' : 'text-stone-600'}`}>E-posta</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1">E-posta</label>
                 <input
                   type="email"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent mb-4 ${dark ? 'bg-zinc-800 border-zinc-600 text-white placeholder-zinc-500 focus:ring-amber-500' : 'bg-white border-stone-200 text-stone-900 placeholder-stone-400 focus:ring-amber-500'}`}
+                  className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                   placeholder="ornek@email.com"
                   disabled={loading}
                   autoComplete="email"
                 />
                 {error && (
-                  <div role="alert" className={`mb-4 p-3 rounded-xl text-sm ${dark ? 'bg-red-900/20 border border-red-800 text-red-400' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+                  <div role="alert" className="mt-4 p-3 rounded-xl text-sm bg-red-50 border border-red-200 text-red-700">
                     {error}
                   </div>
                 )}
-                <div className="flex gap-3">
+                <div className="mt-4 flex gap-3">
                   <button
                     type="button"
                     onClick={handleForgotPassword}
                     disabled={loading}
-                    className="flex-1 py-3.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50"
+                    className="flex-1 h-12 bg-primary text-white rounded-xl font-bold text-base shadow-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? 'Gönderiliyor...' : 'Gönder'}
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowForgotPassword(false); setError(null); setForgotSent(false); }}
-                    className={`py-3.5 px-4 rounded-xl font-semibold ${dark ? 'text-zinc-400 hover:bg-zinc-800' : 'text-stone-600 hover:bg-stone-100'}`}
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setError(null);
+                      setForgotSent(false);
+                    }}
+                    className="h-12 px-6 rounded-xl font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
                   >
                     Geri
                   </button>
@@ -294,13 +437,14 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
     <div className={`min-h-screen flex flex-col ${dark ? 'bg-[#0f0f0f] text-zinc-100' : 'bg-[#f5f0ea] text-stone-800'}`}>
       <div className="max-w-md mx-auto w-full px-4 pt-10 pb-6 flex-1 flex flex-col">
         {/* Ürün adı – minimal, Todoist tarzı */}
-        <header className="text-center mb-8">
-          <p className={`text-sm font-medium uppercase tracking-widest ${dark ? 'text-amber-400/90' : 'text-amber-600'}`}>
-            Görev & Takvim
-          </p>
-          <h1 className={`mt-2 text-2xl font-semibold tracking-tight ${dark ? 'text-white' : 'text-stone-900'}`}>
-            Hoş geldin
+        <header className="text-center mb-8 flex flex-col items-center">
+          <LybellAuthLogoBlock />
+          <h1 className={`text-2xl font-bold tracking-tight ${dark ? 'text-white' : 'text-stone-900'}`}>
+            Lybell
           </h1>
+          <p className={`text-sm font-medium uppercase tracking-widest mt-1 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+            Görev & takvim
+          </p>
           <p className={`text-sm mt-1 ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>
             Gününü kolayca planla
           </p>
@@ -314,9 +458,9 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
             <button
               type="button"
               onClick={() => switchTab(false)}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1A2332]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
                 !isSignUp
-                  ? dark ? 'bg-zinc-600 text-amber-400' : 'bg-white text-amber-600 shadow-sm'
+                  ? dark ? 'bg-zinc-700 text-white' : 'bg-white text-[#1A2332] shadow-sm'
                   : dark ? 'text-zinc-400 hover:text-zinc-200' : 'text-stone-600 hover:text-stone-700'
               }`}
             >
@@ -325,9 +469,9 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
             <button
               type="button"
               onClick={() => switchTab(true)}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1A2332]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
                 isSignUp
-                  ? dark ? 'bg-zinc-600 text-amber-400' : 'bg-white text-amber-600 shadow-sm'
+                  ? dark ? 'bg-zinc-700 text-white' : 'bg-white text-[#1A2332] shadow-sm'
                   : dark ? 'text-zinc-400 hover:text-zinc-200' : 'text-stone-600 hover:text-stone-700'
               }`}
             >
@@ -345,8 +489,8 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
                 onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
                 className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all mb-4 ${
                   dark
-                    ? 'bg-zinc-800 border-zinc-600 text-white placeholder-zinc-500 focus:ring-amber-500'
-                    : 'bg-white border-stone-200 text-stone-900 placeholder-stone-400 focus:ring-amber-500'
+                    ? 'bg-zinc-800 border-zinc-600 text-white placeholder-zinc-500 focus:ring-[#1A2332]/50'
+                    : 'bg-white border-stone-200 text-stone-900 placeholder-stone-400 focus:ring-[#1A2332]/50'
                 }`}
                 placeholder="Örn. Ceyda"
                 disabled={loading}
@@ -360,8 +504,8 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
                 onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
                 className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all mb-4 ${
                   dark
-                    ? 'bg-zinc-800 border-zinc-600 text-white placeholder-zinc-500 focus:ring-amber-500'
-                    : 'bg-white border-stone-200 text-stone-900 placeholder-stone-400 focus:ring-amber-500'
+                    ? 'bg-zinc-800 border-zinc-600 text-white placeholder-zinc-500 focus:ring-[#1A2332]/50'
+                    : 'bg-white border-stone-200 text-stone-900 placeholder-stone-400 focus:ring-[#1A2332]/50'
                 }`}
                 placeholder="Örn. Yılmaz"
                 disabled={loading}
@@ -378,8 +522,8 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
             onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
             className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all mb-4 ${
               dark
-                ? 'bg-zinc-800 border-zinc-600 text-white placeholder-zinc-500 focus:ring-amber-500'
-                : 'bg-white border-stone-200 text-stone-900 placeholder-stone-400 focus:ring-amber-500'
+                ? 'bg-zinc-800 border-zinc-600 text-white placeholder-zinc-500 focus:ring-[#1A2332]/50'
+                : 'bg-white border-stone-200 text-stone-900 placeholder-stone-400 focus:ring-[#1A2332]/50'
             }`}
             placeholder="ornek@email.com"
             disabled={loading}
@@ -394,8 +538,8 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
               onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
               className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
                 dark
-                  ? 'bg-zinc-800 border-zinc-600 text-white placeholder-zinc-500 focus:ring-amber-500'
-                  : 'bg-white border-stone-200 text-stone-900 placeholder-stone-400 focus:ring-amber-500'
+                  ? 'bg-zinc-800 border-zinc-600 text-white placeholder-zinc-500 focus:ring-[#1A2332]/50'
+                  : 'bg-white border-stone-200 text-stone-900 placeholder-stone-400 focus:ring-[#1A2332]/50'
               }`}
               placeholder="••••••••"
               disabled={loading}
@@ -405,7 +549,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${dark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700' : 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'}`}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1A2332]/50 ${dark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700' : 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'}`}
               aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
             >
               {showPassword ? (
@@ -423,11 +567,11 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
                   <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-stone-200 dark:bg-zinc-700">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        passwordStrength === 'weak' ? 'w-1/3 bg-red-500' : passwordStrength === 'medium' ? 'w-2/3 bg-amber-500' : 'w-full bg-emerald-500'
+                        passwordStrength === 'weak' ? 'w-1/3 bg-red-500' : passwordStrength === 'medium' ? 'w-2/3 bg-slate-500' : 'w-full bg-emerald-500'
                       }`}
                     />
                   </div>
-                  <span className={`text-xs font-medium ${passwordStrength === 'weak' ? 'text-red-500' : passwordStrength === 'medium' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  <span className={`text-xs font-medium ${passwordStrength === 'weak' ? 'text-red-500' : passwordStrength === 'medium' ? 'text-slate-600 dark:text-slate-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                     {passwordStrength === 'weak' ? 'Zayıf' : passwordStrength === 'medium' ? 'Orta' : 'Güçlü'}
                   </span>
                 </div>
@@ -438,7 +582,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
             <button
               type="button"
               onClick={() => { setShowForgotPassword(true); setError(null); }}
-              className={`text-sm mt-2 block ${dark ? 'text-amber-400 hover:text-amber-300' : 'text-amber-600 hover:text-amber-700'}`}
+              className={`text-sm mt-2 block ${dark ? 'text-slate-300 hover:text-white' : 'text-[#1A2332] hover:text-slate-800'}`}
             >
               Şifremi unuttum
             </button>
@@ -447,7 +591,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
             type="button"
             onClick={handleEmailSubmit}
             disabled={loading}
-            className="w-full mt-4 py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="w-full mt-4 py-3 bg-[#1A2332] hover:bg-slate-800 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1A2332]/50 focus-visible:ring-offset-2"
           >
             {loading ? (
               <>
@@ -472,10 +616,10 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
             type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
-            className={`w-full rounded-xl border p-3 text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 ${
+            className={`w-full rounded-xl border p-3 text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1A2332]/50 focus-visible:ring-offset-2 ${
               dark
-                ? 'bg-zinc-800 border-zinc-600 hover:border-amber-500/40 text-white'
-                : 'bg-white border-stone-200 hover:border-amber-200 text-stone-800'
+                ? 'bg-zinc-800 border-zinc-600 hover:border-slate-500/50 text-white'
+                : 'bg-white border-stone-200 hover:border-slate-300 text-stone-800'
             }`}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -498,7 +642,7 @@ export default function LoginView({ onLogin, onSkip, darkMode = false }: LoginVi
           <button
             type="button"
             onClick={onSkip}
-            className={`text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 rounded-lg px-2 py-1 ${
+            className={`text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1A2332]/50 focus-visible:ring-offset-2 rounded-lg px-2 py-1 ${
               dark ? 'text-zinc-400 hover:text-zinc-200' : 'text-stone-500 hover:text-stone-700'
             }`}
           >

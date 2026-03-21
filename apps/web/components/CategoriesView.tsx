@@ -9,7 +9,7 @@ import { canAddCategory } from '@cursor-deneme/shared';
 import AddCategoryModal from './AddCategoryModal';
 import Modal from './Modal';
 
-const PRIMARY = '#f97316';
+const PRIMARY = '#1A2332';
 
 interface CategoriesViewProps {
   userId: string;

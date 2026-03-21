@@ -101,30 +101,63 @@ export default function ProUpgradeView({
       {/* Feature Comparison */}
       <div className="px-6 py-4">
         <div className={`rounded-xl border overflow-hidden ${dark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <div className={`grid grid-cols-3 border-b p-4 ${dark ? 'bg-slate-800/50 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+          {/* Header (kolon genişlikleri satırlarla aynı olmalı ki kayma olmasın) */}
+          <div
+            className={`grid grid-cols-[1fr_86px_86px] border-b p-4 ${dark ? 'bg-slate-800/50 border-slate-800' : 'bg-slate-50 border-slate-200'}`}
+          >
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Özellik</div>
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 text-center">{locale === 'tr' ? 'Ücretsiz' : 'Free'}</div>
-            <div className="text-xs font-bold uppercase tracking-wider text-center" style={{ color: PRIMARY }}>Pro</div>
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 text-center">
+              {locale === 'tr' ? 'Ücretsiz' : 'Free'}
+            </div>
+            <div className="text-xs font-bold uppercase tracking-wider text-center" style={{ color: PRIMARY }}>
+              Pro
+            </div>
           </div>
+
           <div className={`divide-y max-h-[40vh] overflow-y-auto ${dark ? 'divide-slate-800' : 'divide-slate-100'}`}>
             {PRO_FEATURES.map((row, i) => (
-              <div key={i} className="flex justify-between items-center py-4 px-4">
-                <p className={`text-sm font-medium flex-1 min-w-0 pr-2 ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{row.feature}</p>
-                <div className="flex w-1/2 justify-around shrink-0">
-                  <span className="flex items-center justify-center min-w-[2rem]">
-                    {isCross(row.free) ? (
-                      <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-sm">remove</span>
-                    ) : (
-                      <span className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-500'}`}>{row.free}</span>
-                    )}
-                  </span>
-                  <span className="flex items-center justify-center min-w-[2rem]">
-                    {isCheck(row.pro) ? (
-                      <span className="material-symbols-outlined text-sm font-bold" style={{ color: PRIMARY }}>check_circle</span>
-                    ) : (
-                      <span className={`text-xs font-medium ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{row.pro}</span>
-                    )}
-                  </span>
+              <div
+                key={i}
+                className={`grid grid-cols-[1fr_86px_86px] items-center py-4 px-4 gap-2`}
+              >
+                <p
+                  className={`text-sm font-medium min-w-0 break-words leading-snug ${
+                    dark ? 'text-slate-300' : 'text-slate-700'
+                  }`}
+                >
+                  {row.feature}
+                </p>
+
+                {/* Free column */}
+                <div className="flex items-center justify-center">
+                  {isCross(row.free) ? (
+                    <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-sm">
+                      remove
+                    </span>
+                  ) : (
+                    <span
+                      className={`text-xs text-center leading-snug break-words ${dark ? 'text-slate-500' : 'text-slate-500'}`}
+                    >
+                      {row.free}
+                    </span>
+                  )}
+                </div>
+
+                {/* Pro column */}
+                <div className="flex items-center justify-center">
+                  {isCheck(row.pro) ? (
+                    <span className="material-symbols-outlined text-sm font-bold" style={{ color: PRIMARY }}>
+                      check_circle
+                    </span>
+                  ) : (
+                    <span
+                      className={`text-xs font-medium text-center leading-snug break-words ${
+                        dark ? 'text-slate-300' : 'text-slate-700'
+                      }`}
+                    >
+                      {row.pro}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

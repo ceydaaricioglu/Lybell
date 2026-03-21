@@ -38,9 +38,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr">
+    <html lang="tr" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} antialiased safe-area-body font-sans`}
+        className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} antialiased safe-area-body font-sans bg-white dark:bg-[#0f172a] dark:text-slate-100`}
       >
         <ErrorBoundary>
           <ToastProvider>

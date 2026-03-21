@@ -273,7 +273,6 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
 
   // Lybell renk paleti
   const PRIMARY = '#1A2332';
-  const ACCENT_ORANGE = '#1A2332';
   const inputBase = dark
     ? 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500/40 focus:border-slate-500/40 bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500'
     : 'w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-900/30 bg-white border border-stone-200 text-stone-900 placeholder:text-stone-400';
@@ -321,7 +320,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
             <label className="text-sm font-semibold text-slate-600 dark:text-slate-400 ml-1">Görev Başlığı</label>
             <div className="relative flex items-center">
               <input
-                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-4 pl-4 pr-12 text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 transition-all outline-none"
+                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-4 pl-4 pr-12 text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 dark:focus:ring-white/20 dark:focus:border-slate-500 transition-all outline-none"
                 placeholder="Görev adını girin..."
                 type="text"
                 value={title ?? ''}
@@ -331,7 +330,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
               {isPro && (
                 <button
                   type="button"
-                  className="absolute right-3 p-2 text-slate-400 hover:text-slate-900 transition-colors disabled:opacity-60"
+                  className="absolute right-3 p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors disabled:opacity-60"
                   onClick={() => {
                     const SpeechRecognitionAPI = typeof window !== 'undefined' && ((window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition);
                     if (!SpeechRecognitionAPI) { showToast(locale === 'tr' ? 'Tarayıcınız ses tanımayı desteklemiyor.' : 'Your browser does not support speech recognition.', 'error'); return; }
@@ -356,7 +355,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
           <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-slate-600 dark:text-slate-400 ml-1">Notlar</label>
             <textarea
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 transition-all outline-none resize-none"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 dark:focus:ring-white/20 dark:focus:border-slate-500 transition-all outline-none resize-none"
               placeholder="Görev detaylarını buraya yazın..."
               rows={4}
               value={description}
@@ -371,7 +370,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
               <div className="relative flex items-center">
                 <span className="material-symbols-outlined absolute left-3 text-slate-400">calendar_today</span>
                 <input
-                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white cursor-pointer"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white cursor-pointer dark:[color-scheme:dark]"
                   type="date"
                   value={dateValue}
                   onChange={(e) => { const day = e.target.value.split('-')[2]; setDate(parseInt(day, 10).toString()); }}
@@ -383,7 +382,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
               <div className="relative flex items-center">
                 <span className="material-symbols-outlined absolute left-3 text-slate-400">schedule</span>
                 <input
-                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white cursor-pointer"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-slate-900 dark:text-white cursor-pointer dark:[color-scheme:dark]"
                   type="time"
                   value={time ?? ''}
                   onChange={(e) => setTime(e.target.value || '08:00')}
@@ -431,7 +430,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                       <button
                         key={cat.id}
                         onClick={() => { setCategory(cat.id); if (cat.syncToGoogle) setSyncToGoogle(true); else setSyncToGoogle(false); setShowCategoryOptions(false); }}
-                        className={`w-full px-4 py-4 text-left flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800' : 'border-stone-100 hover:bg-amber-50/50'}`}
+                        className={`w-full px-4 py-4 text-left flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800' : 'border-stone-100 hover:bg-slate-50/80'}`}
                       >
                         <span className="text-2xl">{cat.icon}</span>
                         <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>{cat.name}</div>
@@ -559,7 +558,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                       const a = new Audio(voiceNote);
                       a.play().catch(() => {});
                     }}
-                    className={`shrink-0 p-2 rounded-lg ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}`}
+                    className={`shrink-0 p-2 rounded-lg ${dark ? 'bg-slate-500/25 text-slate-200' : 'bg-slate-100 text-slate-800'}`}
                     title="Oynat"
                   >
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -646,14 +645,14 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                   <a
                     href={attachmentData}
                     download={attachmentName || 'ek'}
-                    className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}`}
+                    className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium ${dark ? 'bg-slate-500/25 text-slate-200' : 'bg-slate-100 text-slate-800'}`}
                   >
                     İndir
                   </a>
                 )}
               </div>
             ) : (
-              <label className={`flex items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-4 cursor-pointer transition-colors ${dark ? 'border-zinc-600 hover:border-amber-500/40 bg-zinc-900/40' : 'border-stone-200 hover:border-amber-300 bg-stone-50/50'}`}>
+              <label className={`flex items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-4 cursor-pointer transition-colors ${dark ? 'border-zinc-600 hover:border-slate-500/50 bg-zinc-900/40' : 'border-stone-200 hover:border-slate-300 bg-stone-50/50'}`}>
                 <input
                   type="file"
                   className="hidden"
@@ -716,9 +715,9 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                   { v: 'monthly' as const, l: '📅 Her ay' },
                   ...(isPro ? [{ v: 'weekdays' as const, l: '📆 Sadece hafta içi' }] : []),
                 ].map(({ v, l }) => (
-                  <button key={v} onClick={() => { setRecurrence(v); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-200' : 'border-stone-100 hover:bg-amber-50/50 text-stone-800'}`}>{l}</button>
+                  <button key={v} onClick={() => { setRecurrence(v); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left border-b last:border-b-0 ${dark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-200' : 'border-stone-100 hover:bg-slate-50/80 text-stone-800'}`}>{l}</button>
                 ))}
-                <button onClick={() => { setRecurrence(null); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left ${dark ? 'hover:bg-zinc-800 text-zinc-500' : 'hover:bg-amber-50/50 text-stone-500'}`}>Tekrar yok</button>
+                <button onClick={() => { setRecurrence(null); setShowRecurrenceOptions(false); }} className={`w-full px-4 py-3 text-left ${dark ? 'hover:bg-zinc-800 text-zinc-500' : 'hover:bg-slate-50/80 text-stone-500'}`}>Tekrar yok</button>
               </div>
             )}
           </div>
@@ -869,7 +868,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                           setTags([...tags, tag.id]);
                         }
                       }}
-                      className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 ' : 'border-stone-100 '}${isSelected ? (dark ? 'bg-amber-500/20' : 'bg-amber-50') : (dark ? 'hover:bg-zinc-800' : 'hover:bg-amber-50/50')}`}
+                      className={`w-full px-4 py-3 text-left transition-colors flex items-center gap-3 border-b last:border-b-0 ${dark ? 'border-zinc-800 ' : 'border-stone-100 '}${isSelected ? (dark ? 'bg-slate-600/25' : 'bg-slate-100') : (dark ? 'hover:bg-zinc-800' : 'hover:bg-slate-50/80')}`}
                     >
                       <div className={`w-8 h-8 ${colors.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
                         <span className={`text-sm font-bold ${colors.text}`}>#</span>
@@ -878,7 +877,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                         <div className={dark ? 'font-semibold text-zinc-200' : 'font-semibold text-stone-900'}>{tag.name}</div>
                       </div>
                       {isSelected && (
-                        <svg className={`w-5 h-5 flex-shrink-0 ${dark ? 'text-amber-400' : 'text-amber-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={`w-5 h-5 flex-shrink-0 ${dark ? 'text-slate-300' : 'text-slate-700'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
@@ -916,8 +915,8 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                       }}
                       className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                         subtask.completed
-                          ? (dark ? 'bg-amber-400/80 border-amber-400/80' : 'bg-amber-500 border-amber-500')
-                          : (dark ? 'border-zinc-600 hover:border-zinc-500' : 'border-stone-300 hover:border-amber-400')
+                          ? (dark ? 'bg-slate-500 border-slate-400' : 'bg-slate-800 border-slate-800')
+                          : (dark ? 'border-zinc-600 hover:border-zinc-500' : 'border-stone-300 hover:border-slate-500')
                       }`}
                     >
                       {subtask.completed && (
@@ -942,18 +941,18 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                 
                 {/* İlerleme Çubuğu */}
                 {subtasks.length > 0 && (
-                  <div className={`mt-3 p-3 rounded-xl border ${dark ? 'bg-zinc-800/60 border-zinc-700' : 'bg-amber-50/80 border-amber-100'}`}>
+                  <div className={`mt-3 p-3 rounded-xl border ${dark ? 'bg-zinc-800/60 border-zinc-700' : 'bg-slate-50 border-slate-200'}`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`text-xs font-semibold ${dark ? 'text-amber-400/90' : 'text-amber-700'}`}>
+                      <span className={`text-xs font-semibold ${dark ? 'text-slate-300' : 'text-slate-800'}`}>
                         {subtasks.filter(s => s.completed).length}/{subtasks.length} tamamlandı
                       </span>
-                      <span className={`text-xs font-bold ${dark ? 'text-amber-400' : 'text-amber-700'}`}>
+                      <span className={`text-xs font-bold ${dark ? 'text-slate-300' : 'text-slate-800'}`}>
                         %{Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100)}
                       </span>
                     </div>
-                    <div className={`w-full rounded-full h-2 ${dark ? 'bg-zinc-700' : 'bg-amber-200'}`}>
+                    <div className={`w-full rounded-full h-2 ${dark ? 'bg-zinc-700' : 'bg-slate-200'}`}>
                       <div
-                        className={`h-2 rounded-full transition-all duration-500 ${dark ? 'bg-amber-400/80' : 'bg-amber-500'}`}
+                        className={`h-2 rounded-full transition-all duration-500 ${dark ? 'bg-slate-500' : 'bg-slate-800'}`}
                         style={{ width: `${(subtasks.filter(s => s.completed).length / subtasks.length) * 100}%` }}
                       />
                     </div>
@@ -1054,7 +1053,7 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
               <p className={`py-6 text-center text-sm ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>Henüz şablon yok. Bir görevi &quot;Şablon olarak kaydet&quot; ile kaydedebilirsin.</p>
             ) : (
               templateList.map((t) => (
-                <button key={t.id} onClick={() => applyTemplate(t)} className={`w-full text-left px-4 py-3 rounded-xl mb-1 ${dark ? 'hover:bg-zinc-800 text-zinc-100' : 'hover:bg-amber-50 text-stone-900'}`}>
+                <button key={t.id} onClick={() => applyTemplate(t)} className={`w-full text-left px-4 py-3 rounded-xl mb-1 ${dark ? 'hover:bg-zinc-800 text-zinc-100' : 'hover:bg-slate-50 text-stone-900'}`}>
                   <span className="font-medium">{t.name}</span>
                   <span className={`block text-sm truncate ${dark ? 'text-zinc-500' : 'text-stone-500'}`}>{t.title}</span>
                 </button>
@@ -1108,8 +1107,8 @@ export default function EditTaskView({ task, darkMode = false, isPro = false, on
                   onClick={handleDeleteThisOnly}
                   className={`w-full py-3.5 px-4 rounded-xl font-medium transition-all text-left flex items-center gap-3 ${dark ? 'bg-zinc-800 border border-zinc-700 text-zinc-200 hover:bg-zinc-700' : 'bg-white border-2 border-stone-200 text-stone-900 hover:bg-stone-50 hover:border-stone-300'}`}
                 >
-                  <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>

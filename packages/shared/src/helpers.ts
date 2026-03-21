@@ -110,17 +110,25 @@ export const deleteMockTemplate = (userId: string, templateId: string): void => 
 };
 
 export const fetchTemplates = async (userId: string): Promise<TaskTemplate[]> => {
+  if (!userId?.trim()) return [];
   if (isMockUser(userId)) {
     return getMockTemplates(userId);
   }
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session?.user?.id) return [];
+
     const { data, error } = await supabase
       .from('task_templates')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (error) {
-      console.error('Error fetching templates:', error);
+      const msg =
+        (error as any)?.message ||
+        (error as any)?.code ||
+        (typeof error === 'object' ? JSON.stringify(error) : String(error));
+      console.warn('fetchTemplates warning:', msg);
       return [];
     }
     return (data || []).map((row: any) => ({
@@ -137,7 +145,12 @@ export const fetchTemplates = async (userId: string): Promise<TaskTemplate[]> =>
       reminderAt: row.reminder_at ?? undefined,
     }));
   } catch (e) {
-    console.error('Error fetching templates:', e);
+    if ((e as any)?.name === 'AbortError') return [];
+    const msg =
+      (e as any)?.message ||
+      (e as any)?.code ||
+      (typeof e === 'object' ? JSON.stringify(e) : String(e));
+    console.warn('fetchTemplates warning:', msg);
     return [];
   }
 };
@@ -223,11 +236,19 @@ export const getSharedList = async (token: string): Promise<SharedListResult | {
 };
 
 export const fetchTasksFromSupabase = async (userId: string): Promise<TimelineTask[]> => {
+  if (!userId?.trim()) return [];
   if (isMockUser(userId)) {
     return getMockTasks(userId);
   }
   
   try {
+    // Auth geçiş anında session henüz hazır değilken yapılan query'ler boş/anon hata üretebiliyor.
+    // Session yoksa fetch denemeyip boş liste dönerek UI'de gereksiz hata overlay'ini engelleriz.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session?.user?.id) {
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
@@ -236,7 +257,11 @@ export const fetchTasksFromSupabase = async (userId: string): Promise<TimelineTa
       .order('time', { ascending: true });
 
     if (error) {
-      console.error('Error fetching tasks:', error);
+      const msg =
+        (error as any)?.message ||
+        (error as any)?.code ||
+        (typeof error === 'object' ? JSON.stringify(error) : String(error));
+      console.warn('fetchTasksFromSupabase warning:', msg);
       return [];
     }
 
@@ -265,7 +290,11 @@ export const fetchTasksFromSupabase = async (userId: string): Promise<TimelineTa
       googleEventId: task.google_event_id ?? undefined,
     }));
   } catch (error) {
-    console.error('Error fetching tasks:', error);
+    const msg =
+      (error as any)?.message ||
+      (error as any)?.code ||
+      (typeof error === 'object' ? JSON.stringify(error) : String(error));
+    console.warn('fetchTasksFromSupabase warning:', msg);
     return [];
   }
 };

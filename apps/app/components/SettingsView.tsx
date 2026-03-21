@@ -134,15 +134,34 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
   }, [userId]);
 
   useEffect(() => {
-    fetchTemplates(userId).then(setTemplates);
+    let cancelled = false;
+    fetchTemplates(userId)
+      .then((list) => {
+        if (!cancelled) setTemplates(list);
+      })
+      .catch((err: unknown) => {
+        if ((err as { name?: string })?.name === 'AbortError') return;
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   // Gerçek kullanıcı görünüyor ama Supabase oturumu yoksa state'i düzelt (girişe yönlendir)
   useEffect(() => {
     if (!userId || isMockUser(userId) || !onSessionLost) return;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) onSessionLost();
-    });
+    let cancelled = false;
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (!cancelled && !session) onSessionLost();
+      })
+      .catch((err: unknown) => {
+        if ((err as { name?: string })?.name === 'AbortError') return;
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [userId, onSessionLost]);
 
   const isMock = isMockUser(userId);
@@ -704,7 +723,7 @@ export default function SettingsView({ userId, onLogout, onSessionLost, darkMode
                 key={loc}
                 type="button"
                 onClick={() => { setLocale(loc); setShowLangModal(false); }}
-                className={`w-full py-3.5 rounded-xl font-medium transition-all text-left px-4 ${locale === loc ? (dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700') : (dark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-stone-100 text-stone-800 hover:bg-stone-200')}`}
+                className={`w-full py-3.5 rounded-xl font-medium transition-all text-left px-4 ${locale === loc ? (dark ? 'bg-slate-500/25 text-slate-200' : 'bg-slate-100 text-slate-900') : (dark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-stone-100 text-stone-800 hover:bg-stone-200')}`}
               >
                 {getLocaleLabel(loc)}
               </button>
