@@ -13,5 +13,9 @@ App/App/capacitor.config.json
 App/App/config.xml
 
 # Xcode caches (safe to regenerate; keeps workspace clean)
-App/App.xcodeproj/xcshareddata/
 App/App.xcodeproj/project.xcworkspace/xcshareddata/
+
+# Ignore xcshareddata except shared schemes (so "App" scheme exists)
+App/App.xcodeproj/xcshareddata/*
+!App/App.xcodeproj/xcshareddata/xcschemes/
+!App/App.xcodeproj/xcshareddata/xcschemes/*.xcscheme
