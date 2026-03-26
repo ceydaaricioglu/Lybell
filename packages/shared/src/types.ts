@@ -81,3 +81,24 @@ export interface UserProfile {
   dateOfBirth?: string | null; // YYYY-MM-DD
   gender?: 'female' | 'male' | 'other' | null;
 }
+
+export interface NoteFolder {
+  id: string;
+  userId: string;
+  name: string;
+  createdAt?: string;
+}
+
+export interface Note {
+  id: string;
+  userId: string;
+  folderId?: string | null;
+
+  title?: string | null;
+  content?: string | null;
+  transcript?: string | null;
+  audioUrl?: string | null;
+
+  createdAt?: string;
+  updatedAt?: string;
+}

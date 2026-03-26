@@ -1,4 +1,4 @@
-import { TimelineTask, Category, UserProfile, TaskTemplate } from './types';
+import { TimelineTask, Category, UserProfile, TaskTemplate, Note, NoteFolder } from './types';
 import { supabase } from './supabaseClient';
 import { taskToStartEnd } from './googleCalendar';
 
@@ -797,6 +797,218 @@ export function getTotalFocusTime(userId: string): number {
   const records = getPomodoroRecords(userId);
   return records.filter(r => r.type === 'work').reduce((sum, r) => sum + r.duration, 0);
 }
+
+// -----------------------------
+// Notlar (global)
+// -----------------------------
+
+function getMockNotesKey(userId: string) {
+  return `mock_notes_${userId}`;
+}
+
+function getMockFoldersKey(userId: string) {
+  return `mock_note_folders_${userId}`;
+}
+
+export function getMockNoteFolders(userId: string): NoteFolder[] {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(getMockFoldersKey(userId));
+  if (raw) return JSON.parse(raw) as NoteFolder[];
+
+  // İlk demo verisi (boş ekranda takılmamak için)
+  const folders: NoteFolder[] = [
+    { id: 'folder-1', userId, name: 'Genel', createdAt: new Date().toISOString() },
+    { id: 'folder-2', userId, name: 'Fikirler', createdAt: new Date().toISOString() },
+  ];
+  localStorage.setItem(getMockFoldersKey(userId), JSON.stringify(folders));
+  return folders;
+}
+
+export function getMockNotes(userId: string): Note[] {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(getMockNotesKey(userId));
+  if (!raw) return [];
+  return JSON.parse(raw) as Note[];
+}
+
+function saveMockNotes(userId: string, notes: Note[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(getMockNotesKey(userId), JSON.stringify(notes));
+}
+
+export async function createNoteToSupabase(
+  userId: string,
+  input: {
+    folderId?: string | null;
+    title?: string | null;
+    content: string;
+    transcript?: string | null;
+    audioUrl?: string | null;
+  }
+): Promise<string | null> {
+  if (isMockUser(userId)) {
+    const now = new Date().toISOString();
+    const newId =
+      typeof crypto !== 'undefined' && (crypto as any).randomUUID
+        ? (crypto as any).randomUUID()
+        : `note-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const note: Note = {
+      id: newId,
+      userId,
+      folderId: input.folderId ?? null,
+      title: input.title ?? null,
+      content: input.content,
+      transcript: input.transcript ?? null,
+      audioUrl: input.audioUrl ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const existing = getMockNotes(userId);
+    saveMockNotes(userId, [note, ...existing]);
+    return newId;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('notes')
+      .insert({
+        user_id: userId,
+        folder_id: input.folderId ?? null,
+        title: input.title ?? null,
+        content: input.content,
+        transcript: input.transcript ?? null,
+        audio_url: input.audioUrl ?? null,
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.warn('createNoteToSupabase warning:', (error as any)?.message || error);
+      return null;
+    }
+
+    return data?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateNoteToSupabase(
+  userId: string,
+  noteId: string,
+  input: {
+    folderId?: string | null;
+    title?: string | null;
+    content: string;
+    transcript?: string | null;
+    audioUrl?: string | null;
+  }
+): Promise<boolean> {
+  if (isMockUser(userId)) {
+    const existing = getMockNotes(userId);
+    const idx = existing.findIndex((n) => n.id === noteId);
+    if (idx < 0) return false;
+    const now = new Date().toISOString();
+    const next = [...existing];
+    next[idx] = {
+      ...next[idx],
+      folderId: input.folderId ?? next[idx].folderId ?? null,
+      title: input.title ?? next[idx].title ?? null,
+      content: input.content,
+      transcript: input.transcript ?? next[idx].transcript ?? null,
+      audioUrl: input.audioUrl ?? next[idx].audioUrl ?? null,
+      updatedAt: now,
+    };
+    saveMockNotes(userId, next);
+    return true;
+  }
+
+  try {
+    const { error } = await supabase
+      .from('notes')
+      .update({
+        folder_id: input.folderId ?? null,
+        title: input.title ?? null,
+        content: input.content,
+        transcript: input.transcript ?? null,
+        audio_url: input.audioUrl ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', noteId)
+      .eq('user_id', userId);
+
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export const fetchNoteFoldersFromSupabase = async (userId: string): Promise<NoteFolder[]> => {
+  if (!userId?.trim()) return [];
+  if (isMockUser(userId)) return getMockNoteFolders(userId);
+
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session?.user?.id) return [];
+
+    const { data, error } = await supabase
+      .from('note_folders')
+      .select('id,user_id,name,created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('fetchNoteFoldersFromSupabase warning:', (error as any)?.message || error);
+      return [];
+    }
+
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      name: row.name,
+      createdAt: row.created_at,
+    })) as NoteFolder[];
+  } catch (e) {
+    return [];
+  }
+};
+
+export const fetchNotesFromSupabase = async (userId: string): Promise<Note[]> => {
+  if (!userId?.trim()) return [];
+  if (isMockUser(userId)) return getMockNotes(userId);
+
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session?.user?.id) return [];
+
+    const { data, error } = await supabase
+      .from('notes')
+      .select('id,user_id,folder_id,title,content,transcript,audio_url,created_at,updated_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('fetchNotesFromSupabase warning:', (error as any)?.message || error);
+      return [];
+    }
+
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      folderId: row.folder_id,
+      title: row.title,
+      content: row.content,
+      transcript: row.transcript,
+      audioUrl: row.audio_url,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })) as Note[];
+  } catch {
+    return [];
+  }
+};
 
 // Haftalık günlük dağılım (grafik için)
 export function getWeeklyPomodoroDistribution(userId: string): { date: string; count: number }[] {

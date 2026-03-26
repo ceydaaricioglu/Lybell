@@ -2,8 +2,18 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@cursor-deneme/shared';
-import { Category, TimelineTask } from '@cursor-deneme/shared';
-import { saveTaskToSupabase, fetchTasksFromSupabase, getMockCategories, filterRecurringTasks, syncTaskToGoogleCalendar } from '@cursor-deneme/shared';
+import { Category, TimelineTask, Note, NoteFolder } from '@cursor-deneme/shared';
+import {
+  saveTaskToSupabase,
+  fetchTasksFromSupabase,
+  fetchNotesFromSupabase,
+  fetchNoteFoldersFromSupabase,
+  createNoteToSupabase,
+  updateNoteToSupabase,
+  getMockCategories,
+  filterRecurringTasks,
+  syncTaskToGoogleCalendar,
+} from '@cursor-deneme/shared';
 import { FREE_MAX_TASKS } from '@cursor-deneme/shared';
 import {
   getNotificationsEnabled,
@@ -34,6 +44,11 @@ import PomodoroTimer from '@/components/PomodoroTimer';
 import CalendarView from '@/components/CalendarView';
 import { LocaleProvider } from '@/components/LocaleContext';
 import { DEFAULT_NAV_TABS, getVisibleNavTabs } from '@cursor-deneme/shared';
+import AppDrawer from '@/components/AppDrawer';
+import NotesPlaceholderView from '@/components/NotesPlaceholderView';
+import NotesFoldersPlaceholderView from '@/components/NotesFoldersPlaceholderView';
+import WidgetPlaceholderView from '@/components/WidgetPlaceholderView';
+import NoteEditorPlaceholderView from '@/components/NoteEditorPlaceholderView';
 
 const AUTH_CHECK_TIMEOUT_MS = 6000;
 const FORCE_ONBOARDING_PREFIX = 'force_onboarding_';
@@ -41,7 +56,24 @@ const FORCE_ONBOARDING_PREFIX = 'force_onboarding_';
 export default function Home() {
   const [userId, setUserId] = useState<string>('');
   const [currentView, setCurrentView] = useState<
-    'login' | 'onboarding1' | 'onboarding2' | 'first-task' | 'home' | 'category' | 'categories' | 'tasks' | 'calendar' | 'edit-task' | 'settings' | 'profile' | 'pro'
+    | 'login'
+    | 'onboarding1'
+    | 'onboarding2'
+    | 'first-task'
+    | 'home'
+    | 'category'
+    | 'categories'
+    | 'tasks'
+    | 'calendar'
+    | 'edit-task'
+    | 'settings'
+    | 'profile'
+    | 'notes'
+    | 'widget'
+    | 'note-folders'
+    | 'note-editor'
+    | 'note-detail'
+    | 'pro'
   >('login');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
@@ -64,6 +96,8 @@ export default function Home() {
   const [deletingTaskIds, setDeletingTaskIds] = useState<Set<string>>(new Set());
   /** Merkezi görev listesi – ekranlar arası tek fetch, mutasyonlarda refresh */
   const [tasks, setTasks] = useState<TimelineTask[]>([]);
+  /** Sol hamburger menü */
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const resolveInitialView = useCallback((uid: string): 'home' | 'onboarding1' => {
     const onboardingCompleted = localStorage.getItem(`onboarding_${uid}`);
     if (onboardingCompleted === 'true') return 'home';
@@ -95,6 +129,31 @@ export default function Home() {
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  // Notlar (global)
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [noteFolders, setNoteFolders] = useState<NoteFolder[]>([]);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+
+  const loadNotes = useCallback(async () => {
+    if (!userId) return;
+    const list = await fetchNotesFromSupabase(userId);
+    setNotes(list);
+  }, [userId]);
+
+  const loadNoteFolders = useCallback(async () => {
+    if (!userId) return;
+    const list = await fetchNoteFoldersFromSupabase(userId);
+    setNoteFolders(list);
+  }, [userId]);
+
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
+
+  useEffect(() => {
+    loadNoteFolders();
+  }, [loadNoteFolders]);
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('app_dark_mode') : null;
@@ -367,6 +426,12 @@ export default function Home() {
   }
 
   const handleBottomNav = (view: string) => {
+    if (view === 'menu') {
+      setDrawerOpen((prev) => !prev);
+      return;
+    }
+    // Bottom menüden başka bir sekmeye geçilince drawer’ı kapatıyoruz.
+    setDrawerOpen(false);
     if (view === 'home') {
       setSelectedCategory(null);
       setCurrentView('home');
@@ -387,10 +452,43 @@ export default function Home() {
       setCurrentView('categories');
     } else if (view === 'settings') {
       setCurrentView('settings');
+    } else if (view === 'profile') {
+      setCurrentView('profile');
     }
   };
 
-  const showBottomNav = ['home', 'tasks', 'calendar', 'category', 'categories', 'edit-task', 'settings', 'profile'].includes(currentView);
+  const handleDrawerNavigate = (view: 'home' | 'tasks' | 'calendar' | 'categories' | 'notes' | 'widget' | 'profile' | 'settings') => {
+    if (view === 'notes') return setCurrentView('notes');
+    if (view === 'widget') return setCurrentView('widget');
+    if (view === 'profile') return setCurrentView('profile');
+    if (view === 'settings') return setCurrentView('settings');
+    return handleBottomNav(view);
+  };
+
+  // Drawer açık olsa bile alt menü tıklanabilir olsun diye nav’ı ilgili ekranlarda açık tutuyoruz.
+  const showBottomNav = [
+    'home',
+    'tasks',
+    'calendar',
+    'category',
+    'categories',
+    'edit-task',
+    'settings',
+    'profile',
+    'notes',
+    'widget',
+    'note-folders',
+    'note-editor',
+    'note-detail',
+  ].includes(currentView);
+
+  const notesCountByFolderId = notes.reduce<Record<string, number>>((acc, n) => {
+    const folderId = n.folderId;
+    if (!folderId) return acc;
+    const key = String(folderId);
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
 
   const handleLogout = () => {
     setUserId('');
@@ -411,7 +509,7 @@ export default function Home() {
         <ProfileView
           userId={userId}
           darkMode={isDarkMode}
-          onBack={() => setCurrentView('settings')}
+          onBack={() => setCurrentView('home')}
         />
       );
     }
@@ -447,6 +545,87 @@ export default function Home() {
           onExitPro={() => {
             if (typeof window !== 'undefined') localStorage.removeItem('app_pro_mock');
             setIsPro(false);
+          }}
+        />
+      );
+    }
+
+    if (currentView === 'notes') {
+      return (
+        <NotesPlaceholderView
+          darkMode={isDarkMode}
+          onBack={() => setCurrentView('home')}
+          onOpenFolders={() => setCurrentView('note-folders')}
+          onCreateNote={() => setCurrentView('note-editor')}
+          onOpenNote={(noteId) => {
+            setSelectedNoteId(noteId);
+            setCurrentView('note-detail');
+          }}
+          notes={notes}
+          folders={noteFolders}
+        />
+      );
+    }
+
+    if (currentView === 'widget') {
+      return <WidgetPlaceholderView darkMode={isDarkMode} onBack={() => setCurrentView('home')} />;
+    }
+
+    if (currentView === 'note-folders') {
+      return (
+        <NotesFoldersPlaceholderView
+          darkMode={isDarkMode}
+          onBack={() => setCurrentView('notes')}
+          folders={noteFolders}
+          totalNotesCount={notes.length}
+          notesCountByFolderId={notesCountByFolderId}
+        />
+      );
+    }
+
+    if (currentView === 'note-editor') {
+      return (
+        <NoteEditorPlaceholderView
+          darkMode={isDarkMode}
+          onBack={() => setCurrentView('notes')}
+          onSave={async (input) => {
+            if (!userId) return;
+            const id = await createNoteToSupabase(userId, {
+              title: input.title,
+              content: input.content,
+              transcript: input.transcript,
+              folderId: null,
+              audioUrl: input.audioUrl,
+            });
+            if (!id) throw new Error('note_create_failed');
+            await loadNotes();
+          }}
+        />
+      );
+    }
+
+    if (currentView === 'note-detail') {
+      const note = selectedNoteId ? notes.find((n) => n.id === selectedNoteId) ?? null : null;
+      if (!note) return <NotesPlaceholderView darkMode={isDarkMode} onBack={() => setCurrentView('notes')} notes={notes} />;
+      return (
+        <NoteEditorPlaceholderView
+          darkMode={isDarkMode}
+          onBack={() => setCurrentView('notes')}
+          initialTitle={note.title ?? null}
+          initialContent={note.content ?? ''}
+          initialTranscript={note.transcript ?? null}
+          initialAudioUrl={note.audioUrl ?? null}
+          onSave={async (input) => {
+            if (!userId) return;
+            const ok = await updateNoteToSupabase(userId, note.id, {
+              folderId: note.folderId ?? null,
+              title: input.title,
+              content: input.content,
+              transcript: input.transcript,
+              audioUrl: input.audioUrl,
+            });
+            if (!ok) throw new Error('note_update_failed');
+            await loadNotes();
           }}
         />
       );
@@ -631,6 +810,14 @@ export default function Home() {
   return (
     <LocaleProvider>
       <div className="main-content-pad flex flex-col flex-1 min-h-screen bg-white dark:bg-[#0f172a]">
+        <AppDrawer
+          open={drawerOpen}
+          darkMode={isDarkMode}
+          currentView={currentView}
+          onNavigate={handleDrawerNavigate}
+          onClose={() => setDrawerOpen(false)}
+        />
+
         <div className="flex-1 min-h-0 flex flex-col">
           {renderCurrentView()}
         </div>
